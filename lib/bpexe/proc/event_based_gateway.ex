@@ -1,5 +1,6 @@
 defmodule BPEXE.Proc.EventBasedGateway do
   use GenServer
+  use BPEXE.Proc.Base
   use BPEXE.Proc.FlowNode
   alias BPEXE.Proc.Process
   alias BPEXE.Proc.Process.Log

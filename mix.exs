@@ -38,7 +38,8 @@ defmodule BPEXE.MixProject do
       {:timex, "~> 3.6.2"},
       # Lua scripting (Luerl)
       {:luerl, github: "rvirding/luerl", ref: "1b0699c"},
-      {:ex_doc, "~> 0.23", only: :dev, runtime: false}
+      {:ex_doc, "~> 0.23", only: :dev, runtime: false},
+      {:ok, "~> 2.3.0"}
     ]
   end
 end

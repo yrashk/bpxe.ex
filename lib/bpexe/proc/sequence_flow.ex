@@ -1,5 +1,6 @@
 defmodule BPEXE.Proc.SequenceFlow do
   use GenServer
+  use BPEXE.Proc.Base
   alias BPEXE.Proc.Process
   alias BPEXE.Proc.Process.Log
 

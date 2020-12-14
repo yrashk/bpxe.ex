@@ -20,6 +20,38 @@ defmodule BPEXE.Proc.Process do
     GenServer.call(pid, {:add_sequence_flow, id, options})
   end
 
+  @doc """
+  Convenience helper for adding and connecting sequence flow programmatically.
+
+  Instead of having to to orchestrate `add_incoming/2`, `add_outgoing/2` and
+  `add_sequence_flow/3`, this allows to do all of that in just one call.
+
+  This reduces the amount of code that has to be written and therefore makes it
+  easier to debug.
+
+  """
+  @spec establish_sequence_flow(pid(), term(), pid(), pid()) :: {:ok, pid()} | {:error, term()}
+  def establish_sequence_flow(pid, id, source, target) do
+    require OK
+
+    OK.for do
+      source_ref = BPEXE.Proc.Base.id(source)
+      target_ref = BPEXE.Proc.Base.id(target)
+
+      seq_flow <-
+        add_sequence_flow(pid, id, %{
+          "id" => id,
+          "sourceRef" => source_ref,
+          "targetRef" => target_ref
+        })
+
+      _out <- BPEXE.Proc.FlowNode.add_outgoing(source, id)
+      _in <- BPEXE.Proc.FlowNode.add_incoming(target, id)
+    after
+      seq_flow
+    end
+  end
+
   def add_parallel_gateway(pid, id, options) do
     GenServer.call(pid, {:add_parallel_gateway, id, options})
   end
