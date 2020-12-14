@@ -21,11 +21,9 @@ defmodule BPEXE.Proc.Instance do
     if Enum.empty?(processes) do
       {:error, :no_processes}
     else
-      Enum.each(processes, fn id ->
-        start(pid, id)
+      Enum.map(processes, fn id ->
+        {id, start(pid, id)}
       end)
-
-      :ok
     end
   end
 

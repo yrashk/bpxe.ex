@@ -34,11 +34,9 @@ defmodule BPEXE.Proc.Process do
     if Enum.empty?(start_events) do
       {:error, :no_start_events}
     else
-      Enum.each(start_events, fn id ->
-        start(pid, id)
+      Enum.map(start_events, fn id ->
+        {id, start(pid, id)}
       end)
-
-      :ok
     end
   end
 
