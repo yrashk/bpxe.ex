@@ -23,8 +23,9 @@ defmodule BPEXE.Proc.Process do
   @doc """
   Convenience helper for adding and connecting sequence flow programmatically.
 
-  Instead of having to to orchestrate `add_incoming/2`, `add_outgoing/2` and
-  `add_sequence_flow/3`, this allows to do all of that in just one call.
+  Instead of having to to orchestrate `BPEXE.Proc.FlowNode.add_incoming/2`,
+  `BPEXE.Proc.FlowNode.add_outgoing/2` and `add_sequence_flow/3`, this allows
+  to do all of that in just one call.
 
   This reduces the amount of code that has to be written and therefore makes it
   easier to debug.
