@@ -20,7 +20,7 @@ defmodule BPEXETest.Proc.ParallelGateway do
     {:ok, _} = Process.establish_sequence_flow(proc1, "fork_1", fork, t1)
     {:ok, _} = Process.establish_sequence_flow(proc1, "fork_2", fork, t2)
 
-    :ok = Process.listen_log(proc1)
+    :ok = Process.subscribe_log(proc1)
 
     assert [{"proc1", [{"start", :ok}]}] |> List.keysort(0) ==
              Instance.start(pid) |> List.keysort(0)
@@ -53,7 +53,7 @@ defmodule BPEXETest.Proc.ParallelGateway do
     {:ok, t3} = Process.add_task(proc1, "t3", :task, %{"id" => "t3"})
     {:ok, _} = Process.establish_sequence_flow(proc1, "s3", join, t3)
 
-    :ok = Process.listen_log(proc1)
+    :ok = Process.subscribe_log(proc1)
 
     assert [{"proc1", [{"start", :ok}]}] |> List.keysort(0) ==
              Instance.start(pid) |> List.keysort(0)

@@ -74,21 +74,21 @@ defmodule BPEXE.Proc.Process do
 
   This is particularly useful for testing, rendering visualizations, etc.
 
-  to stop listening, call `stop_listening_log/2`.
+  to stop listening, call `unsubscribe_log/2`.
   """
-  @spec listen_log(pid(), pid()) :: :ok
-  @spec listen_log(pid()) :: :ok
-  def listen_log(pid, subscriber \\ self()) do
+  @spec subscribe_log(pid(), pid()) :: :ok
+  @spec subscribe_log(pid()) :: :ok
+  def subscribe_log(pid, subscriber \\ self()) do
     :syn.join({pid, :log_log}, subscriber)
   end
 
   @doc """
-  Stop receiving passive log messages from a process (initiated by `listen_logs/2`). If you were not listening
+  Stop receiving passive log messages from a process (initiated by `subscribe_logs/2`). If you were not listening
   originally, it will return `{:error, :not_listening}`. Otherwise, it will return `:ok`.
   """
-  @spec stop_listening_log(pid()) :: :ok | {:error, term}
-  @spec stop_listening_log(pid(), pid()) :: :ok | {:error, term}
-  def stop_listening_log(pid, subscriber \\ self()) do
+  @spec unsubscribe_log(pid()) :: :ok | {:error, term}
+  @spec unsubscribe_log(pid(), pid()) :: :ok | {:error, term}
+  def unsubscribe_log(pid, subscriber \\ self()) do
     :syn.leave({pid, :log_log}, subscriber)
     |> Result.map_error(fn :not_in_group -> :not_listening end)
   end
