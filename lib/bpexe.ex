@@ -1,5 +1,5 @@
 defmodule BPEXE do
   @moduledoc """
-  Documentation for `BPEXE`.
+  # Business Process Execution Engine for Elixir
   """
 end

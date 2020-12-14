@@ -7,7 +7,10 @@ defmodule BPEXE.MixProject do
       version: "0.1.0",
       elixir: "~> 1.11",
       start_permanent: Mix.env() == :prod,
-      deps: deps()
+      deps: deps(),
+      docs: [
+        main: "BPEXE"
+      ]
     ]
   end
 
@@ -34,7 +37,8 @@ defmodule BPEXE.MixProject do
       # for timer-based events
       {:timex, "~> 3.6.2"},
       # Lua scripting (Luerl)
-      {:luerl, github: "rvirding/luerl", ref: "1b0699c"}
+      {:luerl, github: "rvirding/luerl", ref: "1b0699c"},
+      {:ex_doc, "~> 0.23", only: :dev, runtime: false}
     ]
   end
 end
