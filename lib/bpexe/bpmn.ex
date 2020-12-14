@@ -21,6 +21,16 @@ defmodule BPEXE.BPMN do
               characters: nil
 
     @bpmn_spec "http://www.omg.org/spec/BPMN/20100524/MODEL"
+    @bpexe_spec BPEXE.spec_schema()
+
+    # Splits by namespace
+    @spec split_ns(binary, Map.t()) :: binary() | {binary(), binary()}
+    defp split_ns(string, namespaces) when is_binary(string) do
+      case String.split(string, ":") do
+        [name] -> name
+        [ns, name] -> {namespaces[ns] || ns, name}
+      end
+    end
 
     def handle_event(:start_document, _prolog, handler) when is_atom(handler) do
       {:ok, %__MODULE__{handler: handler || BPEXE.Proc}}
@@ -44,21 +54,32 @@ defmodule BPEXE.BPMN do
     # Transform arguments to a more digestible format:
     # 1. Split namespace and the element name
     # 2. Convert arguments to a Map
-    def handle_event(:start_element, {element, args}, %__MODULE{} = state)
+    # 2.1. Convert namespaced arguments to [ns, name]
+    def handle_event(:start_element, {element, args}, %__MODULE{ns: ns} = state)
         when is_binary(element) do
-      handle_event(:start_element, {String.split(element, ":"), Map.new(args)}, state)
+      handle_event(
+        :start_element,
+        {split_ns(element, ns),
+         Map.new(
+           args
+           |> Enum.map(fn {k, v} ->
+             {split_ns(k, ns), v}
+           end)
+         )},
+        state
+      )
     end
 
     # Transform arguments to a more digestible format:
     # 1. Split namespace and the element name
-    def handle_event(:end_element, element, %__MODULE{} = state)
+    def handle_event(:end_element, element, %__MODULE{ns: ns} = state)
         when is_binary(element) do
-      handle_event(:end_element, String.split(element, ":"), state)
+      handle_event(:end_element, split_ns(element, ns), state)
     end
 
     def handle_event(
           :start_element,
-          {[bpmn, "definitions"], _args},
+          {{bpmn, "definitions"}, _args},
           %__MODULE__{ns: %{@bpmn_spec => bpmn}, handler: handler} = state
         ) do
       handler.new()
@@ -67,7 +88,7 @@ defmodule BPEXE.BPMN do
 
     def handle_event(
           :start_element,
-          {[bpmn, "process"], args},
+          {{bpmn, "process"}, args},
           %__MODULE__{ns: %{@bpmn_spec => bpmn}, current: [instance | _], handler: handler} =
             state
         )
@@ -78,7 +99,7 @@ defmodule BPEXE.BPMN do
 
     def handle_event(
           :end_element,
-          [bpmn, "process"],
+          {bpmn, "process"},
           %__MODULE__{ns: %{@bpmn_spec => bpmn}} = state
         ) do
       {:ok, %{state | current: tl(state.current)}}
@@ -86,7 +107,7 @@ defmodule BPEXE.BPMN do
 
     def handle_event(
           :end_element,
-          [bpmn, "process"],
+          {bpmn, "process"},
           %__MODULE__{ns: %{@bpmn_spec => bpmn}} = state
         ) do
       {:ok, %{state | current: tl(state.current)}}
@@ -94,7 +115,7 @@ defmodule BPEXE.BPMN do
 
     def handle_event(
           :start_element,
-          {[bpmn, "parallelGateway"], args},
+          {{bpmn, "parallelGateway"}, args},
           %__MODULE__{ns: %{@bpmn_spec => bpmn}, handler: handler, current: [current | _]} = state
         ) do
       handler.add_parallel_gateway(current, args)
@@ -103,7 +124,7 @@ defmodule BPEXE.BPMN do
 
     def handle_event(
           :end_element,
-          [bpmn, "parallelGateway"],
+          {bpmn, "parallelGateway"},
           %__MODULE__{ns: %{@bpmn_spec => bpmn}} = state
         ) do
       {:ok, %{state | current: tl(state.current)}}
@@ -111,7 +132,7 @@ defmodule BPEXE.BPMN do
 
     def handle_event(
           :start_element,
-          {[bpmn, "eventBasedGateway"], args},
+          {{bpmn, "eventBasedGateway"}, args},
           %__MODULE__{ns: %{@bpmn_spec => bpmn}, handler: handler, current: [current | _]} = state
         ) do
       handler.add_event_based_gateway(current, args)
@@ -120,7 +141,7 @@ defmodule BPEXE.BPMN do
 
     def handle_event(
           :end_element,
-          [bpmn, "eventBasedGateway"],
+          {bpmn, "eventBasedGateway"},
           %__MODULE__{ns: %{@bpmn_spec => bpmn}} = state
         ) do
       {:ok, %{state | current: tl(state.current)}}
@@ -130,7 +151,7 @@ defmodule BPEXE.BPMN do
 
     def handle_event(
           :start_element,
-          {[bpmn, event], args},
+          {{bpmn, event}, args},
           %__MODULE__{ns: %{@bpmn_spec => bpmn}, handler: handler, current: [process | _]} = state
         )
         when event in @event_types do
@@ -140,7 +161,7 @@ defmodule BPEXE.BPMN do
 
     def handle_event(
           :end_element,
-          [bpmn, event],
+          {bpmn, event},
           %__MODULE__{ns: %{@bpmn_spec => bpmn}} = state
         )
         when event in @event_types do
@@ -149,7 +170,7 @@ defmodule BPEXE.BPMN do
 
     def handle_event(
           :start_element,
-          {[bpmn, "signalEventDefinition"], args},
+          {{bpmn, "signalEventDefinition"}, args},
           %__MODULE__{ns: %{@bpmn_spec => bpmn}, handler: handler, current: [process | _]} = state
         ) do
       handler.add_signal_event_definition(process, args)
@@ -161,7 +182,7 @@ defmodule BPEXE.BPMN do
 
     def handle_event(
           :start_element,
-          {[bpmn, task], args},
+          {{bpmn, task}, args},
           %__MODULE__{ns: %{@bpmn_spec => bpmn}, handler: handler, current: [process | _]} = state
         )
         when task in @task_types do
@@ -171,7 +192,7 @@ defmodule BPEXE.BPMN do
 
     def handle_event(
           :end_element,
-          [bpmn, task],
+          {bpmn, task},
           %__MODULE__{ns: %{@bpmn_spec => bpmn}} = state
         )
         when task in @task_types do
@@ -180,7 +201,7 @@ defmodule BPEXE.BPMN do
 
     def handle_event(
           :start_element,
-          {[bpmn, "outgoing"], _args},
+          {{bpmn, "outgoing"}, _args},
           %__MODULE__{ns: %{@bpmn_spec => bpmn}, characters: nil} = state
         ) do
       {:ok, %{state | characters: ""}}
@@ -188,7 +209,7 @@ defmodule BPEXE.BPMN do
 
     def handle_event(
           :start_element,
-          {[bpmn, "incoming"], _args},
+          {{bpmn, "incoming"}, _args},
           %__MODULE__{ns: %{@bpmn_spec => bpmn}, characters: nil} = state
         ) do
       {:ok, %{state | characters: ""}}
@@ -205,7 +226,7 @@ defmodule BPEXE.BPMN do
 
     def handle_event(
           :end_element,
-          [bpmn, "outgoing"],
+          {bpmn, "outgoing"},
           %__MODULE__{
             ns: %{@bpmn_spec => bpmn},
             handler: handler,
@@ -219,7 +240,7 @@ defmodule BPEXE.BPMN do
 
     def handle_event(
           :end_element,
-          [bpmn, "incoming"],
+          {bpmn, "incoming"},
           %__MODULE__{
             ns: %{@bpmn_spec => bpmn},
             handler: handler,
@@ -233,7 +254,7 @@ defmodule BPEXE.BPMN do
 
     def handle_event(
           :start_element,
-          {[bpmn, "sequenceFlow"], args},
+          {{bpmn, "sequenceFlow"}, args},
           %__MODULE__{ns: %{@bpmn_spec => bpmn}, handler: handler, current: [current | _]} = state
         ) do
       handler.add_sequence_flow(current, args)
@@ -242,7 +263,7 @@ defmodule BPEXE.BPMN do
 
     def handle_event(
           :end_element,
-          [bpmn, "sequenceFlow"],
+          {bpmn, "sequenceFlow"},
           %__MODULE__{ns: %{@bpmn_spec => bpmn}, current: [_ | rest]} = state
         ) do
       {:ok, %{state | current: rest}}
