@@ -34,12 +34,12 @@ defmodule BPEXE.Proc do
 
   @impl BPMNHandler
   def add_outgoing(node, name) do
-    Proc.FlowNode.publish(node, name)
+    Proc.FlowNode.add_outgoing(node, name)
   end
 
   @impl BPMNHandler
   def add_incoming(node, name) do
-    Proc.FlowNode.subscribe(node, name)
+    Proc.FlowNode.add_incoming(node, name)
   end
 
   @impl BPMNHandler

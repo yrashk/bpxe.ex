@@ -1,14 +1,14 @@
 defmodule BPEXE.Proc.FlowNode do
   defmacro __using__(_options \\ []) do
     quote do
-      import BPEXE.Proc.FlowNode, except: [publish: 2, subscribe: 2]
+      import BPEXE.Proc.FlowNode, except: [add_outgoing: 2, add_incoming: 2]
 
-      def handle_call({:subscribe, id}, _from, state) do
+      def handle_call({:add_incoming, id}, _from, state) do
         :syn.join({state.instance, :flow_out, id}, self())
         {:reply, {:ok, id}, %{state | incoming: [id | state.incoming]}}
       end
 
-      def handle_call({:publish, id}, _from, state) do
+      def handle_call({:add_outgoing, id}, _from, state) do
         :syn.join({state.instance, :flow_back, id}, self())
         {:reply, {:ok, id}, %{state | outgoing: [id | state.outgoing]}}
       end
@@ -52,11 +52,11 @@ defmodule BPEXE.Proc.FlowNode do
     :syn.publish({state.instance, :flow_back, wire}, {msg, wire})
   end
 
-  def publish(pid, name) do
-    GenServer.call(pid, {:publish, name})
+  def add_outgoing(pid, name) do
+    GenServer.call(pid, {:add_outgoing, name})
   end
 
-  def subscribe(pid, name) do
-    GenServer.call(pid, {:subscribe, name})
+  def add_incoming(pid, name) do
+    GenServer.call(pid, {:add_incoming, name})
   end
 end
