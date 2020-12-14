@@ -1,6 +1,8 @@
 defmodule BPEXE.Proc.Task do
   use GenServer
   use BPEXE.Proc.FlowNode
+  alias BPEXE.Proc.Process
+  alias BPEXE.Proc.Process.Log
 
   defstruct id: nil,
             type: nil,
@@ -19,10 +21,15 @@ defmodule BPEXE.Proc.Task do
   end
 
   def handle_message({msg, _id}, %__MODULE__{type: :scriptTask, options: options} = state) do
+    Process.log(state.process, %Log.TaskActivated{pid: self(), id: state.id, token: msg.token})
     {:ok, vm} = BPMN.Language.Lua.new()
+    Process.log(state.process, %Log.TaskCompleted{pid: self(), id: state.id, token: msg.token})
     {:send, msg, state}
   end
 
   def handle_message({msg, _id}, state) do
+    Process.log(state.process, %Log.TaskActivated{pid: self(), id: state.id, token: msg.token})
+    Process.log(state.process, %Log.TaskCompleted{pid: self(), id: state.id, token: msg.token})
+    {:send, msg, state}
   end
 end

@@ -21,11 +21,51 @@ defmodule BPEXE.Proc.Process do
   end
 
   def add_parallel_gateway(pid, id, options) do
-    GenServer.call(pid, {:add_event_based_gateway, id, options})
+    GenServer.call(pid, {:add_parallel_gateway, id, options})
   end
 
   def add_event_based_gateway(pid, id, options) do
     GenServer.call(pid, {:add_event_based_gateway, id, options})
+  end
+
+  @doc """
+  Passively listen for log messages from a process. This will start delivering messages in the following
+  format:
+
+  ```elixir
+  {BPEXE.Proc.Process.Log, message}
+  ```
+
+  to `subscriber` (`self()` by default). Most (if not all?) log messages should be defined in
+  `BPEXE.Proc.Process.Log` module.
+
+  This is particularly useful for testing, rendering visualizations, etc.
+
+  to stop listening, call `stop_listening_log/2`.
+  """
+  @spec listen_log(pid(), pid()) :: :ok
+  @spec listen_log(pid()) :: :ok
+  def listen_log(pid, subscriber \\ self()) do
+    :syn.join({pid, :log_log}, subscriber)
+  end
+
+  @doc """
+  Stop receiving passive log messages from a process (initiated by `listen_logs/2`). If you were not listening
+  originally, it will return `{:error, :not_listening}`. Otherwise, it will return `:ok`.
+  """
+  @spec stop_listening_log(pid()) :: :ok | {:error, term}
+  @spec stop_listening_log(pid(), pid()) :: :ok | {:error, term}
+  def stop_listening_log(pid, subscriber \\ self()) do
+    :syn.leave({pid, :log_log}, subscriber)
+    |> Result.map_error(fn :not_in_group -> :not_listening end)
+  end
+
+  @doc """
+  Publishes a process log to listeners.
+  """
+  @spec log(pid(), term()) :: :ok
+  def log(pid, log) do
+    :syn.publish({pid, :log_log}, {BPEXE.Proc.Process.Log, log})
   end
 
   def start(pid) do

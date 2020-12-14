@@ -1,5 +1,7 @@
 defmodule BPEXE.Proc.SequenceFlow do
   use GenServer
+  alias BPEXE.Proc.Process
+  alias BPEXE.Proc.Process.Log
 
   defstruct id: nil, options: %{}, instance: nil, process: nil
 
@@ -21,8 +23,16 @@ defmodule BPEXE.Proc.SequenceFlow do
     })
   end
 
-  def handle_info({%BPEXE.Message{} = msg, id}, state) do
+  def handle_info({%BPEXE.Message{token: token} = msg, id}, state) do
+    Process.log(state.process, %Log.SequenceFlowStarted{pid: self(), id: state.id, token: token})
     :syn.publish({state.instance, :flow_out, id}, {msg, id})
+
+    Process.log(state.process, %Log.SequenceFlowCompleted{
+      pid: self(),
+      id: state.id,
+      token: token
+    })
+
     {:noreply, state}
   end
 

@@ -14,10 +14,25 @@ defmodule BPEXE.Proc.FlowNode do
       end
 
       def handle_info({%BPEXE.Message{} = msg, id}, state) do
-        IO.puts("#{inspect(state.id)} received #{inspect(msg)}")
+        alias BPEXE.Proc.Process
+        alias BPEXE.Proc.Process.Log
+
+        Process.log(state.process, %Log.FlowNodeActivated{
+          pid: self(),
+          id: state.id,
+          message: msg,
+          token: msg.token
+        })
 
         case handle_message({msg, id}, state) do
           {:send, new_msg, state} ->
+            Process.log(state.process, %Log.FlowNodeForward{
+              pid: self(),
+              id: state.id,
+              token: msg.token,
+              to: state.outgoing
+            })
+
             for wire <- state.outgoing do
               send_message(wire, new_msg, state)
             end
@@ -25,6 +40,13 @@ defmodule BPEXE.Proc.FlowNode do
             {:noreply, state}
 
           {:send, new_msg, outgoing, state} ->
+            Process.log(state.process, %Log.FlowNodeForward{
+              pid: self(),
+              id: state.id,
+              token: msg.token,
+              to: outgoing
+            })
+
             for wire <- outgoing do
               send_message(wire, new_msg, state)
             end
@@ -32,6 +54,13 @@ defmodule BPEXE.Proc.FlowNode do
             {:noreply, state}
 
           {:dontsend, state} ->
+            Process.log(state.process, %Log.FlowNodeForward{
+              pid: self(),
+              id: state.id,
+              token: msg.token,
+              to: []
+            })
+
             {:noreply, state}
         end
       end
