@@ -1,5 +1,6 @@
 defmodule BPEXE.Proc.Process do
   use GenServer
+  use BPEXE.Proc.Recoverable
 
   defstruct id: nil, options: %{}, instance: nil, start_events: %{}, variables: %{}
 
@@ -115,8 +116,10 @@ defmodule BPEXE.Proc.Process do
 
   def start(pid, id) do
     instance = GenServer.call(pid, :instance)
-    event = :syn.whereis({instance, :event, :startEvent, id})
-    BPEXE.Proc.Event.emit(event)
+    event = :syn.whereis({instance.pid, :event, :startEvent, id})
+    msg = BPEXE.Message.new()
+    send(event, {msg, nil})
+    :ok
   end
 
   def variables(pid) do
@@ -127,16 +130,24 @@ defmodule BPEXE.Proc.Process do
     GenServer.call(pid, {:set_variables, variables})
   end
 
-  def init({id, options, instance}) do
-    :syn.register({instance, :process, id}, self())
-    # Done initializing
-    :proc_lib.init_ack({:ok, self()})
+  def id(pid) do
+    GenServer.call(pid, :id)
+  end
 
-    :gen_server.enter_loop(__MODULE__, [], %__MODULE__{
+  def init({id, options, instance}) do
+    :syn.register({instance.pid, :process, id}, self())
+
+    state = %__MODULE__{
       id: id,
       options: options,
       instance: instance
-    })
+    }
+
+    init_recoverable(state)
+    # Done initializing
+    :proc_lib.init_ack({:ok, self()})
+
+    :gen_server.enter_loop(__MODULE__, [], state)
   end
 
   def handle_call({:add_event, id, options, type}, _from, state) do
@@ -181,6 +192,16 @@ defmodule BPEXE.Proc.Process do
   end
 
   def handle_call({:set_variables, variables}, _from, state) do
-    {:reply, :ok, %{state | variables: Map.merge(state.variables, variables)}}
+    variables = Map.merge(state.variables, variables)
+
+    if variables != state.variables do
+      BPEXE.Proc.Instance.save_state(state.instance, state.id, self(), %{variables: variables})
+    end
+
+    {:reply, :ok, %{state | variables: variables}}
+  end
+
+  def handle_call(:id, _from, state) do
+    {:reply, state.id, state}
   end
 end

@@ -5,14 +5,9 @@ defmodule BPEXE.Proc.Task do
   alias BPEXE.Proc.Process
   alias BPEXE.Proc.Process.Log
 
-  defstruct id: nil,
-            type: nil,
-            options: %{},
-            instance: nil,
-            process: nil,
-            outgoing: [],
-            incoming: [],
-            script: ""
+  defstate([id: nil, type: nil, options: %{}, instance: nil, process: nil, script: ""],
+    persist: []
+  )
 
   def start_link(id, type, options, instance, process) do
     GenServer.start_link(__MODULE__, {id, type, options, instance, process})
@@ -23,7 +18,16 @@ defmodule BPEXE.Proc.Task do
   end
 
   def init({id, type, options, instance, process}) do
-    {:ok, %__MODULE__{id: id, type: type, options: options, instance: instance, process: process}}
+    state = %__MODULE__{
+      id: id,
+      type: type,
+      options: options,
+      instance: instance,
+      process: process
+    }
+
+    init_recoverable(state)
+    {:ok, state}
   end
 
   @process_var "process"

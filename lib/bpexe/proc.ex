@@ -5,11 +5,6 @@ defmodule BPEXE.Proc do
   alias BPEXE.Proc
 
   @impl BPMNHandler
-  def new() do
-    Proc.Instances.start_instance(nil)
-  end
-
-  @impl BPMNHandler
   def add_process(instance, %{"id" => id} = options) do
     id = id || make_ref()
     Proc.Instance.add_process(instance, id, options)

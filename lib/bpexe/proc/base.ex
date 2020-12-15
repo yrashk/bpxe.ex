@@ -1,6 +1,8 @@
 defmodule BPEXE.Proc.Base do
   defmacro __using__(_ \\ []) do
     quote do
+      use BPEXE.Proc.Recoverable
+
       def handle_call(:id, _from, state) do
         {:reply, state.id, state}
       end

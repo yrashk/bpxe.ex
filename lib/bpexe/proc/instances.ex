@@ -10,7 +10,7 @@ defmodule BPEXE.Proc.Instances do
     DynamicSupervisor.init(strategy: :one_for_one)
   end
 
-  def start_instance(args) do
-    DynamicSupervisor.start_child(__MODULE__, {BPEXE.Proc.Instance, [args]})
+  def start_instance(options \\ []) do
+    DynamicSupervisor.start_child(__MODULE__, {BPEXE.Proc.Instance, options})
   end
 end

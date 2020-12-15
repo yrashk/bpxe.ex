@@ -3,6 +3,11 @@ defmodule BPEXETest.BPMN do
   doctest BPEXE.BPMN
 
   test "parsing sample" do
-    {:ok, _} = BPEXE.BPMN.parse_stream(File.stream!(Path.join(__DIR__, "/files/sample.bpmn")))
+    {:ok, pid} = BPEXE.Proc.Instances.start_instance()
+
+    {:ok, _} =
+      BPEXE.BPMN.parse_stream(File.stream!(Path.join(__DIR__, "/files/sample.bpmn")),
+        instance: pid
+      )
   end
 end

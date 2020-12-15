@@ -6,7 +6,7 @@ defmodule BPEXETest.Proc.Task do
   doctest Instance
 
   test "executes a script, captures state and retrieves it in other scripts" do
-    {:ok, pid} = Instance.start_link(:ignored)
+    {:ok, pid} = Instance.start_link()
     {:ok, proc1} = Instance.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
 
     {:ok, start} = Process.add_event(proc1, "start", %{"id" => "start"}, :startEvent)
@@ -36,7 +36,7 @@ defmodule BPEXETest.Proc.Task do
   end
 
   test "executes a script that modifies no state" do
-    {:ok, pid} = Instance.start_link(:ignored)
+    {:ok, pid} = Instance.start_link()
     {:ok, proc1} = Instance.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
 
     {:ok, start} = Process.add_event(proc1, "start", %{"id" => "start"}, :startEvent)

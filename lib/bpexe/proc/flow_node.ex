@@ -1,67 +1,90 @@
 defmodule BPEXE.Proc.FlowNode do
   defmacro __using__(_options \\ []) do
     quote do
-      import BPEXE.Proc.FlowNode, except: [add_outgoing: 2, add_incoming: 2]
+      import BPEXE.Proc.FlowNode,
+        only: [send_message: 3, send_message_back: 3, defstate: 1, defstate: 2]
 
       def handle_call({:add_incoming, id}, _from, state) do
-        :syn.join({state.instance, :flow_out, id}, self())
+        :syn.join({state.instance.pid, :flow_out, id}, self())
         {:reply, {:ok, id}, %{state | incoming: [id | state.incoming]}}
       end
 
       def handle_call({:add_outgoing, id}, _from, state) do
-        :syn.join({state.instance, :flow_back, id}, self())
+        :syn.join({state.instance.pid, :flow_back, id}, self())
         {:reply, {:ok, id}, %{state | outgoing: [id | state.outgoing]}}
       end
 
-      def handle_info({%BPEXE.Message{} = msg, id}, state) do
+      def handle_info({%BPEXE.Message{__invisible__: invisible} = msg, id}, state) do
         alias BPEXE.Proc.Process
         alias BPEXE.Proc.Process.Log
 
-        Process.log(state.process, %Log.FlowNodeActivated{
-          pid: self(),
-          id: state.id,
-          message: msg,
-          token: msg.token
-        })
+        if !invisible,
+          do:
+            Process.log(state.process, %Log.FlowNodeActivated{
+              pid: self(),
+              id: state.id,
+              message: msg,
+              token: msg.token
+            })
 
         case handle_message({msg, id}, state) do
-          {:send, new_msg, state} ->
-            Process.log(state.process, %Log.FlowNodeForward{
-              pid: self(),
-              id: state.id,
-              token: msg.token,
-              to: state.outgoing
-            })
+          {:send, %BPEXE.Message{__invisible__: invisible} = new_msg, state} ->
+            if !invisible,
+              do:
+                Process.log(state.process, %Log.FlowNodeForward{
+                  pid: self(),
+                  id: state.id,
+                  token: msg.token,
+                  to: state.outgoing
+                })
 
-            for wire <- state.outgoing do
-              send_message(wire, new_msg, state)
-            end
+            state =
+              Enum.reduce(state.outgoing, state, fn wire, state ->
+                send_message(wire, new_msg, state)
+              end)
 
-            {:noreply, state}
+            save_state(state)
 
-          {:send, new_msg, outgoing, state} ->
-            Process.log(state.process, %Log.FlowNodeForward{
-              pid: self(),
-              id: state.id,
-              token: msg.token,
-              to: outgoing
-            })
+            ack(msg, id, state)
 
-            for wire <- outgoing do
-              send_message(wire, new_msg, state)
-            end
+            {:noreply, handle_completion(state)}
 
-            {:noreply, state}
+          {:send, %BPEXE.Message{__invisible__: invisible} = new_msg, outgoing, state} ->
+            if !invisible,
+              do:
+                Process.log(state.process, %Log.FlowNodeForward{
+                  pid: self(),
+                  id: state.id,
+                  token: msg.token,
+                  to: outgoing
+                })
+
+            state =
+              Enum.reduce(outgoing, state, fn wire, state ->
+                send_message(wire, new_msg, state)
+              end)
+
+            save_state(state)
+
+            ack(msg, id, state)
+
+            {:noreply, handle_completion(state)}
 
           {:dontsend, state} ->
-            Process.log(state.process, %Log.FlowNodeForward{
-              pid: self(),
-              id: state.id,
-              token: msg.token,
-              to: []
-            })
+            if !invisible,
+              do:
+                Process.log(state.process, %Log.FlowNodeForward{
+                  pid: self(),
+                  id: state.id,
+                  token: msg.token,
+                  to: []
+                })
 
-            {:noreply, state}
+            save_state(state)
+
+            ack(msg, id, state)
+
+            {:noreply, handle_completion(state)}
         end
       end
 
@@ -69,16 +92,41 @@ defmodule BPEXE.Proc.FlowNode do
         {:send, msg, state}
       end
 
-      defoverridable handle_message: 2
+      def handle_completion(state) do
+        state
+      end
+
+      defoverridable handle_message: 2, handle_completion: 1
+
+      defp save_state(state) do
+        state_map = Map.from_struct(state)
+
+        saving_state =
+          Enum.reduce(persisted_state(), %{}, fn key, acc ->
+            Map.put(acc, key, state_map[key])
+          end)
+
+        BPEXE.Proc.Instance.save_state(state.instance, state.id, self(), saving_state)
+      end
+
+      defp ack(%BPEXE.Message{__invisible__: true}, _id, _state) do
+        :skip
+      end
+
+      defp ack(%BPEXE.Message{token: token}, id, state) do
+        :syn.publish({state.instance.pid, :flow_in, id}, {BPEXE.Message.Ack, token, id})
+      end
     end
   end
 
   def send_message(wire, msg, state) do
-    :syn.publish({state.instance, :flow_in, wire}, {msg, wire})
+    :syn.publish({state.instance.pid, :flow_in, wire}, {msg, wire})
+    state
   end
 
   def send_message_back(wire, msg, state) do
-    :syn.publish({state.instance, :flow_back, wire}, {msg, wire})
+    :syn.publish({state.instance.pid, :flow_back, wire}, {msg, wire})
+    state
   end
 
   def add_outgoing(pid, name) do
@@ -87,5 +135,32 @@ defmodule BPEXE.Proc.FlowNode do
 
   def add_incoming(pid, name) do
     GenServer.call(pid, {:add_incoming, name})
+  end
+
+  defmacro defstate(struct, options \\ []) do
+    struct =
+      struct
+      |> Map.new()
+
+    persist = Code.eval_quoted(options[:persist]) |> elem(0) || Map.keys(struct)
+
+    persist =
+      Enum.reduce(Code.eval_quoted(options[:transient]) |> elem(0) || [], persist, fn key, acc ->
+        List.delete(acc, key)
+      end)
+
+    struct =
+      struct
+      |> Map.merge(%{
+        incoming: [],
+        outgoing: []
+      })
+      |> Map.to_list()
+
+    quote bind_quoted: [struct: struct, persist: persist] do
+      defstruct struct
+
+      defp persisted_state, do: unquote(persist)
+    end
   end
 end

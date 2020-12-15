@@ -40,7 +40,8 @@ defmodule BPEXE.MixProject do
       {:luerl, github: "rvirding/luerl", ref: "1b0699c"},
       {:ex_doc, "~> 0.23", only: :dev, runtime: false},
       {:ok, "~> 2.3.0"},
-      {:map_diff, "~> 1.3.4"}
+      {:map_diff, "~> 1.3.4"},
+      {:exconstructor, "~> 1.1.0"}
     ]
   end
 end

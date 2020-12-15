@@ -5,14 +5,9 @@ defmodule BPEXE.Proc.Event do
   alias BPEXE.Proc.Process
   alias BPEXE.Proc.Process.Log
 
-  defstruct id: nil,
-            type: nil,
-            options: %{},
-            instance: nil,
-            process: nil,
-            outgoing: [],
-            incoming: [],
-            activated: nil
+  defstate([id: nil, type: nil, options: %{}, instance: nil, process: nil, activated: nil],
+    persist: ~w(activated)a
+  )
 
   def start_link(id, type, options, instance, process) do
     # This way we can wait until it is initialized
@@ -23,47 +18,68 @@ defmodule BPEXE.Proc.Event do
     GenServer.call(pid, {:add_signal_event_definition, options})
   end
 
-  def emit(pid) do
-    GenServer.cast(pid, :emit)
-  end
-
   def init({id, type, options, instance, process}) do
-    :syn.register({instance, :event, type, id}, self())
-    # Done initializing
-    :proc_lib.init_ack({:ok, self()})
+    :syn.register({instance.pid, :event, type, id}, self())
 
-    :gen_server.enter_loop(__MODULE__, [], %__MODULE__{
+    state = %__MODULE__{
       id: id,
       type: type,
       options: options,
       instance: instance,
       process: process
-    })
+    }
+
+    init_recoverable(state)
+    # Done initializing
+    :proc_lib.init_ack({:ok, self()})
+
+    :gen_server.enter_loop(__MODULE__, [], state)
   end
 
   def handle_call({:add_signal_event_definition, options}, _from, state) do
     # Camunda Modeler creates signalEventDefinitions without `signalRef`, just `id`,
     # so if `signalRef` is not used, fall back to `id`.
-    :syn.join({state.instance, :signal, options["signalRef"] || options["id"]}, self())
+    :syn.join({state.instance.pid, :signal, options["signalRef"] || options["id"]}, self())
     {:reply, {:ok, options}, state}
   end
 
+  def handle_message({%BPEXE.Message{} = msg, _id}, %__MODULE__{type: :startEvent} = state) do
+    {:send, msg, state}
+  end
+
+  def handle_message({%BPEXE.Message{} = msg, _id}, %__MODULE__{type: :endEvent} = state) do
+    {:send, msg, state}
+  end
+
+  # Hold the messages until event is trigerred
   def handle_message({%BPEXE.Message{} = msg, _id}, %__MODULE__{activated: nil} = state) do
     Process.log(state.process, %Log.EventActivated{pid: self(), id: state.id, token: msg.token})
     {:dontsend, %{state | activated: msg}}
   end
 
-  def handle_message({%BPEXE.Message{} = msg, _id}, %__MODULE__{activated: msg} = state) do
+  # Message bounced back from the back-flow, this means this flow was chosen
+  # by a gateway
+  def handle_message(
+        {%BPEXE.Message{token: token, __invisible__: true} = msg, _id},
+        %__MODULE__{activated: %BPEXE.Message{token: token}} = state
+      ) do
     Process.log(state.process, %Log.EventCompleted{pid: self(), id: state.id, token: msg.token})
-    {:send, msg, %{state | activated: nil}}
+    {:send, %{msg | __invisible__: false}, %{state | activated: nil}}
   end
 
-  def handle_message({%BPEXE.Message{} = msg, _id}, %__MODULE__{activated: msg1} = state) do
-    {:dontsend, %{state | activated: msg}}
+  # If a different message comes, forget the previous one we held,
+  # overwrite it with the new one (FIXME: not sure this is a good default behaviour)
+  def handle_message(
+        {%BPEXE.Message{token: token}, _id},
+        %__MODULE__{activated: %BPEXE.Message{token: token1} = msg1} = state
+      )
+      when token != token1 do
+    {:dontsend, %{state | activated: msg1}}
   end
 
+  # When event is triggered, send it back to the gateway
   def handle_info(
-        {BPEXE.Signal, id},
+        {BPEXE.Signal, _id},
         %__MODULE__{type: :intermediateCatchEvent, activated: activated, incoming: [gateway]} =
           state
       )
@@ -74,21 +90,20 @@ defmodule BPEXE.Proc.Event do
       token: activated.token
     })
 
-    send_message_back(gateway, activated, state)
+    state = send_message_back(gateway, %{activated | __invisible__: true}, state)
     {:noreply, state}
   end
 
-  def handle_info({BPEXE.Signal, id}, state) do
+  def handle_info({BPEXE.Signal, _id}, state) do
     {:noreply, state}
   end
 
-  def handle_cast(:emit, state) do
-    message = BPEXE.Message.new()
+  def handle_completion(%__MODULE__{type: :endEvent} = state) do
+    BPEXE.Proc.Instance.commit_state(state.instance, [state.id])
+    super(state)
+  end
 
-    for wire <- state.outgoing do
-      send_message(wire, message, state)
-    end
-
-    {:noreply, state}
+  def handle_completion(state) do
+    super(state)
   end
 end

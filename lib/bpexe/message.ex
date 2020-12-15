@@ -1,8 +1,9 @@
 defmodule BPEXE.Message do
-  defstruct token: nil, content: nil, content_type: nil
+  defstruct token: nil, content: nil, __invisible__: false
+  use ExConstructor
 
   def new(options \\ []) do
-    %__MODULE__{token: make_ref()}
-    |> Map.merge(Map.new(options))
+    result = super(options)
+    %{result | token: result.token || make_ref()}
   end
 end

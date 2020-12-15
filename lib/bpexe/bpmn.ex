@@ -1,6 +1,5 @@
 defmodule BPEXE.BPMN do
   defmodule Handler do
-    @callback new() :: {:ok, term} | {:error, term}
     @callback add_process(term, Map.t()) :: {:ok, term} | {:error, term}
     @callback add_event(term, Map.t(), type :: atom) :: {:ok, term} | {:error, term}
     @callback add_signal_event_definition(term, Map.t()) :: {:ok, term} | {:error, term}
@@ -22,7 +21,6 @@ defmodule BPEXE.BPMN do
               characters: nil
 
     @bpmn_spec "http://www.omg.org/spec/BPMN/20100524/MODEL"
-    @bpexe_spec BPEXE.spec_schema()
 
     # Splits by namespace
     @spec split_ns(binary, Map.t()) :: binary() | {binary(), binary()}
@@ -33,12 +31,12 @@ defmodule BPEXE.BPMN do
       end
     end
 
-    def handle_event(:start_document, _prolog, handler) when is_atom(handler) do
-      {:ok, %__MODULE__{handler: handler || BPEXE.Proc}}
-    end
-
-    def handle_event(:start_document, _prolog, %__MODULE__{} = handler) do
-      {:ok, handler}
+    def handle_event(:start_document, _prolog, options) when is_list(options) do
+      {:ok,
+       %__MODULE__{
+         handler: options[:handler] || BPEXE.Proc,
+         current: [options[:instance]]
+       }}
     end
 
     # We don't know namespace mapping yet, get it from the root element
@@ -56,7 +54,7 @@ defmodule BPEXE.BPMN do
     # 1. Split namespace and the element name
     # 2. Convert arguments to a Map
     # 2.1. Convert namespaced arguments to [ns, name]
-    def handle_event(:start_element, {element, args}, %__MODULE{ns: ns} = state)
+    def handle_event(:start_element, {element, args}, %__MODULE__{ns: ns} = state)
         when is_binary(element) do
       handle_event(
         :start_element,
@@ -73,7 +71,7 @@ defmodule BPEXE.BPMN do
 
     # Transform arguments to a more digestible format:
     # 1. Split namespace and the element name
-    def handle_event(:end_element, element, %__MODULE{ns: ns} = state)
+    def handle_event(:end_element, element, %__MODULE__{ns: ns} = state)
         when is_binary(element) do
       handle_event(:end_element, split_ns(element, ns), state)
     end
@@ -81,10 +79,9 @@ defmodule BPEXE.BPMN do
     def handle_event(
           :start_element,
           {{bpmn, "definitions"}, _args},
-          %__MODULE__{ns: %{@bpmn_spec => bpmn}, handler: handler} = state
+          %__MODULE__{ns: %{@bpmn_spec => bpmn}} = state
         ) do
-      handler.new()
-      |> Result.map(fn instance -> %{state | current: [instance | state.current]} end)
+      {:ok, state}
     end
 
     def handle_event(
@@ -96,14 +93,6 @@ defmodule BPEXE.BPMN do
         when not is_nil(instance) do
       handler.add_process(instance, args)
       |> Result.map(fn process -> %{state | current: [process | state.current]} end)
-    end
-
-    def handle_event(
-          :end_element,
-          {bpmn, "process"},
-          %__MODULE__{ns: %{@bpmn_spec => bpmn}} = state
-        ) do
-      {:ok, %{state | current: tl(state.current)}}
     end
 
     def handle_event(
@@ -215,11 +204,11 @@ defmodule BPEXE.BPMN do
             ns: %{@bpmn_spec => bpmn},
             handler: handler,
             characters: characters,
-            current: [current | rest]
+            current: [current | _]
           } = state
         ) do
       handler.add_script(current, characters)
-      |> Result.map(fn _ -> %{state | characters: nil, current: rest} end)
+      |> Result.map(fn _ -> %{state | characters: nil, current: state.current} end)
     end
 
     def handle_event(
@@ -301,11 +290,11 @@ defmodule BPEXE.BPMN do
     end
   end
 
-  def parse(string, handler \\ nil) when is_binary(string) do
-    Saxy.parse_string(string, Handler, handler)
+  def parse(string, options \\ []) when is_binary(string) do
+    Saxy.parse_string(string, Handler, options)
   end
 
-  def parse_stream(stream, handler \\ nil) do
-    Saxy.parse_stream(stream, Handler, handler)
+  def parse_stream(stream, options \\ []) do
+    Saxy.parse_stream(stream, Handler, options)
   end
 end

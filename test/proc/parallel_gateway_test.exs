@@ -6,7 +6,7 @@ defmodule BPEXETest.Proc.ParallelGateway do
   doctest Instance
 
   test "forking parallel gateway should send message to all forks" do
-    {:ok, pid} = Instance.start_link(:ignored)
+    {:ok, pid} = Instance.start_link()
     {:ok, proc1} = Instance.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
 
     {:ok, start} = Process.add_event(proc1, "start", %{"id" => "start"}, :startEvent)
@@ -31,7 +31,7 @@ defmodule BPEXETest.Proc.ParallelGateway do
   end
 
   test "joining parallel gateway should send a combined messaged forward" do
-    {:ok, pid} = Instance.start_link(:ignored)
+    {:ok, pid} = Instance.start_link()
     {:ok, proc1} = Instance.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
 
     {:ok, start} = Process.add_event(proc1, "start", %{"id" => "start"}, :startEvent)
@@ -64,7 +64,7 @@ defmodule BPEXETest.Proc.ParallelGateway do
   end
 
   test "joining parallel gateway with a threshold" do
-    {:ok, pid} = Instance.start_link(:ignored)
+    {:ok, pid} = Instance.start_link()
     {:ok, proc1} = Instance.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
 
     {:ok, start} = Process.add_event(proc1, "start", %{"id" => "start"}, :startEvent)

@@ -5,21 +5,18 @@ defmodule BPEXE.Proc.ParallelGateway do
   alias BPEXE.Proc.Process
   alias BPEXE.Proc.Process.Log
 
-  defstruct id: nil,
-            options: %{},
-            instance: nil,
-            process: nil,
-            outgoing: [],
-            incoming: [],
-            tokens: %{},
-            drop_tokens: %{}
+  defstate([id: nil, options: %{}, instance: nil, process: nil, tokens: %{}, drop_tokens: %{}],
+    persist: ~w(tokens drop_tokens)a
+  )
 
   def start_link(id, options, instance, process) do
     GenServer.start_link(__MODULE__, {id, options, instance, process})
   end
 
   def init({id, options, instance, process}) do
-    {:ok, %__MODULE__{id: id, options: options, instance: instance, process: process}}
+    state = %__MODULE__{id: id, options: options, instance: instance, process: process}
+    init_recoverable(state)
+    {:ok, state}
   end
 
   def handle_message({%BPEXE.Message{} = msg, id}, state) do
