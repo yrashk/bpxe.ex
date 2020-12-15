@@ -11,19 +11,34 @@ defmodule BPEXE.Proc.Task do
             instance: nil,
             process: nil,
             outgoing: [],
-            incoming: []
+            incoming: [],
+            script: ""
 
   def start_link(id, type, options, instance, process) do
     GenServer.start_link(__MODULE__, {id, type, options, instance, process})
+  end
+
+  def add_script(pid, script) do
+    GenServer.call(pid, {:add_script, script})
   end
 
   def init({id, type, options, instance, process}) do
     {:ok, %__MODULE__{id: id, type: type, options: options, instance: instance, process: process}}
   end
 
+  @process_var "process"
+
   def handle_message({msg, _id}, %__MODULE__{type: :scriptTask, options: options} = state) do
     Process.log(state.process, %Log.TaskActivated{pid: self(), id: state.id, token: msg.token})
-    {:ok, vm} = BPMN.Language.Lua.new()
+    {:ok, vm} = BPEXE.Language.Lua.new()
+    state0 = Process.variables(state.process)
+    vm = BPEXE.Language.set(vm, @process_var, state0)
+    # TODO: handle errors
+    {:ok, {_result, vm}} = BPEXE.Language.eval(vm, state.script)
+    state1 = BPEXE.Language.get(vm, @process_var) |> ensure_maps()
+
+    Process.set_variables(state.process, updated_state(state0, state1))
+
     Process.log(state.process, %Log.TaskCompleted{pid: self(), id: state.id, token: msg.token})
     {:send, msg, state}
   end
@@ -32,5 +47,28 @@ defmodule BPEXE.Proc.Task do
     Process.log(state.process, %Log.TaskActivated{pid: self(), id: state.id, token: msg.token})
     Process.log(state.process, %Log.TaskCompleted{pid: self(), id: state.id, token: msg.token})
     {:send, msg, state}
+  end
+
+  def handle_call({:add_script, script}, _from, state) do
+    {:reply, {:ok, script}, %{state | script: script}}
+  end
+
+  defp ensure_maps(m) when is_map(m), do: m
+
+  defp ensure_maps([{key, value} | rest]) do
+    [{key, ensure_maps(value)} | ensure_maps_(rest)] |> Map.new()
+  end
+
+  defp ensure_maps([]), do: %{}
+  defp ensure_maps(other), do: other
+  # handles end of list
+  defp ensure_maps_([]), do: []
+  defp ensure_maps_(other), do: ensure_maps(other)
+
+  defp updated_state(state0, state1) do
+    case MapDiff.diff(state0, state1) do
+      %{added: added} -> added
+      _ -> %{}
+    end
   end
 end

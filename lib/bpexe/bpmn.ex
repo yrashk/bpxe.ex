@@ -6,6 +6,7 @@ defmodule BPEXE.BPMN do
     @callback add_signal_event_definition(term, Map.t()) :: {:ok, term} | {:error, term}
     @callback add_task(term, Map.t()) :: {:ok, term} | {:error, term}
     @callback add_task(term, Map.t(), type :: atom) :: {:ok, term} | {:error, term}
+    @callback add_script(term, String.t()) :: {:ok, term} | {:error, term}
     @callback add_outgoing(term, name :: String.t()) :: {:ok, term} | {:error, term}
     @callback add_incoming(term, name :: String.t()) :: {:ok, term} | {:error, term}
     @callback add_sequence_flow(term, Map.t()) :: {:ok, term} | {:error, term}
@@ -197,6 +198,28 @@ defmodule BPEXE.BPMN do
         )
         when task in @task_types do
       {:ok, %{state | current: tl(state.current)}}
+    end
+
+    def handle_event(
+          :start_element,
+          {{bpmn, "script"}, _args},
+          %__MODULE__{ns: %{@bpmn_spec => bpmn}, characters: nil} = state
+        ) do
+      {:ok, %{state | characters: ""}}
+    end
+
+    def handle_event(
+          :end_element,
+          {bpmn, "script"},
+          %__MODULE__{
+            ns: %{@bpmn_spec => bpmn},
+            handler: handler,
+            characters: characters,
+            current: [current | rest]
+          } = state
+        ) do
+      handler.add_script(current, characters)
+      |> Result.map(fn _ -> %{state | characters: nil, current: rest} end)
     end
 
     def handle_event(

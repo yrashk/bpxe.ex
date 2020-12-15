@@ -181,6 +181,6 @@ defmodule BPEXE.Proc.Process do
   end
 
   def handle_call({:set_variables, variables}, _from, state) do
-    {:reply, :ok, %{state | variables: variables}}
+    {:reply, :ok, %{state | variables: Map.merge(state.variables, variables)}}
   end
 end

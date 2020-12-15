@@ -39,7 +39,8 @@ defmodule BPEXE.MixProject do
       # Lua scripting (Luerl)
       {:luerl, github: "rvirding/luerl", ref: "1b0699c"},
       {:ex_doc, "~> 0.23", only: :dev, runtime: false},
-      {:ok, "~> 2.3.0"}
+      {:ok, "~> 2.3.0"},
+      {:map_diff, "~> 1.3.4"}
     ]
   end
 end

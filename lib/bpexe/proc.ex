@@ -33,6 +33,11 @@ defmodule BPEXE.Proc do
   end
 
   @impl BPMNHandler
+  def add_script(task, text) do
+    Proc.Task.add_script(task, text)
+  end
+
+  @impl BPMNHandler
   def add_outgoing(node, name) do
     Proc.FlowNode.add_outgoing(node, name)
   end
