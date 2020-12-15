@@ -13,7 +13,6 @@ defimpl BPEXE.Language, for: BPEXE.Language.Lua do
       {:ok, {result, %{instance | vm: vm}}}
     rescue
       e ->
-        e
         {:error, e}
     end
   end
@@ -22,7 +21,7 @@ defimpl BPEXE.Language, for: BPEXE.Language.Lua do
     %{instance | vm: Luerl.set_table(vm, [name], variables)}
   end
 
-  def get(%BPEXE.Language.Lua{vm: vm} = instance, name) do
+  def get(%BPEXE.Language.Lua{vm: vm}, name) do
     {result, _} = Luerl.get_table(vm, [name])
     result
   end

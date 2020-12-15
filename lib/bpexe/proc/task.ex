@@ -28,7 +28,7 @@ defmodule BPEXE.Proc.Task do
 
   @process_var "process"
 
-  def handle_message({msg, _id}, %__MODULE__{type: :scriptTask, options: options} = state) do
+  def handle_message({msg, _id}, %__MODULE__{type: :scriptTask} = state) do
     Process.log(state.process, %Log.TaskActivated{pid: self(), id: state.id, token: msg.token})
     {:ok, vm} = BPEXE.Language.Lua.new()
     state0 = Process.variables(state.process)
