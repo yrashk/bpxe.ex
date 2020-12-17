@@ -67,7 +67,7 @@ defmodule BPEXE.Engine.Event do
     Process.log(state.process, %Log.EventCompleted{pid: self(), id: state.id, token: msg.token})
 
     # We didn't ack before, do it now
-    ack(%{msg | __invisible__: false} |> IO.inspect(), id, state)
+    ack(%{msg | __invisible__: false}, id, state)
 
     {:send, %{msg | __invisible__: false, __txn__: BPEXE.Message.next_txn(msg)},
      %{state | activated: true}}
@@ -86,7 +86,7 @@ defmodule BPEXE.Engine.Event do
     Process.log(state.process, %Log.EventCompleted{pid: self(), id: state.id, token: msg.token})
 
     # We didn't ack before, do it now
-    ack(%{msg | __invisible__: false} |> IO.inspect(), id, state)
+    ack(%{msg | __invisible__: false}, id, state)
 
     {:dontsend, %{state | activated: nil}}
   end
