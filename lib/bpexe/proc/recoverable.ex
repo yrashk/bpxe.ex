@@ -1,8 +1,6 @@
 defmodule BPEXE.Proc.Recoverable do
   defmacro __using__(_options \\ []) do
-    quote do
-      import BPEXE.Proc.Recoverable, only: [init_recoverable: 1]
-
+    quote location: :keep do
       def handle_info(
             {:syn_multi_call, pid, {BPEXE.Proc.Recoverable, :recovered_state, saved_state}},
             state
@@ -15,7 +13,7 @@ defmodule BPEXE.Proc.Recoverable do
       defp handle_recovery(saved_state, state) do
         saved_keys = Map.keys(saved_state)
         keys = Map.keys(state)
-        unknown_keys = keys -- saved_keys
+        unknown_keys = saved_keys -- keys
         keys = keys -- unknown_keys
 
         state =
@@ -27,7 +25,7 @@ defmodule BPEXE.Proc.Recoverable do
           end)
 
         saved_state =
-          Enum.reduce(unknown_keys, saved_state, fn k, acc ->
+          Enum.reduce(keys, saved_state, fn k, acc ->
             Map.delete(acc, k)
           end)
 
@@ -39,10 +37,13 @@ defmodule BPEXE.Proc.Recoverable do
       end
 
       defoverridable handle_recovery: 2, handle_unknown_state_key: 2
-    end
-  end
 
-  def init_recoverable(state) do
-    :syn.join({state.instance.pid, :state_recovery, state.id}, self())
+      def init_recoverable(state) do
+        :syn.join({state.instance.pid, :state_recovery, state.id}, self())
+        state
+      end
+
+      @initializer :init_recoverable
+    end
   end
 end

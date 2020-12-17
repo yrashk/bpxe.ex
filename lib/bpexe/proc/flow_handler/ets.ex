@@ -16,13 +16,13 @@ defmodule BPEXE.Proc.FlowHandler.ETS do
   end
 
   @impl FlowHandler
-  def save_state(instance, instance_id, id, pid, state, %__MODULE__{pid: handler}) do
-    GenServer.call(handler, {:save_state, instance, instance_id, id, pid, state}, :infinity)
+  def save_state(instance, txn, instance_id, id, pid, state, %__MODULE__{pid: handler}) do
+    GenServer.call(handler, {:save_state, instance, txn, instance_id, id, pid, state}, :infinity)
   end
 
   @impl FlowHandler
-  def commit_state(instance, instance_id, sync_ids, %__MODULE__{pid: handler}) do
-    GenServer.call(handler, {:commit_state, instance, instance_id, sync_ids}, :infinity)
+  def commit_state(instance, txn, instance_id, id, %__MODULE__{pid: handler}) do
+    GenServer.call(handler, {:commit_state, instance, txn, instance_id, id}, :infinity)
   end
 
   @impl FlowHandler
@@ -31,7 +31,7 @@ defmodule BPEXE.Proc.FlowHandler.ETS do
   end
 
   defmodule State do
-    defstruct states: %{}, staging: nil, table: nil
+    defstruct states: %{}, staging: nil, table: nil, last_commit: -1, pending_commits: []
   end
 
   @impl GenServer
@@ -42,32 +42,57 @@ defmodule BPEXE.Proc.FlowHandler.ETS do
 
   @impl GenServer
   def handle_call(
-        {:save_state, _instance, instance_id, id, pid, saving_state},
+        {:save_state, _instance, txn, instance_id, id, pid, saving_state},
         _from,
         %State{staging: staging} = state
       ) do
-    Set.put(staging, {{instance_id, id}, {pid, saving_state}})
+    Set.put(staging, {{txn, instance_id, id}, {pid, saving_state}})
     {:reply, :ok, state}
   end
 
   @impl GenServer
   def handle_call(
-        {:commit_state, _instance, instance_id, sync_ids},
+        {:commit_state, _instance, txn, instance_id, id},
         _from,
-        %State{staging: staging, table: table} = state
-      ) do
-    for id <- sync_ids do
-      case Set.get(staging, {instance_id, id}) do
-        {:ok, {_, record}} when not is_nil(record) ->
-          Set.delete(staging, {instance_id, id})
-          Set.put(table, {{instance_id, id}, record})
+        %State{staging: staging, table: table, last_commit: last_commit} = state
+      )
+      when last_commit + 1 == txn do
+    import Ex2ms
 
-        _ ->
-          :skip
+    pattern =
+      fun do
+        {{txn_, instance_id_, id}, {_pid, saving_state}}
+        when txn_ == ^txn and instance_id_ == ^instance_id ->
+          {id, saving_state}
       end
-    end
 
-    {:reply, :ok, state}
+    case Set.select(staging, pattern) do
+      {:ok, results} ->
+        for {id, saving_state} <- results do
+          Set.delete(staging, {txn, instance_id, id})
+          Set.put(table, {{instance_id, id}, saving_state})
+        end
+
+        {:reply, :ok, %{state | last_commit: txn} |> next()}
+
+      {:error, err} ->
+        {:reply, {:error, err}, state}
+    end
+  end
+
+  @impl GenServer
+  def handle_call(
+        {:commit_state, instance, txn, instance_id, id},
+        from,
+        %State{} = state
+      ) do
+    {:noreply,
+     %{
+       state
+       | pending_commits:
+           [{from, instance, txn, instance_id, id} | state.pending_commits]
+           |> Enum.sort_by(fn {_, _, txn, _, _} -> txn end)
+     }}
   end
 
   @impl GenServer
@@ -91,5 +116,29 @@ defmodule BPEXE.Proc.FlowHandler.ETS do
     end
 
     {:reply, :ok, state}
+  end
+
+  defp next(
+         %State{
+           pending_commits: [{from, instance, txn, instance_id, id} | rest],
+           last_commit: last_commit
+         } = state
+       )
+       when last_commit + 1 == txn do
+    case handle_call({:commit_state, instance, txn, instance_id, id}, from, %{
+           state
+           | pending_commits: rest
+         }) do
+      {:reply, response, state} ->
+        GenServer.reply(from, response)
+        state
+
+      {:noreply, state} ->
+        state
+    end
+  end
+
+  defp next(%State{} = state) do
+    state
   end
 end

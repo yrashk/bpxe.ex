@@ -1,6 +1,7 @@
 defmodule BPEXE.Proc.FlowHandler do
   @callback save_state(
               instance :: term,
+              txn :: term,
               instance_id :: term,
               id :: term,
               pid :: pid,
@@ -10,8 +11,9 @@ defmodule BPEXE.Proc.FlowHandler do
               :ok | {:error, :term}
   @callback commit_state(
               instance :: term,
+              txn :: term,
               instance_id :: term,
-              sync_id :: term,
+              id :: term,
               handler_config :: term
             ) ::
               :ok | {:error, :term}

@@ -1,12 +1,10 @@
 defmodule BPEXE.Proc.Process do
   use GenServer
+  use BPEXE.Proc.Base
   use BPEXE.Proc.Recoverable
 
-  defstruct id: nil, options: %{}, instance: nil, start_events: %{}, variables: %{}
-
   def start_link(id, options, instance) do
-    # This way we can wait until it is initialized
-    :proc_lib.start_link(__MODULE__, :init, [{id, options, instance}])
+    start_link([{id, options, instance}])
   end
 
   def add_event(pid, id, options, type) do
@@ -134,6 +132,13 @@ defmodule BPEXE.Proc.Process do
     GenServer.call(pid, :id)
   end
 
+  defstruct id: nil,
+            options: %{},
+            instance: nil,
+            start_events: %{},
+            variables: %{},
+            pending_sequence_flows: %{}
+
   def init({id, options, instance}) do
     :syn.register({instance.pid, :process, id}, self())
 
@@ -143,40 +148,79 @@ defmodule BPEXE.Proc.Process do
       instance: instance
     }
 
-    init_recoverable(state)
+    state = initialize(state)
     # Done initializing
-    :proc_lib.init_ack({:ok, self()})
+    init_ack()
+    enter_loop(state)
+  end
 
-    :gen_server.enter_loop(__MODULE__, [], state)
+  defp start_flow_node(
+         module,
+         id,
+         args,
+         %__MODULE__{pending_sequence_flows: pending_sequence_flows} = state
+       ) do
+    result =
+      apply(module, :start_link, args)
+      |> Result.map(fn pid ->
+        if options = pending_sequence_flows[id] do
+          BPEXE.Proc.FlowNode.add_sequence_flow(pid, id, options)
+        end
+
+        pid
+      end)
+
+    {:reply, result,
+     %{state | pending_sequence_flows: Map.delete(state.pending_sequence_flows, id)}}
   end
 
   def handle_call({:add_event, id, options, type}, _from, state) do
-    case {type, BPEXE.Proc.Event.start_link(id, type, options, state.instance, self())} do
-      {:startEvent, {:ok, pid}} ->
-        {:reply, {:ok, pid}, %{state | start_events: Map.put(state.start_events, id, options)}}
+    case {type,
+          start_flow_node(
+            BPEXE.Proc.Event,
+            id,
+            [id, type, options, state.instance, self()],
+            state
+          )} do
+      {:startEvent, {:reply, result, state}} ->
+        {:reply, result, %{state | start_events: Map.put(state.start_events, id, options)}}
 
-      {_, {:error, err}} ->
-        {:reply, {:error, err}, state}
-
-      {_, {:ok, pid}} ->
-        {:reply, {:ok, pid}, state}
+      {_, {:reply, result, state}} ->
+        {:reply, result, state}
     end
   end
 
   def handle_call({:add_task, id, type, options}, _from, state) do
-    {:reply, BPEXE.Proc.Task.start_link(id, type, options, state.instance, self()), state}
+    start_flow_node(BPEXE.Proc.Task, id, [id, type, options, state.instance, self()], state)
   end
 
   def handle_call({:add_sequence_flow, id, options}, _from, state) do
-    {:reply, BPEXE.Proc.SequenceFlow.start_link(id, options, state.instance, self()), state}
+    case :syn.whereis({state.instance.pid, :flow_node, options["sourceRef"]}) do
+      pid when is_pid(pid) ->
+        BPEXE.Proc.FlowNode.add_sequence_flow(pid, id, options)
+        {:reply, {:ok, id}, state}
+
+      :undefined ->
+        {:reply, {:ok, id},
+         %{
+           state
+           | pending_sequence_flows:
+               Map.put(state.pending_sequence_flows, options["sourceRef"], options)
+         }}
+    end
   end
 
   def handle_call({:add_parallel_gateway, id, options}, _from, state) do
-    {:reply, BPEXE.Proc.ParallelGateway.start_link(id, options, state.instance, self()), state}
+    start_flow_node(BPEXE.Proc.ParallelGateway, id, [id, options, state.instance, self()], state)
   end
 
   def handle_call({:add_event_based_gateway, id, options}, _from, state) do
-    {:reply, BPEXE.Proc.EventBasedGateway.start_link(id, options, state.instance, self()), state}
+    start_flow_node(
+      BPEXE.Proc.EventBasedGateway,
+      id,
+      [id, options, state.instance, self()],
+      state
+    )
   end
 
   def handle_call(:start_events, _from, state) do
@@ -191,11 +235,14 @@ defmodule BPEXE.Proc.Process do
     {:reply, state.variables, state}
   end
 
+  # FIXME: add txn id
   def handle_call({:set_variables, variables}, _from, state) do
     variables = Map.merge(state.variables, variables)
 
     if variables != state.variables do
-      BPEXE.Proc.Instance.save_state(state.instance, state.id, self(), %{variables: variables})
+      BPEXE.Proc.Instance.save_state(state.instance, :FIXME, state.id, self(), %{
+        variables: variables
+      })
     end
 
     {:reply, :ok, %{state | variables: variables}}

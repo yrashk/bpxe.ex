@@ -15,13 +15,13 @@ defmodule BPEXE.Proc.FlowHandler.Stepper do
   end
 
   @impl FlowHandler
-  def save_state(instance, instance_id, id, pid, state, %__MODULE__{pid: stepper}) do
-    GenServer.call(stepper, {:save_state, instance, instance_id, id, pid, state}, :infinity)
+  def save_state(instance, txn, instance_id, id, pid, state, %__MODULE__{pid: stepper}) do
+    GenServer.call(stepper, {:save_state, instance, txn, instance_id, id, pid, state}, :infinity)
   end
 
   @impl FlowHandler
-  def commit_state(instance, instance_id, sync_ids, %__MODULE__{pid: stepper}) do
-    GenServer.call(stepper, {:commit_state, instance, instance_id, sync_ids}, :infinity)
+  def commit_state(instance, txn, instance_id, id, %__MODULE__{pid: stepper}) do
+    GenServer.call(stepper, {:commit_state, instance, txn, instance_id, id}, :infinity)
   end
 
   def continue(%__MODULE__{pid: stepper}) do
@@ -29,7 +29,7 @@ defmodule BPEXE.Proc.FlowHandler.Stepper do
   end
 
   defmodule State do
-    defstruct states: %{}, committed: [], lock: false, pending_commits: []
+    defstruct transactions: %{}, lock: false, committed: nil, pending_commits: [], last_commit: -1
   end
 
   @impl GenServer
@@ -38,58 +38,84 @@ defmodule BPEXE.Proc.FlowHandler.Stepper do
   end
 
   @impl GenServer
-  def handle_call({:save_state, instance, _instance_id, id, pid, saving_state}, _from, state) do
-    states = Map.put(state.states, {instance, id}, {id, pid, saving_state})
-    {:reply, :ok, %{state | states: states}}
-  end
-
-  @impl GenServer
   def handle_call(
-        {:commit_state, instance, _instance_id, sync_ids},
-        from,
-        %State{lock: true} = state
-      ) do
-    {:noreply,
-     %{state | pending_commits: [{from, instance, sync_ids} | state.pending_commits]}}
-  end
-
-  @impl GenServer
-  def handle_call(
-        {:commit_state, instance, _instance_id, sync_ids},
+        {:save_state, instance, txn, _instance_id, id, pid, saving_state},
         _from,
-        %State{lock: false} = state
+        %State{} = state
       ) do
-    {:reply, :ok, commit(instance, sync_ids, state)}
+    data = {{instance, id}, {id, pid, saving_state}}
+
+    transactions =
+      Map.update(state.transactions, txn, [data], fn txns ->
+        [data | txns] |> Enum.uniq_by(fn {k, _} -> k end)
+      end)
+
+    {:reply, :ok, %{state | transactions: transactions}}
   end
 
   @impl GenServer
-  def handle_call(:continue, _from, %State{committed: [], pending_commits: []} = state) do
-    {:reply, :ok, %{state | lock: false}}
+  def handle_call(
+        {:commit_state, instance, txn, _instance_id, id},
+        from,
+        %State{lock: false, last_commit: last_commit} = state
+      )
+      when last_commit + 1 == txn do
+    data = Map.get(state.transactions, txn)
+    transactions = Map.delete(state.transactions, txn)
+
+    {:reply, :ok,
+     %{state | lock: true, committed: data, transactions: transactions, last_commit: txn}}
+  end
+
+  @impl GenServer
+  def handle_call(
+        {:commit_state, instance, txn, _instance_id, id},
+        from,
+        %State{} = state
+      ) do
+    {:noreply, %{state | pending_commits: [{from, txn, instance, id} | state.pending_commits]}}
+  end
+
+  @impl GenServer
+  def handle_call(:continue, _from, %State{lock: false} = state) do
+    {:reply, :ok, state}
   end
 
   @impl GenServer
   def handle_call(
         :continue,
         _from,
-        %State{committed: [], pending_commits: [{from, instance, sync_ids} | rest]} = state
+        %State{} = state
       ) do
-    state = commit(instance, sync_ids, state)
-    GenServer.reply(from, :ok)
-    handle_call(:continue, from, %{state | pending_commits: rest})
+    {:reply, state.committed,
+     %{
+       state
+       | committed: nil,
+         pending_commits: Enum.sort_by(state.pending_commits, fn {_, txn, _, _} -> txn end),
+         lock: false
+     }
+     |> next()}
   end
 
-  @impl GenServer
-  def handle_call(:continue, _from, %State{committed: committed} = state) do
-    {:reply, committed, %{state | committed: [], lock: true}}
+  defp next(
+         %State{pending_commits: [{from, txn, instance, id} | rest], last_commit: last_commit} =
+           state
+       )
+       when last_commit + 1 == txn do
+    case handle_call({:commit_state, instance, txn, :ignored, id}, from, %{
+           state
+           | pending_commits: rest
+         }) do
+      {:reply, response, state} ->
+        GenServer.reply(from, response)
+        state
+
+      {:noreply, state} ->
+        state
+    end
   end
 
-  defp commit(instance, sync_ids, state) do
-    {committed, states} =
-      Enum.reduce(sync_ids, {[], state.states}, fn id, {acc, map} ->
-        c = state.states[{instance, id}]
-        {if(c, do: [c | acc], else: acc), Map.delete(map, {instance, id})}
-      end)
-
-    %{state | states: states, committed: committed ++ state.committed, lock: true}
+  defp next(%State{} = state) do
+    state
   end
 end

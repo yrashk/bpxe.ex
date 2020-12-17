@@ -1,6 +1,5 @@
 defmodule BPEXE.Proc.Event do
   use GenServer
-  use BPEXE.Proc.Base
   use BPEXE.Proc.FlowNode
   alias BPEXE.Proc.Process
   alias BPEXE.Proc.Process.Log
@@ -10,8 +9,7 @@ defmodule BPEXE.Proc.Event do
   )
 
   def start_link(id, type, options, instance, process) do
-    # This way we can wait until it is initialized
-    :proc_lib.start_link(__MODULE__, :init, [{id, type, options, instance, process}])
+    start_link([{id, type, options, instance, process}])
   end
 
   def add_signal_event_definition(pid, options) do
@@ -29,11 +27,10 @@ defmodule BPEXE.Proc.Event do
       process: process
     }
 
-    init_recoverable(state)
+    state = initialize(state)
     # Done initializing
-    :proc_lib.init_ack({:ok, self()})
-
-    :gen_server.enter_loop(__MODULE__, [], state)
+    init_ack()
+    enter_loop(state)
   end
 
   def handle_call({:add_signal_event_definition, options}, _from, state) do
@@ -54,17 +51,44 @@ defmodule BPEXE.Proc.Event do
   # Hold the messages until event is trigerred
   def handle_message({%BPEXE.Message{} = msg, _id}, %__MODULE__{activated: nil} = state) do
     Process.log(state.process, %Log.EventActivated{pid: self(), id: state.id, token: msg.token})
-    {:dontsend, %{state | activated: msg}}
+    {:dontack, %{state | activated: msg}}
   end
 
-  # Message bounced back from the back-flow, this means this flow was chosen
+  # Message bounced back from the back-flow with this route, this means this flow was chosen
   # by a gateway
   def handle_message(
-        {%BPEXE.Message{token: token, __invisible__: true} = msg, _id},
+        {%BPEXE.Message{
+           token: token,
+           __invisible__: true,
+           properties: %{{BPEXE.Proc.EventBasedGateway, :route} => id}
+         } = msg, id},
         %__MODULE__{activated: %BPEXE.Message{token: token}} = state
       ) do
     Process.log(state.process, %Log.EventCompleted{pid: self(), id: state.id, token: msg.token})
-    {:send, %{msg | __invisible__: false}, %{state | activated: nil}}
+
+    # We didn't ack before, do it now
+    ack(%{msg | __invisible__: false} |> IO.inspect(), id, state)
+
+    {:send, %{msg | __invisible__: false, __txn__: BPEXE.Message.next_txn(msg)},
+     %{state | activated: true}}
+  end
+
+  # Message bounced back from the back-flow with the different route, this means this flow was NOT chosen
+  # by a gateway
+  def handle_message(
+        {%BPEXE.Message{
+           token: token,
+           __invisible__: true,
+           properties: %{{BPEXE.Proc.EventBasedGateway, :route} => _}
+         } = msg, id},
+        %__MODULE__{activated: %BPEXE.Message{token: token}} = state
+      ) do
+    Process.log(state.process, %Log.EventCompleted{pid: self(), id: state.id, token: msg.token})
+
+    # We didn't ack before, do it now
+    ack(%{msg | __invisible__: false} |> IO.inspect(), id, state)
+
+    {:dontsend, %{state | activated: nil}}
   end
 
   # If a different message comes, forget the previous one we held,
@@ -99,7 +123,6 @@ defmodule BPEXE.Proc.Event do
   end
 
   def handle_completion(%__MODULE__{type: :endEvent} = state) do
-    BPEXE.Proc.Instance.commit_state(state.instance, [state.id])
     super(state)
   end
 

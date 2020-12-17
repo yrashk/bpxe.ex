@@ -1,6 +1,5 @@
 defmodule BPEXE.Proc.Task do
   use GenServer
-  use BPEXE.Proc.Base
   use BPEXE.Proc.FlowNode
   alias BPEXE.Proc.Process
   alias BPEXE.Proc.Process.Log
@@ -10,7 +9,7 @@ defmodule BPEXE.Proc.Task do
   )
 
   def start_link(id, type, options, instance, process) do
-    GenServer.start_link(__MODULE__, {id, type, options, instance, process})
+    start_link([{id, type, options, instance, process}])
   end
 
   def add_script(pid, script) do
@@ -26,8 +25,9 @@ defmodule BPEXE.Proc.Task do
       process: process
     }
 
-    init_recoverable(state)
-    {:ok, state}
+    state = initialize(state)
+    init_ack()
+    enter_loop(state)
   end
 
   @process_var "process"

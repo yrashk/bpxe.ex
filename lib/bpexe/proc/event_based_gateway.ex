@@ -1,6 +1,5 @@
 defmodule BPEXE.Proc.EventBasedGateway do
   use GenServer
-  use BPEXE.Proc.Base
   use BPEXE.Proc.FlowNode
   alias BPEXE.Proc.Process
   alias BPEXE.Proc.Process.Log
@@ -10,13 +9,16 @@ defmodule BPEXE.Proc.EventBasedGateway do
   )
 
   def start_link(id, options, instance, process) do
-    GenServer.start_link(__MODULE__, {id, options, instance, process})
+    start_link([{id, options, instance, process}])
   end
 
   def init({id, options, instance, process}) do
-    state = %__MODULE__{id: id, options: options, instance: instance, process: process}
-    init_recoverable(state)
-    {:ok, state}
+    state =
+      %__MODULE__{id: id, options: options, instance: instance, process: process}
+      |> initialize()
+
+    init_ack()
+    enter_loop(state)
   end
 
   def handle_message(
@@ -30,7 +32,8 @@ defmodule BPEXE.Proc.EventBasedGateway do
       to: id
     })
 
-    {:send, msg, [id], %{state | activated: nil}}
+    {:send, %{msg | properties: Map.put(msg.properties, {__MODULE__, :route}, id)},
+     %{state | activated: nil}}
   end
 
   def handle_message(

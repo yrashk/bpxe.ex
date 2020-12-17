@@ -1,6 +1,5 @@
 defmodule BPEXE.Proc.ParallelGateway do
   use GenServer
-  use BPEXE.Proc.Base
   use BPEXE.Proc.FlowNode
   alias BPEXE.Proc.Process
   alias BPEXE.Proc.Process.Log
@@ -15,7 +14,7 @@ defmodule BPEXE.Proc.ParallelGateway do
 
   def init({id, options, instance, process}) do
     state = %__MODULE__{id: id, options: options, instance: instance, process: process}
-    init_recoverable(state)
+    state = initialize(state)
     {:ok, state}
   end
 

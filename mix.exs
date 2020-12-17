@@ -41,7 +41,8 @@ defmodule BPEXE.MixProject do
       {:ex_doc, "~> 0.23", only: :dev, runtime: false},
       {:ok, "~> 2.3.0"},
       {:map_diff, "~> 1.3.4"},
-      {:exconstructor, "~> 1.1.0"}
+      {:exconstructor, "~> 1.1.0"},
+      {:ex2ms, "~> 1.6.0"}
     ]
   end
 end

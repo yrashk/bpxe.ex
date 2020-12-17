@@ -62,46 +62,54 @@ defmodule BPEXE.Proc.Instance do
     GenServer.call(pid, :config)
   end
 
-  def save_state(%Config{flow_handler: nil}, _id, _pid, _state) do
+  def save_state(%Config{flow_handler: nil}, _txn, _id, _pid, _state) do
     :ok
   end
 
-  def save_state(%Config{flow_handler: handler, pid: instance, id: instance_id}, id, pid, state)
+  def save_state(
+        %Config{flow_handler: handler, pid: instance, id: instance_id},
+        txn,
+        id,
+        pid,
+        state
+      )
       when is_atom(handler) do
-    handler.save_state(instance, instance_id, id, pid, state, nil)
+    handler.save_state(instance, txn, instance_id, id, pid, state, nil)
   end
 
   def save_state(
         %Config{flow_handler: %{__struct__: handler} = config, pid: instance, id: instance_id},
+        txn,
         id,
         pid,
         state
       ) do
-    handler.save_state(instance, instance_id, id, pid, state, config)
+    handler.save_state(instance, txn, instance_id, id, pid, state, config)
   end
 
-  def save_state(instance, id, pid, state) when is_pid(pid) do
-    instance |> config() |> save_state(id, pid, state)
+  def save_state(instance, txn, id, pid, state) when is_pid(pid) do
+    instance |> config() |> save_state(txn, id, pid, state)
   end
 
-  def commit_state(%Config{flow_handler: nil}, _sync_ids) do
+  def commit_state(%Config{flow_handler: nil}, _txn, _id) do
     :ok
   end
 
-  def commit_state(%Config{flow_handler: handler, pid: instance, id: instance_id}, sync_ids)
+  def commit_state(%Config{flow_handler: handler, pid: instance, id: instance_id}, txn, id)
       when is_atom(handler) do
-    handler.commit_state(instance, instance_id, sync_ids, nil)
+    handler.commit_state(instance, instance_id, txn, id, nil)
   end
 
   def commit_state(
         %Config{flow_handler: %{__struct__: handler} = config, pid: instance, id: instance_id},
-        sync_ids
+        txn,
+        id
       ) do
-    handler.commit_state(instance, instance_id, sync_ids, config)
+    handler.commit_state(instance, txn, instance_id, id, config)
   end
 
-  def commit_state(instance, sync_ids) when is_pid(instance) do
-    instance |> config() |> commit_state(sync_ids)
+  def commit_state(instance, txn, id) when is_pid(instance) do
+    instance |> config() |> commit_state(txn, id)
   end
 
   def restore_state(%Config{flow_handler: nil}) do
