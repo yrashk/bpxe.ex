@@ -1,4 +1,4 @@
-defmodule BPEXE.Proc.FlowHandler do
+defmodule BPEXE.Engine.FlowHandler do
   @callback save_state(
               instance :: term,
               txn :: term,

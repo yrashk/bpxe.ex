@@ -1,4 +1,4 @@
-defmodule BPEXE.Proc.Base do
+defmodule BPEXE.Engine.Base do
   defmacro __using__(_ \\ []) do
     quote location: :keep do
       Module.register_attribute(__MODULE__, :initializer, accumulate: true)
@@ -25,7 +25,7 @@ defmodule BPEXE.Proc.Base do
         :gen_server.enter_loop(__MODULE__, [], state)
       end
 
-      @before_compile BPEXE.Proc.Base
+      @before_compile BPEXE.Engine.Base
     end
   end
 

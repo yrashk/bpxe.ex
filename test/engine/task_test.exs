@@ -1,8 +1,8 @@
-defmodule BPEXETest.Proc.Task do
+defmodule BPEXETest.Engine.Task do
   use ExUnit.Case
-  alias BPEXE.Proc.Instance
-  alias BPEXE.Proc.{Process, Task}
-  alias BPEXE.Proc.Process.Log
+  alias BPEXE.Engine.Instance
+  alias BPEXE.Engine.{Process, Task}
+  alias BPEXE.Engine.Process.Log
   doctest Instance
 
   test "executes a script, captures state and retrieves it in other scripts" do

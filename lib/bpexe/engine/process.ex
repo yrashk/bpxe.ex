@@ -1,7 +1,7 @@
-defmodule BPEXE.Proc.Process do
+defmodule BPEXE.Engine.Process do
   use GenServer
-  use BPEXE.Proc.Base
-  use BPEXE.Proc.Recoverable
+  use BPEXE.Engine.Base
+  use BPEXE.Engine.Recoverable
 
   def start_link(id, options, instance) do
     start_link([{id, options, instance}])
@@ -22,8 +22,8 @@ defmodule BPEXE.Proc.Process do
   @doc """
   Convenience helper for adding and connecting sequence flow programmatically.
 
-  Instead of having to to orchestrate `BPEXE.Proc.FlowNode.add_incoming/2`,
-  `BPEXE.Proc.FlowNode.add_outgoing/2` and `add_sequence_flow/3`, this allows
+  Instead of having to to orchestrate `BPEXE.Engine.FlowNode.add_incoming/2`,
+  `BPEXE.Engine.FlowNode.add_outgoing/2` and `add_sequence_flow/3`, this allows
   to do all of that in just one call.
 
   This reduces the amount of code that has to be written and therefore makes it
@@ -35,8 +35,8 @@ defmodule BPEXE.Proc.Process do
     require OK
 
     OK.for do
-      source_ref = BPEXE.Proc.Base.id(source)
-      target_ref = BPEXE.Proc.Base.id(target)
+      source_ref = BPEXE.Engine.Base.id(source)
+      target_ref = BPEXE.Engine.Base.id(target)
 
       seq_flow <-
         add_sequence_flow(pid, id, %{
@@ -45,8 +45,8 @@ defmodule BPEXE.Proc.Process do
           "targetRef" => target_ref
         })
 
-      _out <- BPEXE.Proc.FlowNode.add_outgoing(source, id)
-      _in <- BPEXE.Proc.FlowNode.add_incoming(target, id)
+      _out <- BPEXE.Engine.FlowNode.add_outgoing(source, id)
+      _in <- BPEXE.Engine.FlowNode.add_incoming(target, id)
     after
       seq_flow
     end
@@ -65,11 +65,11 @@ defmodule BPEXE.Proc.Process do
   format:
 
   ```elixir
-  {BPEXE.Proc.Process.Log, message}
+  {BPEXE.Engine.Process.Log, message}
   ```
 
   to `subscriber` (`self()` by default). Most (if not all?) log messages should be defined in
-  `BPEXE.Proc.Process.Log` module.
+  `BPEXE.Engine.Process.Log` module.
 
   This is particularly useful for testing, rendering visualizations, etc.
 
@@ -97,7 +97,7 @@ defmodule BPEXE.Proc.Process do
   """
   @spec log(pid(), term()) :: :ok
   def log(pid, log) do
-    :syn.publish({pid, :log_log}, {BPEXE.Proc.Process.Log, log})
+    :syn.publish({pid, :log_log}, {BPEXE.Engine.Process.Log, log})
   end
 
   def start(pid) do
@@ -164,7 +164,7 @@ defmodule BPEXE.Proc.Process do
       apply(module, :start_link, args)
       |> Result.map(fn pid ->
         if options = pending_sequence_flows[id] do
-          BPEXE.Proc.FlowNode.add_sequence_flow(pid, id, options)
+          BPEXE.Engine.FlowNode.add_sequence_flow(pid, id, options)
         end
 
         pid
@@ -177,7 +177,7 @@ defmodule BPEXE.Proc.Process do
   def handle_call({:add_event, id, options, type}, _from, state) do
     case {type,
           start_flow_node(
-            BPEXE.Proc.Event,
+            BPEXE.Engine.Event,
             id,
             [id, type, options, state.instance, self()],
             state
@@ -191,13 +191,13 @@ defmodule BPEXE.Proc.Process do
   end
 
   def handle_call({:add_task, id, type, options}, _from, state) do
-    start_flow_node(BPEXE.Proc.Task, id, [id, type, options, state.instance, self()], state)
+    start_flow_node(BPEXE.Engine.Task, id, [id, type, options, state.instance, self()], state)
   end
 
   def handle_call({:add_sequence_flow, id, options}, _from, state) do
     case :syn.whereis({state.instance.pid, :flow_node, options["sourceRef"]}) do
       pid when is_pid(pid) ->
-        BPEXE.Proc.FlowNode.add_sequence_flow(pid, id, options)
+        BPEXE.Engine.FlowNode.add_sequence_flow(pid, id, options)
         {:reply, {:ok, id}, state}
 
       :undefined ->
@@ -211,12 +211,12 @@ defmodule BPEXE.Proc.Process do
   end
 
   def handle_call({:add_parallel_gateway, id, options}, _from, state) do
-    start_flow_node(BPEXE.Proc.ParallelGateway, id, [id, options, state.instance, self()], state)
+    start_flow_node(BPEXE.Engine.ParallelGateway, id, [id, options, state.instance, self()], state)
   end
 
   def handle_call({:add_event_based_gateway, id, options}, _from, state) do
     start_flow_node(
-      BPEXE.Proc.EventBasedGateway,
+      BPEXE.Engine.EventBasedGateway,
       id,
       [id, options, state.instance, self()],
       state
@@ -240,7 +240,7 @@ defmodule BPEXE.Proc.Process do
     variables = Map.merge(state.variables, variables)
 
     if variables != state.variables do
-      BPEXE.Proc.Instance.save_state(state.instance, :FIXME, state.id, self(), %{
+      BPEXE.Engine.Instance.save_state(state.instance, :FIXME, state.id, self(), %{
         variables: variables
       })
     end

@@ -16,7 +16,7 @@ defmodule BPEXE.BPMN do
     @behaviour Saxy.Handler
 
     defstruct ns: %{},
-              handler: BPEXE.Proc,
+              handler: BPEXE.BPMN.Handler.Engine,
               current: [],
               characters: nil
 
@@ -34,7 +34,7 @@ defmodule BPEXE.BPMN do
     def handle_event(:start_document, _prolog, options) when is_list(options) do
       {:ok,
        %__MODULE__{
-         handler: options[:handler] || BPEXE.Proc,
+         handler: options[:handler] || BPEXE.BPMN.Handler.Engine,
          current: [options[:instance]]
        }}
     end

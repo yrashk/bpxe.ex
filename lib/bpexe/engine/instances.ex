@@ -1,4 +1,4 @@
-defmodule BPEXE.Proc.Instances do
+defmodule BPEXE.Engine.Instances do
   use DynamicSupervisor
 
   def start_link(init_arg) do
@@ -11,6 +11,6 @@ defmodule BPEXE.Proc.Instances do
   end
 
   def start_instance(options \\ []) do
-    DynamicSupervisor.start_child(__MODULE__, {BPEXE.Proc.Instance, options})
+    DynamicSupervisor.start_child(__MODULE__, {BPEXE.Engine.Instance, options})
   end
 end

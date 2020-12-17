@@ -1,8 +1,8 @@
-defmodule BPEXE.Proc.ParallelGateway do
+defmodule BPEXE.Engine.ParallelGateway do
   use GenServer
-  use BPEXE.Proc.FlowNode
-  alias BPEXE.Proc.Process
-  alias BPEXE.Proc.Process.Log
+  use BPEXE.Engine.FlowNode
+  alias BPEXE.Engine.Process
+  alias BPEXE.Engine.Process.Log
 
   defstate([id: nil, options: %{}, instance: nil, process: nil, tokens: %{}, drop_tokens: %{}],
     persist: ~w(tokens drop_tokens)a

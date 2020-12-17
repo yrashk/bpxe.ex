@@ -1,8 +1,8 @@
-defmodule BPEXE.Proc.Event do
+defmodule BPEXE.Engine.Event do
   use GenServer
-  use BPEXE.Proc.FlowNode
-  alias BPEXE.Proc.Process
-  alias BPEXE.Proc.Process.Log
+  use BPEXE.Engine.FlowNode
+  alias BPEXE.Engine.Process
+  alias BPEXE.Engine.Process.Log
 
   defstate([id: nil, type: nil, options: %{}, instance: nil, process: nil, activated: nil],
     persist: ~w(activated)a
@@ -60,7 +60,7 @@ defmodule BPEXE.Proc.Event do
         {%BPEXE.Message{
            token: token,
            __invisible__: true,
-           properties: %{{BPEXE.Proc.EventBasedGateway, :route} => id}
+           properties: %{{BPEXE.Engine.EventBasedGateway, :route} => id}
          } = msg, id},
         %__MODULE__{activated: %BPEXE.Message{token: token}} = state
       ) do
@@ -79,7 +79,7 @@ defmodule BPEXE.Proc.Event do
         {%BPEXE.Message{
            token: token,
            __invisible__: true,
-           properties: %{{BPEXE.Proc.EventBasedGateway, :route} => _}
+           properties: %{{BPEXE.Engine.EventBasedGateway, :route} => _}
          } = msg, id},
         %__MODULE__{activated: %BPEXE.Message{token: token}} = state
       ) do

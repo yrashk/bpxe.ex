@@ -1,4 +1,4 @@
-defmodule BPEXE.Proc.Instance do
+defmodule BPEXE.Engine.Instance do
   use GenServer
 
   defmodule Config do
@@ -134,7 +134,7 @@ defmodule BPEXE.Proc.Instance do
 
   def start(pid, process_id) do
     process = :syn.whereis({pid, :process, process_id})
-    BPEXE.Proc.Process.start(process)
+    BPEXE.Engine.Process.start(process)
   end
 
   defstruct config: %{}, processes: %{}, notify_when_initialized: nil
@@ -167,7 +167,7 @@ defmodule BPEXE.Proc.Instance do
   end
 
   def handle_call({:add_process, id, options}, _from, state) do
-    case BPEXE.Proc.Process.start_link(id, options, state.config) do
+    case BPEXE.Engine.Process.start_link(id, options, state.config) do
       {:ok, pid} ->
         {:reply, {:ok, pid}, %{state | processes: Map.put(state.processes, id, options)}}
 

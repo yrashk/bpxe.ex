@@ -1,10 +1,10 @@
-defmodule BPEXE.Proc.FlowNode do
+defmodule BPEXE.Engine.FlowNode do
   defmacro __using__(_options \\ []) do
     quote location: :keep do
-      use BPEXE.Proc.Base
-      use BPEXE.Proc.Recoverable
+      use BPEXE.Engine.Base
+      use BPEXE.Engine.Recoverable
 
-      import BPEXE.Proc.FlowNode,
+      import BPEXE.Engine.FlowNode,
         only: [send_message: 3, send_message_back: 3, send: 3, defstate: 1, defstate: 2]
 
       def handle_call({:add_incoming, id}, _from, state) do
@@ -38,8 +38,8 @@ defmodule BPEXE.Proc.FlowNode do
       end
 
       def handle_info({%BPEXE.Message{__txn__: txn, __invisible__: invisible} = msg, id}, state) do
-        alias BPEXE.Proc.Process
-        alias BPEXE.Proc.Process.Log
+        alias BPEXE.Engine.Process
+        alias BPEXE.Engine.Process.Log
 
         if !invisible,
           do:
@@ -152,11 +152,11 @@ defmodule BPEXE.Proc.FlowNode do
             Map.put(acc, key, state_map[key])
           end)
 
-        BPEXE.Proc.Instance.save_state(state.instance, txn, state.id, self(), saving_state)
+        BPEXE.Engine.Instance.save_state(state.instance, txn, state.id, self(), saving_state)
       end
 
       defp commit_state(txn, state) do
-        BPEXE.Proc.Instance.commit_state(state.instance, txn, state.id)
+        BPEXE.Engine.Instance.commit_state(state.instance, txn, state.id)
       end
 
       defp ack(%BPEXE.Message{__txn__: 0}, _id, state) do

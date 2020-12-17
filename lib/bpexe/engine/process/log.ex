@@ -1,4 +1,4 @@
-defmodule BPEXE.Proc.Process.Log do
+defmodule BPEXE.Engine.Process.Log do
   defmodule FlowNodeActivated do
     defstruct pid: nil, id: nil, token: nil, message: nil
   end

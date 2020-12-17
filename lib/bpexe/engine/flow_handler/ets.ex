@@ -1,5 +1,5 @@
-defmodule BPEXE.Proc.FlowHandler.ETS do
-  alias BPEXE.Proc.FlowHandler
+defmodule BPEXE.Engine.FlowHandler.ETS do
+  alias BPEXE.Engine.FlowHandler
   alias ETS.Set
   @behaviour FlowHandler
 
@@ -109,7 +109,7 @@ defmodule BPEXE.Proc.FlowHandler.ETS do
       {_replies, _bad_pids} =
         :syn.multi_call(
           {instance, :state_recovery, id},
-          {BPEXE.Proc.Recoverable, :recovered_state, saved_state}
+          {BPEXE.Engine.Recoverable, :recovered_state, saved_state}
         )
 
       # FIXME-2: what should we do if not all replies are `ok` or there are bad pids?

@@ -1,7 +1,7 @@
-defmodule BPEXETest.Proc.Instance do
+defmodule BPEXETest.Engine.Instance do
   use ExUnit.Case
-  alias BPEXE.Proc.Instance
-  alias BPEXE.Proc.Process
+  alias BPEXE.Engine.Instance
+  alias BPEXE.Engine.Process
   doctest Instance
 
   test "starting instance" do

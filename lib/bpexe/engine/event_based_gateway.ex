@@ -1,8 +1,8 @@
-defmodule BPEXE.Proc.EventBasedGateway do
+defmodule BPEXE.Engine.EventBasedGateway do
   use GenServer
-  use BPEXE.Proc.FlowNode
-  alias BPEXE.Proc.Process
-  alias BPEXE.Proc.Process.Log
+  use BPEXE.Engine.FlowNode
+  alias BPEXE.Engine.Process
+  alias BPEXE.Engine.Process.Log
 
   defstate([id: nil, options: %{}, instance: nil, process: nil, activated: nil],
     persist: ~w(activated)a

@@ -1,5 +1,5 @@
-defmodule BPEXE.Proc.FlowHandler.Stepper do
-  alias BPEXE.Proc.FlowHandler
+defmodule BPEXE.Engine.FlowHandler.Stepper do
+  alias BPEXE.Engine.FlowHandler
   @behaviour FlowHandler
 
   defstruct pid: nil

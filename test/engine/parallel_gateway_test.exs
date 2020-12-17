@@ -1,8 +1,8 @@
-defmodule BPEXETest.Proc.ParallelGateway do
+defmodule BPEXETest.Engine.ParallelGateway do
   use ExUnit.Case
-  alias BPEXE.Proc.Instance
-  alias BPEXE.Proc.Process
-  alias BPEXE.Proc.Process.Log
+  alias BPEXE.Engine.Instance
+  alias BPEXE.Engine.Process
+  alias BPEXE.Engine.Process.Log
   doctest Instance
 
   test "forking parallel gateway should send message to all forks" do

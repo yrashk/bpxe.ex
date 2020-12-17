@@ -1,8 +1,8 @@
-defmodule BPEXE.Proc.Task do
+defmodule BPEXE.Engine.Task do
   use GenServer
-  use BPEXE.Proc.FlowNode
-  alias BPEXE.Proc.Process
-  alias BPEXE.Proc.Process.Log
+  use BPEXE.Engine.FlowNode
+  alias BPEXE.Engine.Process
+  alias BPEXE.Engine.Process.Log
 
   defstate([id: nil, type: nil, options: %{}, instance: nil, process: nil, script: ""],
     persist: []
