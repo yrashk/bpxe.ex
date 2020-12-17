@@ -22,21 +22,6 @@ defmodule BPEXE.Engine.EventBasedGateway do
   end
 
   def handle_message(
-        {%BPEXE.Message{__invisible__: true, token: token} = msg, id},
-        %__MODULE__{activated: token} = state
-      ) do
-    Process.log(state.process, %Log.EventBasedGatewayCompleted{
-      pid: self(),
-      id: state.id,
-      token: msg.token,
-      to: id
-    })
-
-    {:send, %{msg | properties: Map.put(msg.properties, {__MODULE__, :route}, id)},
-     %{state | activated: nil}}
-  end
-
-  def handle_message(
         {%BPEXE.Message{token: token} = msg, _id},
         %__MODULE__{activated: nil} = state
       ) do

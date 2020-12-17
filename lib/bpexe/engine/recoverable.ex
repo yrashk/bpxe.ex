@@ -1,6 +1,6 @@
 defmodule BPEXE.Engine.Recoverable do
   defmacro __using__(_options \\ []) do
-    quote location: :keep do
+    quote do
       def handle_info(
             {:syn_multi_call, pid, {BPEXE.Engine.Recoverable, :recovered_state, saved_state}},
             state

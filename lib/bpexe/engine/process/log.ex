@@ -23,6 +23,18 @@ defmodule BPEXE.Engine.Process.Log do
     defstruct pid: nil, id: nil, token: nil, to: []
   end
 
+  defmodule PrecedenceGatewayActivated do
+    defstruct pid: nil, id: nil, token: nil
+  end
+
+  defmodule PrecedenceGatewayPrecedenceEstablished do
+    defstruct pid: nil, id: nil, token: nil
+  end
+
+  defmodule PrecedenceGatewayMessageDiscarded do
+    defstruct pid: nil, id: nil, token: nil
+  end
+
   defmodule EventActivated do
     defstruct pid: nil, id: nil, token: nil
   end

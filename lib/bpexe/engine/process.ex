@@ -2,13 +2,14 @@ defmodule BPEXE.Engine.Process do
   use GenServer
   use BPEXE.Engine.Base
   use BPEXE.Engine.Recoverable
+  alias BPEXE.Engine.FlowNode
 
   def start_link(id, options, instance) do
     start_link([{id, options, instance}])
   end
 
-  def add_event(pid, id, options, type) do
-    GenServer.call(pid, {:add_event, id, options, type})
+  def add_event(pid, id, type, options) do
+    GenServer.call(pid, {:add_event, id, type, options})
   end
 
   def add_task(pid, id, type, options) do
@@ -31,7 +32,9 @@ defmodule BPEXE.Engine.Process do
 
   """
   @spec establish_sequence_flow(pid(), term(), pid(), pid()) :: {:ok, pid()} | {:error, term()}
-  def establish_sequence_flow(pid, id, source, target) do
+  @spec establish_sequence_flow(pid(), term(), pid(), pid(), Map.t() | [term]) ::
+          {:ok, pid()} | {:error, term()}
+  def establish_sequence_flow(pid, id, source, target, options \\ []) do
     require OK
 
     OK.for do
@@ -39,14 +42,19 @@ defmodule BPEXE.Engine.Process do
       target_ref = BPEXE.Engine.Base.id(target)
 
       seq_flow <-
-        add_sequence_flow(pid, id, %{
-          "id" => id,
-          "sourceRef" => source_ref,
-          "targetRef" => target_ref
-        })
+        add_sequence_flow(
+          pid,
+          id,
+          %{
+            "id" => id,
+            "sourceRef" => source_ref,
+            "targetRef" => target_ref
+          }
+          |> Map.merge(options |> Map.new())
+        )
 
-      _out <- BPEXE.Engine.FlowNode.add_outgoing(source, id)
-      _in <- BPEXE.Engine.FlowNode.add_incoming(target, id)
+      _out <- FlowNode.add_outgoing(source, id)
+      _in <- FlowNode.add_incoming(target, id)
     after
       seq_flow
     end
@@ -58,6 +66,13 @@ defmodule BPEXE.Engine.Process do
 
   def add_event_based_gateway(pid, id, options) do
     GenServer.call(pid, {:add_event_based_gateway, id, options})
+  end
+
+  @doc """
+  Adds Precedence Gateway (`BPEXE.Engine.PrecedenceGateway`). Please note that this is not a standard gateway.
+  """
+  def add_precedence_gateway(pid, id, options) do
+    GenServer.call(pid, {:add_precedence_gateway, id, options})
   end
 
   @doc """
@@ -113,11 +128,20 @@ defmodule BPEXE.Engine.Process do
   end
 
   def start(pid, id) do
+    synthesize(pid)
     instance = GenServer.call(pid, :instance)
     event = :syn.whereis({instance.pid, :event, :startEvent, id})
     msg = BPEXE.Message.new()
     send(event, {msg, nil})
     :ok
+  end
+
+  def synthesize(pid) do
+    GenServer.call(pid, :synthesize)
+  end
+
+  def flow_nodes(pid) do
+    GenServer.call(pid, :flow_nodes)
   end
 
   def variables(pid) do
@@ -137,7 +161,8 @@ defmodule BPEXE.Engine.Process do
             instance: nil,
             start_events: %{},
             variables: %{},
-            pending_sequence_flows: %{}
+            pending_sequence_flows: %{},
+            intermediate_catch_events: %{}
 
   def init({id, options, instance}) do
     :syn.register({instance.pid, :process, id}, self())
@@ -164,7 +189,7 @@ defmodule BPEXE.Engine.Process do
       apply(module, :start_link, args)
       |> Result.map(fn pid ->
         if options = pending_sequence_flows[id] do
-          BPEXE.Engine.FlowNode.add_sequence_flow(pid, id, options)
+          FlowNode.add_sequence_flow(pid, id, options)
         end
 
         pid
@@ -172,55 +197,6 @@ defmodule BPEXE.Engine.Process do
 
     {:reply, result,
      %{state | pending_sequence_flows: Map.delete(state.pending_sequence_flows, id)}}
-  end
-
-  def handle_call({:add_event, id, options, type}, _from, state) do
-    case {type,
-          start_flow_node(
-            BPEXE.Engine.Event,
-            id,
-            [id, type, options, state.instance, self()],
-            state
-          )} do
-      {:startEvent, {:reply, result, state}} ->
-        {:reply, result, %{state | start_events: Map.put(state.start_events, id, options)}}
-
-      {_, {:reply, result, state}} ->
-        {:reply, result, state}
-    end
-  end
-
-  def handle_call({:add_task, id, type, options}, _from, state) do
-    start_flow_node(BPEXE.Engine.Task, id, [id, type, options, state.instance, self()], state)
-  end
-
-  def handle_call({:add_sequence_flow, id, options}, _from, state) do
-    case :syn.whereis({state.instance.pid, :flow_node, options["sourceRef"]}) do
-      pid when is_pid(pid) ->
-        BPEXE.Engine.FlowNode.add_sequence_flow(pid, id, options)
-        {:reply, {:ok, id}, state}
-
-      :undefined ->
-        {:reply, {:ok, id},
-         %{
-           state
-           | pending_sequence_flows:
-               Map.put(state.pending_sequence_flows, options["sourceRef"], options)
-         }}
-    end
-  end
-
-  def handle_call({:add_parallel_gateway, id, options}, _from, state) do
-    start_flow_node(BPEXE.Engine.ParallelGateway, id, [id, options, state.instance, self()], state)
-  end
-
-  def handle_call({:add_event_based_gateway, id, options}, _from, state) do
-    start_flow_node(
-      BPEXE.Engine.EventBasedGateway,
-      id,
-      [id, options, state.instance, self()],
-      state
-    )
   end
 
   def handle_call(:start_events, _from, state) do
@@ -250,5 +226,195 @@ defmodule BPEXE.Engine.Process do
 
   def handle_call(:id, _from, state) do
     {:reply, state.id, state}
+  end
+
+  def handle_call(:synthesize, _from, state) do
+    {:reply, :ok, process_state(state)}
+  end
+
+  def handle_call(:flow_nodes, _from, state) do
+    {:reply, flow_nodes(), state}
+  end
+
+  def handle_call(operation, from, state) do
+    handle_call_internal(operation, from, state)
+  end
+
+  defp handle_call_internal({:add_event, id, type, options}, _from, state) do
+    case {type,
+          start_flow_node(
+            BPEXE.Engine.Event,
+            id,
+            [id, type, options, state.instance, self()],
+            state
+          )} do
+      {:startEvent, {:reply, result, state}} ->
+        {:reply, result, %{state | start_events: Map.put(state.start_events, id, options)}}
+
+      {_, {:reply, result, state}} ->
+        {:reply, result, state}
+    end
+  end
+
+  defp handle_call_internal({:add_task, id, type, options}, _from, state) do
+    start_flow_node(BPEXE.Engine.Task, id, [id, type, options, state.instance, self()], state)
+  end
+
+  defp handle_call_internal({:add_sequence_flow, id, options}, _from, state) do
+    case :syn.whereis({state.instance.pid, :flow_node, options["sourceRef"]}) do
+      pid when is_pid(pid) ->
+        FlowNode.add_sequence_flow(pid, id, options)
+        {:reply, {:ok, id}, state}
+
+      :undefined ->
+        {:reply, {:ok, id},
+         %{
+           state
+           | pending_sequence_flows:
+               Map.put(state.pending_sequence_flows, options["sourceRef"], options)
+         }}
+    end
+  end
+
+  defp handle_call_internal({:add_parallel_gateway, id, options}, _from, state) do
+    start_flow_node(
+      BPEXE.Engine.ParallelGateway,
+      id,
+      [id, options, state.instance, self()],
+      state
+    )
+  end
+
+  defp handle_call_internal({:add_event_based_gateway, id, options}, _from, state) do
+    start_flow_node(
+      BPEXE.Engine.EventBasedGateway,
+      id,
+      [id, options, state.instance, self()],
+      state
+    )
+  end
+
+  defp handle_call_internal({:add_precedence_gateway, id, options}, _from, state) do
+    start_flow_node(
+      BPEXE.Engine.PrecedenceGateway,
+      id,
+      [id, options, state.instance, self()],
+      state
+    )
+  end
+
+  defp process_state(state) do
+    state
+    |> synthesize_event_based_gateways()
+  end
+
+  defp synthesize_event_based_gateways(state) do
+    nodes =
+      for {node, BPEXE.Engine.EventBasedGateway} <- flow_nodes() do
+        node
+      end
+
+    Enum.reduce(nodes, state, &synthesize_event_based_gateway/2)
+  end
+
+  @spec_schema BPEXE.spec_schema()
+  defp synthesize_event_based_gateway(node, state) do
+    gateway_outgoing = FlowNode.get_outgoing(node)
+    gateway_id = BPEXE.Engine.Base.id(node)
+
+    all_nodes = flow_nodes()
+
+    precedence_gateway_id = {:synthesized_precedence_gateway, gateway_id}
+
+    events =
+      for {event_node, BPEXE.Engine.Event} <- all_nodes,
+          # event with the nodes that are connected to them
+          {node, _} <- all_nodes,
+          BPEXE.Engine.Base.id(node) != precedence_gateway_id,
+          # that are connected to the above event based gateway
+          event_incoming <- FlowNode.get_incoming(event_node),
+          Enum.member?(gateway_outgoing, event_incoming),
+          outgoing <- FlowNode.get_outgoing(event_node),
+          # where connected node incoming has event's outgoing
+          Enum.member?(FlowNode.get_incoming(node), outgoing) do
+        # this way it's complete for synthesis
+        event_node
+      end
+
+    Enum.reduce(events, state, fn event, acc ->
+      event_id = BPEXE.Engine.Base.id(event)
+      [event_outgoing | _] = FlowNode.get_outgoing(event)
+      FlowNode.clear_outgoing(event)
+      event_original_sequence_flow = FlowNode.remove_sequence_flow(event, event_outgoing)
+
+      {acc, gateway} =
+        case FlowNode.whereis(state.instance.pid, precedence_gateway_id) do
+          nil ->
+            {:reply, {:ok, gateway}, acc} =
+              handle_call_internal(
+                {:add_precedence_gateway, precedence_gateway_id, %{}},
+                :ignored,
+                acc
+              )
+
+            {acc, gateway}
+
+          pid when is_pid(pid) ->
+            {acc, pid}
+        end
+
+      event_sequence_flow_id = {:synthesized_sequence_flow, {:in, event_outgoing}}
+
+      FlowNode.add_sequence_flow(event, event_sequence_flow_id, %{
+        "sourceRef" => event_id,
+        "targetRef" => precedence_gateway_id
+      })
+
+      FlowNode.add_outgoing(event, event_sequence_flow_id)
+      FlowNode.add_incoming(gateway, event_sequence_flow_id)
+
+      gateway_sequence_flow_id = {:synthesized_sequence_flow, {:out, event_outgoing}}
+
+      target_id = event_original_sequence_flow["targetRef"]
+
+      FlowNode.add_sequence_flow(gateway, gateway_sequence_flow_id, %{
+        "sourceRef" => precedence_gateway_id,
+        "targetRef" => target_id,
+        {BPEXE.spec_schema(), "correspondsTo"} => event_sequence_flow_id
+      })
+
+      target = FlowNode.whereis(state.instance.pid, target_id)
+      FlowNode.remove_incoming(target, event_outgoing)
+
+      if BPEXE.Engine.Base.module(target) == BPEXE.Engine.PrecedenceGateway do
+        # if event's target is a precedence gateway, we need to rewrite incoming/outgoing mapping
+        for {flow, %{{@spec_schema, "correspondsTo"} => ^event_outgoing} = options} <-
+              FlowNode.get_sequence_flows(target) do
+          FlowNode.remove_sequence_flow(target, flow)
+
+          FlowNode.add_sequence_flow(target, flow, %{
+            options
+            | {BPEXE.spec_schema(), "correspondsTo"} => gateway_sequence_flow_id
+          })
+        end
+      end
+
+      FlowNode.add_incoming(target, gateway_sequence_flow_id)
+      FlowNode.add_outgoing(gateway, gateway_sequence_flow_id)
+
+      acc
+    end)
+  end
+
+  defp flow_nodes() do
+    {:links, links} = Process.info(self(), :links)
+
+    for link <- links,
+        {:dictionary, dict} = Process.info(link, :dictionary),
+        module = dict[BPEXE.Engine.Base],
+        not is_nil(module),
+        function_exported?(module, :flow_node?, 0) and apply(module, :flow_node?, []) do
+      {link, module}
+    end
   end
 end

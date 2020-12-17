@@ -1,13 +1,19 @@
 defmodule BPEXE.Engine.Base do
   defmacro __using__(_ \\ []) do
-    quote location: :keep do
+    quote do
       Module.register_attribute(__MODULE__, :initializer, accumulate: true)
 
       def handle_call(:id, _from, state) do
         {:reply, state.id, state}
       end
 
+      def handle_call(:module, _from, state) do
+        {:reply, __MODULE__, state}
+      end
+
       def initialize(state) do
+        Process.put(BPEXE.Engine.Base, __MODULE__)
+
         __initializers__()
         |> Enum.uniq()
         |> Enum.reduce(state, fn initializer, state -> apply(__MODULE__, initializer, [state]) end)
@@ -31,6 +37,10 @@ defmodule BPEXE.Engine.Base do
 
   def id(pid) do
     GenServer.call(pid, :id)
+  end
+
+  def module(pid) do
+    GenServer.call(pid, :module)
   end
 
   defmacro __before_compile__(_) do

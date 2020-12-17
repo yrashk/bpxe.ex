@@ -9,7 +9,7 @@ defmodule BPEXETest.Engine.Task do
     {:ok, pid} = Instance.start_link()
     {:ok, proc1} = Instance.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
 
-    {:ok, start} = Process.add_event(proc1, "start", %{"id" => "start"}, :startEvent)
+    {:ok, start} = Process.add_event(proc1, "start", :startEvent, %{"id" => "start"})
     {:ok, task} = Process.add_task(proc1, "task", :scriptTask, %{"id" => "task"})
     {:ok, _} = Task.add_script(task, ~s|
       process.a = {}
@@ -39,7 +39,7 @@ defmodule BPEXETest.Engine.Task do
     {:ok, pid} = Instance.start_link()
     {:ok, proc1} = Instance.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
 
-    {:ok, start} = Process.add_event(proc1, "start", %{"id" => "start"}, :startEvent)
+    {:ok, start} = Process.add_event(proc1, "start", :startEvent, %{"id" => "start"})
     {:ok, task} = Process.add_task(proc1, "task", :scriptTask, %{"id" => "task"})
     {:ok, _} = Task.add_script(task, ~s|
       |)

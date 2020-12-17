@@ -1,7 +1,7 @@
 defmodule BPEXE.BPMN do
   defmodule Handler do
     @callback add_process(term, Map.t()) :: {:ok, term} | {:error, term}
-    @callback add_event(term, Map.t(), type :: atom) :: {:ok, term} | {:error, term}
+    @callback add_event(term, type :: atom, Map.t()) :: {:ok, term} | {:error, term}
     @callback add_signal_event_definition(term, Map.t()) :: {:ok, term} | {:error, term}
     @callback add_task(term, Map.t()) :: {:ok, term} | {:error, term}
     @callback add_task(term, Map.t(), type :: atom) :: {:ok, term} | {:error, term}
@@ -145,7 +145,7 @@ defmodule BPEXE.BPMN do
           %__MODULE__{ns: %{@bpmn_spec => bpmn}, handler: handler, current: [process | _]} = state
         )
         when event in @event_types do
-      handler.add_event(process, args, String.to_atom(event))
+      handler.add_event(process, String.to_atom(event), args)
       |> Result.map(fn event -> %{state | current: [event | state.current]} end)
     end
 

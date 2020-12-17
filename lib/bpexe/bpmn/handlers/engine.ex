@@ -11,9 +11,9 @@ defmodule BPEXE.BPMN.Handler.Engine do
   end
 
   @impl BPMNHandler
-  def add_event(process, %{"id" => id} = options, type) do
+  def add_event(process, type, %{"id" => id} = options) do
     id = id || make_ref()
-    Engine.Process.add_event(process, id, options, type)
+    Engine.Process.add_event(process, id, type, options)
   end
 
   @impl BPMNHandler

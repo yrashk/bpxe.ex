@@ -27,7 +27,7 @@ defmodule BPEXETest.Engine.Instance do
 
     {:ok, proc2} = Instance.add_process(pid, "proc2", %{"id" => "proc2", "name" => "Proc 2"})
 
-    {:ok, _} = Process.add_event(proc2, "start", %{"id" => "start"}, :startEvent)
+    {:ok, _} = Process.add_event(proc2, "start", :startEvent, %{"id" => "start"})
 
     assert [{"proc1", {:error, :no_start_events}}, {"proc2", [{"start", :ok}]}] |> List.keysort(0) ==
              Instance.start(pid) |> List.keysort(0)

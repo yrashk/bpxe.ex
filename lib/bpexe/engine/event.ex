@@ -51,57 +51,21 @@ defmodule BPEXE.Engine.Event do
   # Hold the messages until event is trigerred
   def handle_message({%BPEXE.Message{} = msg, _id}, %__MODULE__{activated: nil} = state) do
     Process.log(state.process, %Log.EventActivated{pid: self(), id: state.id, token: msg.token})
-    {:dontack, %{state | activated: msg}}
-  end
-
-  # Message bounced back from the back-flow with this route, this means this flow was chosen
-  # by a gateway
-  def handle_message(
-        {%BPEXE.Message{
-           token: token,
-           __invisible__: true,
-           properties: %{{BPEXE.Engine.EventBasedGateway, :route} => id}
-         } = msg, id},
-        %__MODULE__{activated: %BPEXE.Message{token: token}} = state
-      ) do
-    Process.log(state.process, %Log.EventCompleted{pid: self(), id: state.id, token: msg.token})
-
-    # We didn't ack before, do it now
-    ack(%{msg | __invisible__: false}, id, state)
-
-    {:send, %{msg | __invisible__: false, __txn__: BPEXE.Message.next_txn(msg)},
-     %{state | activated: true}}
-  end
-
-  # Message bounced back from the back-flow with the different route, this means this flow was NOT chosen
-  # by a gateway
-  def handle_message(
-        {%BPEXE.Message{
-           token: token,
-           __invisible__: true,
-           properties: %{{BPEXE.Engine.EventBasedGateway, :route} => _}
-         } = msg, id},
-        %__MODULE__{activated: %BPEXE.Message{token: token}} = state
-      ) do
-    Process.log(state.process, %Log.EventCompleted{pid: self(), id: state.id, token: msg.token})
-
-    # We didn't ack before, do it now
-    ack(%{msg | __invisible__: false}, id, state)
-
-    {:dontsend, %{state | activated: nil}}
+    {:dontsend, %{state | activated: msg}}
   end
 
   # If a different message comes, forget the previous one we held,
   # overwrite it with the new one (FIXME: not sure this is a good default behaviour)
   def handle_message(
-        {%BPEXE.Message{token: token}, _id},
-        %__MODULE__{activated: %BPEXE.Message{token: token1} = msg1} = state
+        {%BPEXE.Message{token: token} = msg, _id},
+        %__MODULE__{activated: %BPEXE.Message{token: token1}} = state
       )
       when token != token1 do
-    {:dontsend, %{state | activated: msg1}}
+    Process.log(state.process, %Log.EventActivated{pid: self(), id: state.id, token: msg.token})
+    {:dontsend, %{state | activated: msg}}
   end
 
-  # When event is triggered, send it back to the gateway
+  # When event is triggered, send the message
   def handle_info(
         {BPEXE.Signal, _id},
         %__MODULE__{type: :intermediateCatchEvent, activated: activated, incoming: [gateway]} =
@@ -114,8 +78,24 @@ defmodule BPEXE.Engine.Event do
       token: activated.token
     })
 
-    state = send_message_back(gateway, %{activated | __invisible__: true}, state)
-    {:noreply, state}
+    txn = next_txn(activated)
+    activated = %{activated | __txn__: txn}
+
+    Process.log(state.process, %Log.FlowNodeForward{
+      pid: self(),
+      id: state.id,
+      token: activated.token,
+      to: state.outgoing
+    })
+
+    state =
+      Enum.reduce(state.outgoing, state, fn wire, state ->
+        send_message(wire, activated, state)
+      end)
+
+    save_state(txn, state)
+
+    {:noreply, handle_completion(state)}
   end
 
   def handle_info({BPEXE.Signal, _id}, state) do

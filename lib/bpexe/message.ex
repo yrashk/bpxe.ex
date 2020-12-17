@@ -1,10 +1,8 @@
 defmodule BPEXE.Message do
   defstruct token: nil,
             content: nil,
-            __invisible__: false,
             __txn__: 0,
-            __gen__: nil,
-            properties: %{}
+            __gen__: nil
 
   use ExConstructor
 

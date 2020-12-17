@@ -58,6 +58,18 @@ defmodule BPEXE.Engine.Instance do
     end
   end
 
+  def start(pid, process_id) do
+    process = :syn.whereis({pid, :process, process_id})
+    BPEXE.Engine.Process.start(process)
+  end
+
+  def synthesize(pid) do
+    for process <- processes(pid) do
+      pid = :syn.whereis({pid, :process, process})
+      BPEXE.Engine.Process.synthesize(pid)
+    end
+  end
+
   def config(pid) do
     GenServer.call(pid, :config)
   end
@@ -130,11 +142,6 @@ defmodule BPEXE.Engine.Instance do
 
   def restore_state(instance) when is_pid(instance) do
     instance |> config() |> restore_state()
-  end
-
-  def start(pid, process_id) do
-    process = :syn.whereis({pid, :process, process_id})
-    BPEXE.Engine.Process.start(process)
   end
 
   defstruct config: %{}, processes: %{}, notify_when_initialized: nil
