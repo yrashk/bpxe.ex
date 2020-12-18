@@ -27,6 +27,14 @@ defmodule BPXE.Engine.Process.Log do
     defstruct pid: nil, id: nil, message_id: nil, to: []
   end
 
+  defmodule InclusiveGatewayReceived do
+    defstruct pid: nil, id: nil, message_id: nil, from: nil
+  end
+
+  defmodule InclusiveGatewayCompleted do
+    defstruct pid: nil, id: nil, message_id: nil, fired: []
+  end
+
   defmodule PrecedenceGatewayActivated do
     defstruct pid: nil, id: nil, message_id: nil
   end
@@ -36,6 +44,14 @@ defmodule BPXE.Engine.Process.Log do
   end
 
   defmodule PrecedenceGatewayMessageDiscarded do
+    defstruct pid: nil, id: nil, message_id: nil
+  end
+
+  defmodule SensorGatewayActivated do
+    defstruct pid: nil, id: nil, message_id: nil
+  end
+
+  defmodule SensorGatewayCompleted do
     defstruct pid: nil, id: nil, message_id: nil
   end
 

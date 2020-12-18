@@ -68,6 +68,10 @@ defmodule BPXE.Engine.Process do
     GenServer.call(pid, {:add_parallel_gateway, id, options})
   end
 
+  def add_inclusive_gateway(pid, id, options) do
+    GenServer.call(pid, {:add_inclusive_gateway, id, options})
+  end
+
   def add_event_based_gateway(pid, id, options) do
     GenServer.call(pid, {:add_event_based_gateway, id, options})
   end
@@ -77,6 +81,13 @@ defmodule BPXE.Engine.Process do
   """
   def add_precedence_gateway(pid, id, options) do
     GenServer.call(pid, {:add_precedence_gateway, id, options})
+  end
+
+  @doc """
+  Adds Sensor Gateway (`BPXE.Engine.SensorGateway`). Please note that this is not a standard gateway.
+  """
+  def add_sensor_gateway(pid, id, options) do
+    GenServer.call(pid, {:add_sensor_gateway, id, options})
   end
 
   @doc """
@@ -232,8 +243,18 @@ defmodule BPXE.Engine.Process do
     {:reply, state.id, state}
   end
 
-  def handle_call(:synthesize, _from, state) do
-    {:reply, :ok, process_state(state)}
+  def handle_call(:synthesize, from, state) do
+    nodes = flow_nodes()
+
+    spawn(fn ->
+      for {node, _} <- nodes do
+        FlowNode.synthesize(node)
+      end
+
+      GenServer.reply(from, :ok)
+    end)
+
+    {:noreply, process_state(state)}
   end
 
   def handle_call(:flow_nodes, _from, state) do
@@ -297,6 +318,15 @@ defmodule BPXE.Engine.Process do
     )
   end
 
+  defp handle_call_internal({:add_inclusive_gateway, id, options}, _from, state) do
+    start_flow_node(
+      BPXE.Engine.InclusiveGateway,
+      id,
+      [id, options, state.instance, self()],
+      state
+    )
+  end
+
   defp handle_call_internal({:add_event_based_gateway, id, options}, _from, state) do
     start_flow_node(
       BPXE.Engine.EventBasedGateway,
@@ -309,6 +339,15 @@ defmodule BPXE.Engine.Process do
   defp handle_call_internal({:add_precedence_gateway, id, options}, _from, state) do
     start_flow_node(
       BPXE.Engine.PrecedenceGateway,
+      id,
+      [id, options, state.instance, self()],
+      state
+    )
+  end
+
+  defp handle_call_internal({:add_sensor_gateway, id, options}, _from, state) do
+    start_flow_node(
+      BPXE.Engine.SensorGateway,
       id,
       [id, options, state.instance, self()],
       state

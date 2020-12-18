@@ -4,7 +4,8 @@ defmodule BPXE.Engine.ParallelGateway do
   alias BPXE.Engine.Process
   alias BPXE.Engine.Process.Log
 
-  defstate([id: nil, options: %{}, instance: nil, process: nil, message_ids: %{}, drop_messages: %{}],
+  defstate(
+    [id: nil, options: %{}, instance: nil, process: nil, message_ids: %{}, drop_messages: %{}],
     persist: ~w(message_ids drop_messages)a
   )
 
@@ -67,7 +68,9 @@ defmodule BPXE.Engine.ParallelGateway do
 
           {:dontsend, %{state | drop_messages: drop_messages}}
         else
-          message_ids = Map.update(state.message_ids, msg.message_id, [msg], fn x -> [msg | x] end)
+          message_ids =
+            Map.update(state.message_ids, msg.message_id, [msg], fn x -> [msg | x] end)
+
           messages = message_ids[msg.message_id]
 
           join_threshold =

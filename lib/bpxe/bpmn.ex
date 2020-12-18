@@ -15,6 +15,7 @@ defmodule BPXE.BPMN do
     @callback add_sequence_flow(term, Map.t()) :: {:ok, term} | {:error, term}
     @callback add_condition_expression(term, Map.t(), String.t()) :: {:ok, term} | {:error, term}
     @callback add_parallel_gateway(term, Map.t()) :: {:ok, term} | {:error, term}
+    @callback add_inclusive_gateway(term, Map.t()) :: {:ok, term} | {:error, term}
     @callback add_event_based_gateway(term, Map.t()) :: {:ok, term} | {:error, term}
     @callback complete(term) :: {:ok, term} | {:error, term}
 
@@ -121,6 +122,23 @@ defmodule BPXE.BPMN do
     def handle_event(
           :end_element,
           {bpmn, "parallelGateway"},
+          %__MODULE__{ns: %{@bpmn_spec => bpmn}} = state
+        ) do
+      {:ok, %{state | current: tl(state.current)}}
+    end
+
+    def handle_event(
+          :start_element,
+          {{bpmn, "inclusiveGateway"}, args},
+          %__MODULE__{ns: %{@bpmn_spec => bpmn}, handler: handler, current: [current | _]} = state
+        ) do
+      handler.add_inclusive_gateway(current, args)
+      |> Result.map(fn gateway -> %{state | current: [gateway | state.current]} end)
+    end
+
+    def handle_event(
+          :end_element,
+          {bpmn, "inclusiveGateway"},
           %__MODULE__{ns: %{@bpmn_spec => bpmn}} = state
         ) do
       {:ok, %{state | current: tl(state.current)}}

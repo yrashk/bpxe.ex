@@ -60,6 +60,12 @@ defmodule BPXE.BPMN.Handler.Engine do
   end
 
   @impl BPMNHandler
+  def add_inclusive_gateway(process, %{"id" => id} = options) do
+    id = id || make_ref()
+    Engine.Process.add_inclusive_gateway(process, id, options)
+  end
+
+  @impl BPMNHandler
   def add_event_based_gateway(process, %{"id" => id} = options) do
     id = id || make_ref()
     Engine.Process.add_event_based_gateway(process, id, options)

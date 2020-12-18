@@ -67,6 +67,10 @@ defmodule BPXE.Engine.FlowNode do
         end
       end
 
+      def handle_call(:clear_sequence_flows, _from, state) do
+        {:reply, :ok, %{state | sequence_flows: %{}, sequence_flow_order: []}}
+      end
+
       def handle_call({:remove_sequence_flow, id}, _from, state) do
         :syn.leave({state.instance.pid, :flow_sequence, id}, self())
 
@@ -83,11 +87,18 @@ defmodule BPXE.Engine.FlowNode do
       end
 
       def handle_call(:get_incoming, _from, state) do
-        {:reply, state.incoming, state}
+        {:reply, state.incoming |> Enum.reverse(), state}
       end
 
       def handle_call(:get_outgoing, _from, state) do
-        {:reply, state.outgoing, state}
+        {:reply, state.outgoing |> Enum.reverse(), state}
+      end
+
+      def handle_call(:synthesize, _from, state) do
+        case synthesize(state) do
+          {:ok, state} -> {:reply, :ok, state}
+          {:error, err} -> {:reply, {:error, err}, state}
+        end
       end
 
       def handle_info({BPXE.Message.Ack, message_id, id}, state) do
@@ -285,11 +296,16 @@ defmodule BPXE.Engine.FlowNode do
         state
       end
 
+      def synthesize(state) do
+        {:ok, state}
+      end
+
       defoverridable handle_recovery: 2,
                      handle_message: 2,
                      handle_completion: 1,
                      send_message: 3,
-                     send: 3
+                     send: 3,
+                     synthesize: 1
     end
   end
 
@@ -344,8 +360,16 @@ defmodule BPXE.Engine.FlowNode do
     GenServer.call(pid, {:remove_sequence_flow, id})
   end
 
+  def clear_sequence_flows(pid) do
+    GenServer.call(pid, :clear_sequence_flows)
+  end
+
   def add_condition_expression({:sequence_flow, id, pid}, options, body) do
     GenServer.call(pid, {:add_condition_expression, id, options, body})
+  end
+
+  def synthesize(pid) do
+    GenServer.call(pid, :synthesize)
   end
 
   defmacro defstate(struct, options \\ []) do
