@@ -11,7 +11,8 @@ defmodule BPXE.Engine.InclusiveGateway do
       instance: nil,
       process: nil,
       fired: nil,
-      incoming_messages: []
+      incoming_messages: [],
+      synthesized: false
     ],
     persist: ~w(fired incoming_messages)a
   )
@@ -86,7 +87,7 @@ defmodule BPXE.Engine.InclusiveGateway do
 
     all_fired? =
       Enum.all?(fired_msg.content.fired, fn index ->
-        flow_id = incoming |> Enum.at(0)
+        flow_id = incoming |> Enum.at(index)
 
         Enum.find(incoming_messages, fn {msg, id} ->
           id == flow_id and msg.message_id == fired_msg.content.message_id
@@ -130,7 +131,11 @@ defmodule BPXE.Engine.InclusiveGateway do
   alias :digraph, as: G
   alias :digraph_utils, as: GU
 
-  def synthesize(%__MODULE__{process: process} = state) do
+  def synthesize(%__MODULE__{synthesized: true} = state) do
+    super(state)
+  end
+
+  def synthesize(%__MODULE__{process: process, synthesized: false} = state) do
     super(state)
     |> Result.map(fn state ->
       # Here we need to find if there was a shared fork earlier in the flow
@@ -206,7 +211,7 @@ defmodule BPXE.Engine.InclusiveGateway do
               "targetRef" => state.id
             })
 
-            %{state | incoming: [sensor_to_gateway_id | state.incoming]}
+            %{state | incoming: [sensor_to_gateway_id | state.incoming], synthesized: true}
           else
             state
           end
