@@ -5,7 +5,7 @@ defmodule BPXE.MixProject do
     [
       app: :bpxe,
       description: "Business Process Execution Engine",
-      version: version(),
+      version: "0.1.0",
       elixir: "~> 1.11",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
@@ -52,22 +52,5 @@ defmodule BPXE.MixProject do
       {:ex2ms, "~> 1.6.0"},
       {:xcuid, "~> 0.1.1"}
     ]
-  end
-
-  defp version do
-    case System.cmd(
-           "git",
-           ~w[describe --dirty=-dirty --always --tags],
-           stderr_to_stdout: true
-         ) do
-      {version, 0} ->
-        version
-        |> String.trim()
-        |> Version.parse!()
-        |> to_string()
-
-      _ ->
-        "0.0.0-dev"
-    end
   end
 end
