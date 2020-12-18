@@ -1,5 +1,5 @@
 defmodule BPEXE.Message do
-  defstruct token: nil,
+  defstruct message_id: nil,
             content: nil,
             __txn__: 0,
             __gen__: nil
@@ -8,7 +8,7 @@ defmodule BPEXE.Message do
 
   def new(options \\ []) do
     result = super(options)
-    %{result | token: result.token || make_ref(), __gen__: :atomics.new(2, [])}
+    %{result | message_id: result.message_id || make_ref(), __gen__: :atomics.new(2, [])}
   end
 
   def next_txn(%__MODULE__{__gen__: gen, __txn__: txn}) do

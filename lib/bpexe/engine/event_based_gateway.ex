@@ -22,15 +22,15 @@ defmodule BPEXE.Engine.EventBasedGateway do
   end
 
   def handle_message(
-        {%BPEXE.Message{token: token} = msg, _id},
+        {%BPEXE.Message{message_id: message_id} = msg, _id},
         %__MODULE__{activated: nil} = state
       ) do
     Process.log(state.process, %Log.EventBasedGatewayActivated{
       pid: self(),
       id: state.id,
-      token: msg.token
+      message_id: msg.message_id
     })
 
-    {:send, msg, %{state | activated: token}}
+    {:send, msg, %{state | activated: message_id}}
   end
 end

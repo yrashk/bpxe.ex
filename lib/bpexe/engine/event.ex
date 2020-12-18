@@ -41,29 +41,29 @@ defmodule BPEXE.Engine.Event do
   end
 
   def handle_message({%BPEXE.Message{} = msg, _id}, %__MODULE__{type: :startEvent} = state) do
-    Process.log(state.process, %Log.EventActivated{pid: self(), id: state.id, token: msg.token})
+    Process.log(state.process, %Log.EventActivated{pid: self(), id: state.id, message_id: msg.message_id})
     {:send, msg, state}
   end
 
   def handle_message({%BPEXE.Message{} = msg, _id}, %__MODULE__{type: :endEvent} = state) do
-    Process.log(state.process, %Log.EventActivated{pid: self(), id: state.id, token: msg.token})
+    Process.log(state.process, %Log.EventActivated{pid: self(), id: state.id, message_id: msg.message_id})
     {:dontsend, state}
   end
 
   # Hold the messages until event is trigerred
   def handle_message({%BPEXE.Message{} = msg, _id}, %__MODULE__{activated: nil} = state) do
-    Process.log(state.process, %Log.EventActivated{pid: self(), id: state.id, token: msg.token})
+    Process.log(state.process, %Log.EventActivated{pid: self(), id: state.id, message_id: msg.message_id})
     {:dontsend, %{state | activated: msg}}
   end
 
   # If a different message comes, forget the previous one we held,
   # overwrite it with the new one (FIXME: not sure this is a good default behaviour)
   def handle_message(
-        {%BPEXE.Message{token: token} = msg, _id},
-        %__MODULE__{activated: %BPEXE.Message{token: token1}} = state
+        {%BPEXE.Message{message_id: message_id} = msg, _id},
+        %__MODULE__{activated: %BPEXE.Message{message_id: message_id1}} = state
       )
-      when token != token1 do
-    Process.log(state.process, %Log.EventActivated{pid: self(), id: state.id, token: msg.token})
+      when message_id != message_id1 do
+    Process.log(state.process, %Log.EventActivated{pid: self(), id: state.id, message_id: msg.message_id})
     {:dontsend, %{state | activated: msg}}
   end
 
@@ -77,7 +77,7 @@ defmodule BPEXE.Engine.Event do
     Process.log(state.process, %Log.EventTrigerred{
       pid: self(),
       id: state.id,
-      token: activated.token
+      message_id: activated.message_id
     })
 
     txn = next_txn(activated)
@@ -86,7 +86,7 @@ defmodule BPEXE.Engine.Event do
     Process.log(state.process, %Log.FlowNodeForward{
       pid: self(),
       id: state.id,
-      token: activated.token,
+      message_id: activated.message_id,
       to: state.outgoing
     })
 

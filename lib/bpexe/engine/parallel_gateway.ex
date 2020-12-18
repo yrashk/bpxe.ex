@@ -4,8 +4,8 @@ defmodule BPEXE.Engine.ParallelGateway do
   alias BPEXE.Engine.Process
   alias BPEXE.Engine.Process.Log
 
-  defstate([id: nil, options: %{}, instance: nil, process: nil, tokens: %{}, drop_tokens: %{}],
-    persist: ~w(tokens drop_tokens)a
+  defstate([id: nil, options: %{}, instance: nil, process: nil, message_ids: %{}, drop_messages: %{}],
+    persist: ~w(message_ids drop_messages)a
   )
 
   def start_link(id, options, instance, process) do
@@ -22,7 +22,7 @@ defmodule BPEXE.Engine.ParallelGateway do
     Process.log(state.process, %Log.ParallelGatewayReceived{
       pid: self(),
       id: state.id,
-      token: msg.token,
+      message_id: msg.message_id,
       from: id
     })
 
@@ -32,7 +32,7 @@ defmodule BPEXE.Engine.ParallelGateway do
         Process.log(state.process, %Log.ParallelGatewayCompleted{
           pid: self(),
           id: state.id,
-          token: msg.token,
+          message_id: msg.message_id,
           to: state.outgoing
         })
 
@@ -43,7 +43,7 @@ defmodule BPEXE.Engine.ParallelGateway do
         Process.log(state.process, %Log.ParallelGatewayCompleted{
           pid: self(),
           id: state.id,
-          token: msg.token,
+          message_id: msg.message_id,
           to: []
         })
 
@@ -53,52 +53,52 @@ defmodule BPEXE.Engine.ParallelGateway do
         # Join
 
         # If join threshold was already reached, drop a message
-        drop_token = state.drop_tokens[msg.token]
+        drop_message = state.drop_messages[msg.message_id]
 
-        if !!drop_token do
-          drop_token = drop_token - 1
+        if !!drop_message do
+          drop_message = drop_message - 1
 
-          drop_tokens =
-            if drop_token == 0 do
-              Map.delete(state.drop_tokens, msg.token)
+          drop_messages =
+            if drop_message == 0 do
+              Map.delete(state.drop_messages, msg.message_id)
             else
-              Map.put(state.drop_tokens, msg.token, drop_token)
+              Map.put(state.drop_messages, msg.message_id, drop_message)
             end
 
-          {:dontsend, %{state | drop_tokens: drop_tokens}}
+          {:dontsend, %{state | drop_messages: drop_messages}}
         else
-          tokens = Map.update(state.tokens, msg.token, [msg], fn x -> [msg | x] end)
-          messages = tokens[msg.token]
+          message_ids = Map.update(state.message_ids, msg.message_id, [msg], fn x -> [msg | x] end)
+          messages = message_ids[msg.message_id]
 
           join_threshold =
             (state.options[{BPEXE.spec_schema(), "joinThreshold"}] || "#{length(state.incoming)}")
             |> String.to_integer()
 
           if length(messages) == join_threshold do
-            tokens = Map.delete(tokens, msg.token)
+            message_ids = Map.delete(message_ids, msg.message_id)
 
             message = %{hd(messages) | content: Enum.map(messages, fn m -> m.content end)}
 
             Process.log(state.process, %Log.ParallelGatewayCompleted{
               pid: self(),
               id: state.id,
-              token: msg.token,
+              message_id: msg.message_id,
               to: state.outgoing
             })
 
             {:send, message,
              %{
                state
-               | tokens: tokens,
-                 drop_tokens:
+               | message_ids: message_ids,
+                 drop_messages:
                    Map.put(
-                     state.drop_tokens,
-                     msg.token,
+                     state.drop_messages,
+                     msg.message_id,
                      length(state.incoming) - join_threshold
                    )
              }}
           else
-            {:dontsend, %{state | tokens: tokens}}
+            {:dontsend, %{state | message_ids: message_ids}}
           end
         end
     end

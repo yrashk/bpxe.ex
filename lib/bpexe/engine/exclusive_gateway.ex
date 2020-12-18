@@ -10,11 +10,11 @@ defmodule BPEXE.Engine.ExclusiveGateway do
       options: %{},
       instance: nil,
       process: nil,
-      tokens: %{},
-      drop_tokens: %{},
+      message_ids: %{},
+      drop_messages: %{},
       decision_made: false
     ],
-    persist: ~w(tokens drop_tokens)a
+    persist: ~w(message_ids drop_messages)a
   )
 
   def start_link(id, options, instance, process) do
@@ -31,7 +31,7 @@ defmodule BPEXE.Engine.ExclusiveGateway do
     Process.log(state.process, %Log.ExclusiveGatewayActivated{
       pid: self(),
       id: state.id,
-      token: msg.token
+      message_id: msg.message_id
     })
 
     {:send, msg, state}
@@ -40,7 +40,7 @@ defmodule BPEXE.Engine.ExclusiveGateway do
   def send_message(sequence_flow, msg, %__MODULE__{decision_made: false} = state) do
     state1 = super(sequence_flow, msg, state)
 
-    if Enum.any?(state1.buffer, fn {{token, _}, _} -> token == msg.token end) do
+    if Enum.any?(state1.buffer, fn {{message_id, _}, _} -> message_id == msg.message_id end) do
       %{state1 | decision_made: true}
     else
       state1

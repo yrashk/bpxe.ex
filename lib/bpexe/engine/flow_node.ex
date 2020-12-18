@@ -90,13 +90,13 @@ defmodule BPEXE.Engine.FlowNode do
         {:reply, state.outgoing, state}
       end
 
-      def handle_info({BPEXE.Message.Ack, token, id}, state) do
-        case Map.get(state.buffer, {token, id}) do
+      def handle_info({BPEXE.Message.Ack, message_id, id}, state) do
+        case Map.get(state.buffer, {message_id, id}) do
           %BPEXE.Message{__txn__: txn} ->
-            state = %{state | buffer: Map.delete(state.buffer, {token, id})}
+            state = %{state | buffer: Map.delete(state.buffer, {message_id, id})}
             save_state(txn, state)
             # if this message has been delivered to all recipients
-            unless Enum.any?(state.buffer, fn {{t, _}, _} -> t == token end) do
+            unless Enum.any?(state.buffer, fn {{t, _}, _} -> t == message_id end) do
               # commit
               commit_state(txn, state)
             end
@@ -116,7 +116,7 @@ defmodule BPEXE.Engine.FlowNode do
           pid: self(),
           id: state.id,
           message: msg,
-          token: msg.token
+          message_id: msg.message_id
         })
 
         case handle_message({msg, id}, state) do
@@ -129,7 +129,7 @@ defmodule BPEXE.Engine.FlowNode do
             Process.log(state.process, %Log.FlowNodeForward{
               pid: self(),
               id: state.id,
-              token: msg.token,
+              message_id: msg.message_id,
               to: state.outgoing
             })
 
@@ -158,7 +158,7 @@ defmodule BPEXE.Engine.FlowNode do
             Process.log(state.process, %Log.FlowNodeForward{
               pid: self(),
               id: state.id,
-              token: msg.token,
+              message_id: msg.message_id,
               to: outgoing
             })
 
@@ -194,7 +194,7 @@ defmodule BPEXE.Engine.FlowNode do
       def handle_recovery(recovered, state) do
         state = super(recovered, state)
 
-        Enum.reduce(state.buffer, state, fn {{_token, sequence_flow}, msg} ->
+        Enum.reduce(state.buffer, state, fn {{_message_id, sequence_flow}, msg} ->
           send(sequence_flow, msg, state)
         end)
       end
@@ -222,8 +222,8 @@ defmodule BPEXE.Engine.FlowNode do
         commit_state(0, state)
       end
 
-      defp ack(%BPEXE.Message{token: token}, id, state) do
-        :syn.publish({state.instance.pid, :flow_sequence, id}, {BPEXE.Message.Ack, token, id})
+      defp ack(%BPEXE.Message{message_id: message_id}, id, state) do
+        :syn.publish({state.instance.pid, :flow_sequence, id}, {BPEXE.Message.Ack, message_id, id})
       end
 
       @initializer :init_flow_node
@@ -261,7 +261,7 @@ defmodule BPEXE.Engine.FlowNode do
 
         if proceed do
           state = send(sequence_flow, msg, state)
-          %{state | buffer: Map.put(state.buffer, {msg.token, sequence_flow}, msg)}
+          %{state | buffer: Map.put(state.buffer, {msg.message_id, sequence_flow}, msg)}
         else
           state
         end

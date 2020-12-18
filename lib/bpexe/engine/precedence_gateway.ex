@@ -4,11 +4,11 @@ defmodule BPEXE.Engine.PrecedenceGateway do
   added programmatically (not through BPMN XML document, at this time)*
 
   This gateway will only process the first instance of a received message
-  (token) and send it out to a corresponding output. The correspondance is
-  achieved by requiring the same number of incoming and outgoing sequence
-  flows. Outgoing sequence flows have to have an additional option
-  `{BPEXE.spec_schema(), "correspondsTo"}` set to the name of the outgoing sequence
-  flow.
+  (tracked by message_id) and send it out to a corresponding output. The
+  correspondance is achieved by requiring the same number of incoming and
+  outgoing sequence flows. Outgoing sequence flows have to have an additional
+  option `{BPEXE.spec_schema(), "correspondsTo"}` set to the name of the
+  outgoing sequence flow.
   """
   use GenServer
   use BPEXE.Engine.FlowNode
@@ -33,18 +33,18 @@ defmodule BPEXE.Engine.PrecedenceGateway do
     Process.log(state.process, %Log.PrecedenceGatewayActivated{
       pid: self(),
       id: state.id,
-      token: msg.token
+      message_id: msg.message_id
     })
 
-    case state.precedence[msg.token] do
+    case state.precedence[msg.message_id] do
       nil ->
         Process.log(state.process, %Log.PrecedenceGatewayPrecedenceEstablished{
           pid: self(),
           id: state.id,
-          token: msg.token
+          message_id: msg.message_id
         })
 
-        state = %{state | precedence: Map.put(state.precedence, msg.token, [id])}
+        state = %{state | precedence: Map.put(state.precedence, msg.message_id, [id])}
 
         case corresponds_to(id, state) do
           nil ->
@@ -61,17 +61,18 @@ defmodule BPEXE.Engine.PrecedenceGateway do
         Process.log(state.process, %Log.PrecedenceGatewayMessageDiscarded{
           pid: self(),
           id: state.id,
-          token: msg.token
+          message_id: msg.message_id
         })
 
         new_precedence = [id | precedence]
 
         if length(new_precedence) == length(state.incoming) == length(state.outgoing) do
           # We've received them all, drop it from the state
-          {:dontsend, %{state | precedence: Map.delete(state.precedence, msg.token)}}
+          {:dontsend, %{state | precedence: Map.delete(state.precedence, msg.message_id)}}
         else
           # Drop the message
-          {:dontsend, %{state | precedence: Map.put(state.precedence, msg.token, new_precedence)}}
+          {:dontsend,
+           %{state | precedence: Map.put(state.precedence, msg.message_id, new_precedence)}}
         end
     end
   end

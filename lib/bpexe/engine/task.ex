@@ -33,7 +33,7 @@ defmodule BPEXE.Engine.Task do
   @process_var "process"
 
   def handle_message({msg, _id}, %__MODULE__{type: :scriptTask} = state) do
-    Process.log(state.process, %Log.TaskActivated{pid: self(), id: state.id, token: msg.token})
+    Process.log(state.process, %Log.TaskActivated{pid: self(), id: state.id, message_id: msg.message_id})
     {:ok, vm} = BPEXE.Language.Lua.new()
     state0 = Process.variables(state.process)
     vm = BPEXE.Language.set(vm, @process_var, state0)
@@ -43,13 +43,13 @@ defmodule BPEXE.Engine.Task do
 
     Process.set_variables(state.process, updated_state(state0, state1))
 
-    Process.log(state.process, %Log.TaskCompleted{pid: self(), id: state.id, token: msg.token})
+    Process.log(state.process, %Log.TaskCompleted{pid: self(), id: state.id, message_id: msg.message_id})
     {:send, msg, state}
   end
 
   def handle_message({msg, _id}, state) do
-    Process.log(state.process, %Log.TaskActivated{pid: self(), id: state.id, token: msg.token})
-    Process.log(state.process, %Log.TaskCompleted{pid: self(), id: state.id, token: msg.token})
+    Process.log(state.process, %Log.TaskActivated{pid: self(), id: state.id, message_id: msg.message_id})
+    Process.log(state.process, %Log.TaskCompleted{pid: self(), id: state.id, message_id: msg.message_id})
     {:send, msg, state}
   end
 
