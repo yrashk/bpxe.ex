@@ -9,6 +9,7 @@ defmodule BPEXE.BPMN do
     @callback add_outgoing(term, name :: String.t()) :: {:ok, term} | {:error, term}
     @callback add_incoming(term, name :: String.t()) :: {:ok, term} | {:error, term}
     @callback add_sequence_flow(term, Map.t()) :: {:ok, term} | {:error, term}
+    @callback add_condition_expression(term, Map.t(), String.t()) :: {:ok, term} | {:error, term}
     @callback add_parallel_gateway(term, Map.t()) :: {:ok, term} | {:error, term}
     @callback add_event_based_gateway(term, Map.t()) :: {:ok, term} | {:error, term}
     @callback complete(term) :: {:ok, term} | {:error, term}
@@ -18,7 +19,8 @@ defmodule BPEXE.BPMN do
     defstruct ns: %{},
               handler: BPEXE.BPMN.Handler.Engine,
               current: [],
-              characters: nil
+              characters: nil,
+              args: nil
 
     @bpmn_spec "http://www.omg.org/spec/BPMN/20100524/MODEL"
 
@@ -279,6 +281,29 @@ defmodule BPEXE.BPMN do
           %__MODULE__{ns: %{@bpmn_spec => bpmn}, current: [_ | rest]} = state
         ) do
       {:ok, %{state | current: rest}}
+    end
+
+    def handle_event(
+          :start_element,
+          {{bpmn, "conditionExpression"}, args},
+          %__MODULE__{ns: %{@bpmn_spec => bpmn}, characters: nil, args: args} = state
+        ) do
+      {:ok, %{state | characters: ""}}
+    end
+
+    def handle_event(
+          :end_element,
+          {bpmn, "conditionExpression"},
+          %__MODULE__{
+            ns: %{@bpmn_spec => bpmn},
+            handler: handler,
+            characters: body,
+            current: [flow | _],
+            args: args
+          } = state
+        ) do
+      handler.add_outgoing(flow, args, body)
+      |> Result.map(fn _ -> %{state | characters: nil, args: nil} end)
     end
 
     def handle_event(:end_document, _, %__MODULE__{current: [instance], handler: handler}) do

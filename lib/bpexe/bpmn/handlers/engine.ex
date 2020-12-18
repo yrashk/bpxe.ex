@@ -49,6 +49,11 @@ defmodule BPEXE.BPMN.Handler.Engine do
   end
 
   @impl BPMNHandler
+  def add_condition_expression(node, options, body) do
+    Engine.FlowNode.add_condition_expression(node, options, body)
+  end
+
+  @impl BPMNHandler
   def add_parallel_gateway(process, %{"id" => id} = options) do
     id = id || make_ref()
     Engine.Process.add_parallel_gateway(process, id, options)
