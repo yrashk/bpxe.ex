@@ -25,4 +25,5 @@
   "timex": {:hex, :timex, "3.6.2", "845cdeb6119e2fef10751c0b247b6c59d86d78554c83f78db612e3290f819bc2", [:mix], [{:combine, "~> 0.10", [hex: :combine, repo: "hexpm", optional: false]}, {:gettext, "~> 0.10", [hex: :gettext, repo: "hexpm", optional: false]}, {:tzdata, "~> 0.1.8 or ~> 0.5 or ~> 1.0.0", [hex: :tzdata, repo: "hexpm", optional: false]}], "hexpm", "26030b46199d02a590be61c2394b37ea25a3664c02fafbeca0b24c972025d47a"},
   "tzdata": {:hex, :tzdata, "1.0.5", "69f1ee029a49afa04ad77801febaf69385f3d3e3d1e4b56b9469025677b89a28", [:mix], [{:hackney, "~> 1.0", [hex: :hackney, repo: "hexpm", optional: false]}], "hexpm", "55519aa2a99e5d2095c1e61cc74c9be69688f8ab75c27da724eb8279ff402a5a"},
   "unicode_util_compat": {:hex, :unicode_util_compat, "0.5.0", "8516502659002cec19e244ebd90d312183064be95025a319a6c7e89f4bccd65b", [:rebar3], [], "hexpm", "d48d002e15f5cc105a696cf2f1bbb3fc72b4b770a184d8420c8db20da2674b38"},
+  "xcuid": {:hex, :xcuid, "0.1.1", "126bc73b364a97a7728286cfc025fa71f840ca35bc9044ecc2a7414bf2082491", [:mix], [], "hexpm", "d8c34fa23cd5d6055453fcc6722be1909e8101504e5c384641880f6848923a74"},
 }

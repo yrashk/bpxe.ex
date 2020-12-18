@@ -8,7 +8,7 @@ defmodule BPEXE.Message do
 
   def new(options \\ []) do
     result = super(options)
-    %{result | message_id: result.message_id || make_ref(), __gen__: :atomics.new(2, [])}
+    %{result | message_id: result.message_id || generate_id(), __gen__: :atomics.new(2, [])}
   end
 
   def next_txn(%__MODULE__{__gen__: gen, __txn__: txn}) do
@@ -19,5 +19,10 @@ defmodule BPEXE.Message do
       n ->
         n
     end
+  end
+
+  defp generate_id() do
+    {m, f, a} = Application.get_env(:bpexe, :message_id_generator)
+    apply(m, f, a)
   end
 end

@@ -20,6 +20,7 @@ defmodule BPEXE.MixProject do
       extra_applications: [:logger],
       mod: {BPEXE.Application, []},
       env: [
+        message_id_generator: {XCUID, :generate, []},
         default_expression_language: BPEXE.Language.Lua,
         expression_languages: %{"lua" => BPEXE.Language.Lua},
         extra_expression_languages: %{"lua" => BPEXE.Language.Lua}
@@ -42,7 +43,8 @@ defmodule BPEXE.MixProject do
       {:ok, "~> 2.3.0"},
       {:map_diff, "~> 1.3.4"},
       {:exconstructor, "~> 1.1.0"},
-      {:ex2ms, "~> 1.6.0"}
+      {:ex2ms, "~> 1.6.0"},
+      {:xcuid, "~> 0.1.1"}
     ]
   end
 end
