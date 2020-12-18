@@ -4,12 +4,18 @@ defmodule BPXE.MixProject do
   def project do
     [
       app: :bpxe,
-      version: "0.1.0",
+      description: "Business Process Execution Engine",
+      version: version(),
       elixir: "~> 1.11",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       docs: [
         main: "BPXE"
+      ],
+      package: [
+        licenses: ["Apache-2.0"],
+        source_url: "https://github.com/cjsuite/bpxe",
+        links: %{"GitHub" => "https://github.com/cjsuite/bpxe"}
       ]
     ]
   end
@@ -38,7 +44,7 @@ defmodule BPXE.MixProject do
       # for timer-based events
       {:timex, "~> 3.6.2"},
       # Lua scripting (Luerl)
-      {:luerl, github: "rvirding/luerl", ref: "1b0699c"},
+      {:luerl, "~> 0.4.0"},
       {:ex_doc, "~> 0.23", only: :dev, runtime: false},
       {:ok, "~> 2.3.0"},
       {:map_diff, "~> 1.3.4"},
@@ -46,5 +52,22 @@ defmodule BPXE.MixProject do
       {:ex2ms, "~> 1.6.0"},
       {:xcuid, "~> 0.1.1"}
     ]
+  end
+
+  defp version do
+    case System.cmd(
+           "git",
+           ~w[describe --dirty=-dirty --always --tags],
+           stderr_to_stdout: true
+         ) do
+      {version, 0} ->
+        version
+        |> String.trim()
+        |> Version.parse!()
+        |> to_string()
+
+      _ ->
+        "0.0.0-dev"
+    end
   end
 end
