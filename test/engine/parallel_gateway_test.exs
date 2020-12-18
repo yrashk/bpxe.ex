@@ -3,7 +3,7 @@ defmodule BPEXETest.Engine.ParallelGateway do
   alias BPEXE.Engine.Instance
   alias BPEXE.Engine.Process
   alias BPEXE.Engine.Process.Log
-  doctest Instance
+  doctest BPEXE.Engine.ParallelGateway
 
   test "forking parallel gateway should send message to all forks" do
     {:ok, pid} = Instance.start_link()

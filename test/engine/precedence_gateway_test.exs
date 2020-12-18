@@ -4,7 +4,7 @@ defmodule BPEXETest.Engine.PrecedenceGateway do
   alias BPEXE.Engine.Process
   alias BPEXE.Engine.Process.Log
   alias BPEXE.Engine.Event
-  doctest Instance
+  doctest BPEXE.Engine.PrecedenceGateway
 
   test "sends first message received (establishment of precedence)" do
     {:ok, pid} = Instance.start_link()

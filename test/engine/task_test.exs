@@ -3,7 +3,7 @@ defmodule BPEXETest.Engine.Task do
   alias BPEXE.Engine.Instance
   alias BPEXE.Engine.{Process, Task}
   alias BPEXE.Engine.Process.Log
-  doctest Instance
+  doctest Task
 
   test "executes a script, captures state and retrieves it in other scripts" do
     {:ok, pid} = Instance.start_link()

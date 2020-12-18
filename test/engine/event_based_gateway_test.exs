@@ -4,7 +4,7 @@ defmodule BPEXETest.Engine.EventBasedGateway do
   alias BPEXE.Engine.Process
   alias BPEXE.Engine.Process.Log
   alias BPEXE.Engine.Event
-  doctest Instance
+  doctest BPEXE.Engine.EventBasedGateway
 
   test "no event captured means no event-based branch will be chosen" do
     {:ok, pid} = Instance.start_link()

@@ -3,7 +3,7 @@ defmodule BPEXETest.Engine.Process do
   alias BPEXE.Engine.Instance
   alias BPEXE.Engine.Process
   alias BPEXE.Engine.Event
-  doctest Instance
+  doctest Process
 
   test "re-synthesizing flow nodes doesn't do anything" do
     {:ok, pid} = Instance.start_link()
