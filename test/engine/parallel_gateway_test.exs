@@ -1,9 +1,9 @@
-defmodule BPEXETest.Engine.ParallelGateway do
+defmodule BPXETest.Engine.ParallelGateway do
   use ExUnit.Case
-  alias BPEXE.Engine.Instance
-  alias BPEXE.Engine.Process
-  alias BPEXE.Engine.Process.Log
-  doctest BPEXE.Engine.ParallelGateway
+  alias BPXE.Engine.Instance
+  alias BPXE.Engine.Process
+  alias BPXE.Engine.Process.Log
+  doctest BPXE.Engine.ParallelGateway
 
   test "forking parallel gateway should send message to all forks" do
     {:ok, pid} = Instance.start_link()
@@ -59,7 +59,7 @@ defmodule BPEXETest.Engine.ParallelGateway do
              Instance.start(pid) |> List.keysort(0)
 
     assert_receive(
-      {Log, %Log.FlowNodeActivated{id: "t3", message: %BPEXE.Message{content: [nil, nil]}}}
+      {Log, %Log.FlowNodeActivated{id: "t3", message: %BPXE.Message{content: [nil, nil]}}}
     )
   end
 
@@ -81,7 +81,7 @@ defmodule BPEXETest.Engine.ParallelGateway do
     {:ok, join} =
       Process.add_parallel_gateway(proc1, "join", %{
         "id" => "join",
-        {BPEXE.spec_schema(), "joinThreshold"} => "1"
+        {BPXE.BPMN.ext_spec(), "joinThreshold"} => "1"
       })
 
     {:ok, _} = Process.establish_sequence_flow(proc1, "join_1", t1, join)
@@ -96,7 +96,7 @@ defmodule BPEXETest.Engine.ParallelGateway do
              Instance.start(pid) |> List.keysort(0)
 
     assert_receive(
-      {Log, %Log.FlowNodeActivated{id: "t3", message: %BPEXE.Message{content: [nil]}}}
+      {Log, %Log.FlowNodeActivated{id: "t3", message: %BPXE.Message{content: [nil]}}}
     )
   end
 end

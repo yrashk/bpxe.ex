@@ -1,9 +1,9 @@
-defmodule BPEXETest.Engine.Instance do
+defmodule BPXETest.Engine.Instance do
   use ExUnit.Case
-  alias BPEXE.Engine.Instance
-  alias BPEXE.Engine.Process
-  alias BPEXE.Engine.Process.Log
-  alias BPEXE.Engine.Event
+  alias BPXE.Engine.Instance
+  alias BPXE.Engine.Process
+  alias BPXE.Engine.Process.Log
+  alias BPXE.Engine.Event
   doctest Instance
 
   test "starting instance" do
@@ -37,30 +37,30 @@ defmodule BPEXETest.Engine.Instance do
 
   test "should resume after a restart if we restore the state" do
     # Set up ETS flow handler
-    {:ok, h} = BPEXE.Engine.FlowHandler.ETS.new()
+    {:ok, h} = BPXE.Engine.FlowHandler.ETS.new()
 
     me = self()
     id = make_ref()
-    :syn.join({BPEXE.Engine.Instance, id}, me)
+    :syn.join({BPXE.Engine.Instance, id}, me)
 
     {:ok, pid} =
-      BPEXE.Engine.Instances.start_instance(
+      BPXE.Engine.Instances.start_instance(
         flow_handler: h,
         id: id,
         init_fn: fn pid ->
           proc1 = restart_setup(pid)
 
           :ok = Process.subscribe_log(proc1, me)
-          BPEXE.Engine.Instance.restore_state(pid)
-          send(me, {BPEXE.Engine.Instance, :started, pid})
+          BPXE.Engine.Instance.restore_state(pid)
+          send(me, {BPXE.Engine.Instance, :started, pid})
         end
       )
 
     receive do
-      {BPEXE.Engine.Instance, :started, _pid} -> :ok
+      {BPXE.Engine.Instance, :started, _pid} -> :ok
     end
 
-    BPEXE.Engine.Instance.start(pid)
+    BPXE.Engine.Instance.start(pid)
 
     assert_receive({Log, %Log.EventActivated{id: "ev1"}})
     # at this point, ev1 is ready to get a signal
@@ -73,7 +73,7 @@ defmodule BPEXETest.Engine.Instance do
     # wait until it restarts
     pid =
       receive do
-        {BPEXE.Engine.Instance, :started, pid} -> pid
+        {BPXE.Engine.Instance, :started, pid} -> pid
       end
 
     # send it the signal
@@ -84,34 +84,34 @@ defmodule BPEXETest.Engine.Instance do
     assert_receive({Log, %Log.TaskActivated{id: "t1"}})
 
     # shutdown
-    BPEXE.Engine.Instances.stop_instance(pid)
+    BPXE.Engine.Instances.stop_instance(pid)
   end
 
   test "should not resume after a restart if we don't restore the state" do
     # Set up ETS flow handler
-    {:ok, h} = BPEXE.Engine.FlowHandler.ETS.new()
+    {:ok, h} = BPXE.Engine.FlowHandler.ETS.new()
 
     me = self()
     id = make_ref()
-    :syn.join({BPEXE.Engine.Instance, id}, me)
+    :syn.join({BPXE.Engine.Instance, id}, me)
 
     {:ok, pid} =
-      BPEXE.Engine.Instances.start_instance(
+      BPXE.Engine.Instances.start_instance(
         flow_handler: h,
         id: id,
         init_fn: fn pid ->
           proc1 = restart_setup(pid)
 
           :ok = Process.subscribe_log(proc1, me)
-          send(me, {BPEXE.Engine.Instance, :started, pid})
+          send(me, {BPXE.Engine.Instance, :started, pid})
         end
       )
 
     receive do
-      {BPEXE.Engine.Instance, :started, _pid} -> :ok
+      {BPXE.Engine.Instance, :started, _pid} -> :ok
     end
 
-    BPEXE.Engine.Instance.start(pid)
+    BPXE.Engine.Instance.start(pid)
 
     assert_receive({Log, %Log.EventActivated{id: "ev1"}})
     # at this point, ev1 is ready to get a signal
@@ -124,7 +124,7 @@ defmodule BPEXETest.Engine.Instance do
     # wait until it restarts
     pid =
       receive do
-        {BPEXE.Engine.Instance, :started, pid} -> pid
+        {BPXE.Engine.Instance, :started, pid} -> pid
       end
 
     # send it the signal
@@ -136,11 +136,11 @@ defmodule BPEXETest.Engine.Instance do
     refute_receive({Log, %Log.TaskActivated{id: "t1"}})
 
     # shutdown
-    BPEXE.Engine.Instances.stop_instance(pid)
+    BPXE.Engine.Instances.stop_instance(pid)
   end
 
   defp signal(instance, id) do
-    :syn.publish({instance, :signal, id}, {BPEXE.Signal, id})
+    :syn.publish({instance, :signal, id}, {BPXE.Signal, id})
   end
 
   defp flush_messages() do
@@ -178,7 +178,7 @@ defmodule BPEXETest.Engine.Instance do
     {:ok, _} = Process.establish_sequence_flow(proc1, "ev1_t", ev1, t1)
     {:ok, _} = Process.establish_sequence_flow(proc1, "ev2_t", ev2, t2)
 
-    BPEXE.Engine.Instance.synthesize(pid)
+    BPXE.Engine.Instance.synthesize(pid)
     proc1
   end
 end

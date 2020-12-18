@@ -1,10 +1,10 @@
-defmodule BPEXETest.Engine.EventBasedGateway do
+defmodule BPXETest.Engine.EventBasedGateway do
   use ExUnit.Case
-  alias BPEXE.Engine.Instance
-  alias BPEXE.Engine.Process
-  alias BPEXE.Engine.Process.Log
-  alias BPEXE.Engine.Event
-  doctest BPEXE.Engine.EventBasedGateway
+  alias BPXE.Engine.Instance
+  alias BPXE.Engine.Process
+  alias BPXE.Engine.Process.Log
+  alias BPXE.Engine.Event
+  doctest BPXE.Engine.EventBasedGateway
 
   test "no event captured means no event-based branch will be chosen" do
     {:ok, pid} = Instance.start_link()
@@ -135,6 +135,6 @@ defmodule BPEXETest.Engine.EventBasedGateway do
   end
 
   defp signal(instance, id) do
-    :syn.publish({instance, :signal, id}, {BPEXE.Signal, id})
+    :syn.publish({instance, :signal, id}, {BPXE.Signal, id})
   end
 end

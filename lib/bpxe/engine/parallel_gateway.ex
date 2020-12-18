@@ -1,8 +1,8 @@
-defmodule BPEXE.Engine.ParallelGateway do
+defmodule BPXE.Engine.ParallelGateway do
   use GenServer
-  use BPEXE.Engine.FlowNode
-  alias BPEXE.Engine.Process
-  alias BPEXE.Engine.Process.Log
+  use BPXE.Engine.FlowNode
+  alias BPXE.Engine.Process
+  alias BPXE.Engine.Process.Log
 
   defstate([id: nil, options: %{}, instance: nil, process: nil, message_ids: %{}, drop_messages: %{}],
     persist: ~w(message_ids drop_messages)a
@@ -18,7 +18,7 @@ defmodule BPEXE.Engine.ParallelGateway do
     {:ok, state}
   end
 
-  def handle_message({%BPEXE.Message{} = msg, id}, state) do
+  def handle_message({%BPXE.Message{} = msg, id}, state) do
     Process.log(state.process, %Log.ParallelGatewayReceived{
       pid: self(),
       id: state.id,
@@ -71,7 +71,7 @@ defmodule BPEXE.Engine.ParallelGateway do
           messages = message_ids[msg.message_id]
 
           join_threshold =
-            (state.options[{BPEXE.spec_schema(), "joinThreshold"}] || "#{length(state.incoming)}")
+            (state.options[{BPXE.BPMN.ext_spec(), "joinThreshold"}] || "#{length(state.incoming)}")
             |> String.to_integer()
 
           if length(messages) == join_threshold do

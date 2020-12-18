@@ -1,4 +1,4 @@
-defmodule BPEXE.Engine.PrecedenceGateway do
+defmodule BPXE.Engine.PrecedenceGateway do
   @moduledoc """
   *Note: This gateway is not described in BPMN 2.0. Currently it can only be
   added programmatically (not through BPMN XML document, at this time)*
@@ -7,13 +7,13 @@ defmodule BPEXE.Engine.PrecedenceGateway do
   (tracked by message_id) and send it out to a corresponding output. The
   correspondance is achieved by requiring the same number of incoming and
   outgoing sequence flows. Outgoing sequence flows have to have an additional
-  option `{BPEXE.spec_schema(), "correspondsTo"}` set to the name of the
+  option `{BPXE.BPMN.ext_spec(), "correspondsTo"}` set to the name of the
   outgoing sequence flow.
   """
   use GenServer
-  use BPEXE.Engine.FlowNode
-  alias BPEXE.Engine.Process
-  alias BPEXE.Engine.Process.Log
+  use BPXE.Engine.FlowNode
+  alias BPXE.Engine.Process
+  alias BPXE.Engine.Process.Log
 
   defstate([id: nil, options: %{}, instance: nil, process: nil, precedence: %{}],
     persist: ~w(precedence)a
@@ -29,7 +29,7 @@ defmodule BPEXE.Engine.PrecedenceGateway do
     {:ok, state}
   end
 
-  def handle_message({%BPEXE.Message{} = msg, id}, state) do
+  def handle_message({%BPXE.Message{} = msg, id}, state) do
     Process.log(state.process, %Log.PrecedenceGatewayActivated{
       pid: self(),
       id: state.id,
@@ -82,7 +82,7 @@ defmodule BPEXE.Engine.PrecedenceGateway do
       state.sequence_flows
       |> Enum.find(
         {nil, nil},
-        fn {_, options} -> options[{BPEXE.spec_schema(), "correspondsTo"}] == id end
+        fn {_, options} -> options[{BPXE.BPMN.ext_spec(), "correspondsTo"}] == id end
       )
 
     matched_id

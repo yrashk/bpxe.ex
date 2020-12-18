@@ -1,4 +1,4 @@
-defmodule BPEXE.Language.Lua do
+defmodule BPXE.Language.Lua do
   defstruct vm: nil
 
   def new() do
@@ -6,8 +6,8 @@ defmodule BPEXE.Language.Lua do
   end
 end
 
-defimpl BPEXE.Language, for: BPEXE.Language.Lua do
-  def eval(%BPEXE.Language.Lua{vm: vm} = instance, code) do
+defimpl BPXE.Language, for: BPXE.Language.Lua do
+  def eval(%BPXE.Language.Lua{vm: vm} = instance, code) do
     try do
       {result, vm} = Luerl.do(vm, code)
       {:ok, {result, %{instance | vm: vm}}}
@@ -17,11 +17,11 @@ defimpl BPEXE.Language, for: BPEXE.Language.Lua do
     end
   end
 
-  def set(%BPEXE.Language.Lua{vm: vm} = instance, name, variables) do
+  def set(%BPXE.Language.Lua{vm: vm} = instance, name, variables) do
     %{instance | vm: Luerl.set_table(vm, [name], variables)}
   end
 
-  def get(%BPEXE.Language.Lua{vm: vm}, name) do
+  def get(%BPXE.Language.Lua{vm: vm}, name) do
     {result, _} = Luerl.get_table(vm, [name])
     result
   end

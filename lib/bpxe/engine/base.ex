@@ -1,4 +1,4 @@
-defmodule BPEXE.Engine.Base do
+defmodule BPXE.Engine.Base do
   defmacro __using__(_ \\ []) do
     quote do
       Module.register_attribute(__MODULE__, :initializer, accumulate: true)
@@ -12,7 +12,7 @@ defmodule BPEXE.Engine.Base do
       end
 
       def initialize(state) do
-        Process.put(BPEXE.Engine.Base, __MODULE__)
+        Process.put(BPXE.Engine.Base, __MODULE__)
 
         __initializers__()
         |> Enum.uniq()
@@ -31,7 +31,7 @@ defmodule BPEXE.Engine.Base do
         :gen_server.enter_loop(__MODULE__, [], state)
       end
 
-      @before_compile BPEXE.Engine.Base
+      @before_compile BPXE.Engine.Base
     end
   end
 

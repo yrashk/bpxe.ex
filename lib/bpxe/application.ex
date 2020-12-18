@@ -1,4 +1,4 @@
-defmodule BPEXE.Application do
+defmodule BPXE.Application do
   # See https://hexdocs.pm/elixir/Application.html
   # for more information on OTP Applications
   @moduledoc false
@@ -8,14 +8,14 @@ defmodule BPEXE.Application do
   @impl true
   def start(_type, _args) do
     children = [
-      # Starts a worker by calling: BPEXE.Worker.start_link(arg)
-      # {BPEXE.Worker, arg}
-      BPEXE.Engine.Instances
+      # Starts a worker by calling: BPXE.Worker.start_link(arg)
+      # {BPXE.Worker, arg}
+      BPXE.Engine.Instances
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options
-    opts = [strategy: :one_for_one, name: BPEXE.Supervisor]
+    opts = [strategy: :one_for_one, name: BPXE.Supervisor]
 
     Supervisor.start_link(children, opts)
   end

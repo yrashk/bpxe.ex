@@ -1,4 +1,8 @@
-defmodule BPEXE.BPMN do
+defmodule BPXE.BPMN do
+  def ext_spec() do
+    "http://bpxe.org/spec/current"
+  end
+
   defmodule Handler do
     @callback add_process(term, Map.t()) :: {:ok, term} | {:error, term}
     @callback add_event(term, type :: atom, Map.t()) :: {:ok, term} | {:error, term}
@@ -17,7 +21,7 @@ defmodule BPEXE.BPMN do
     @behaviour Saxy.Handler
 
     defstruct ns: %{},
-              handler: BPEXE.BPMN.Handler.Engine,
+              handler: BPXE.BPMN.Handler.Engine,
               current: [],
               characters: nil,
               args: nil
@@ -36,7 +40,7 @@ defmodule BPEXE.BPMN do
     def handle_event(:start_document, _prolog, options) when is_list(options) do
       {:ok,
        %__MODULE__{
-         handler: options[:handler] || BPEXE.BPMN.Handler.Engine,
+         handler: options[:handler] || BPXE.BPMN.Handler.Engine,
          current: [options[:instance]]
        }}
     end

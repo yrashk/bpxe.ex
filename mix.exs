@@ -1,15 +1,15 @@
-defmodule BPEXE.MixProject do
+defmodule BPXE.MixProject do
   use Mix.Project
 
   def project do
     [
-      app: :bpexe,
+      app: :bpxe,
       version: "0.1.0",
       elixir: "~> 1.11",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       docs: [
-        main: "BPEXE"
+        main: "BPXE"
       ]
     ]
   end
@@ -18,12 +18,12 @@ defmodule BPEXE.MixProject do
   def application do
     [
       extra_applications: [:logger],
-      mod: {BPEXE.Application, []},
+      mod: {BPXE.Application, []},
       env: [
         message_id_generator: {XCUID, :generate, []},
-        default_expression_language: BPEXE.Language.Lua,
-        expression_languages: %{"lua" => BPEXE.Language.Lua},
-        extra_expression_languages: %{"lua" => BPEXE.Language.Lua}
+        default_expression_language: BPXE.Language.Lua,
+        expression_languages: %{"lua" => BPXE.Language.Lua},
+        extra_expression_languages: %{"lua" => BPXE.Language.Lua}
       ]
     ]
   end

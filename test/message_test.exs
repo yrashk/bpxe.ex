@@ -1,14 +1,14 @@
-defmodule BPEXETest.Message do
+defmodule BPXETest.Message do
   use ExUnit.Case
-  doctest BPEXE.Message
+  doctest BPXE.Message
 
   test "generating new transaction ID always generates non-duplicate, monotonic IDs" do
-    message = BPEXE.Message.new()
+    message = BPXE.Message.new()
 
     pid = self()
 
     for _ <- 1..1000 do
-      spawn_link(fn -> send(pid, BPEXE.Message.next_txn(message)) end)
+      spawn_link(fn -> send(pid, BPXE.Message.next_txn(message)) end)
     end
 
     messages = receive_all(1000) |> Enum.uniq() |> Enum.sort()
@@ -18,10 +18,10 @@ defmodule BPEXETest.Message do
   end
 
   test "generating more than 2^64 IDs still works (even though this is unlikely)" do
-    message = BPEXE.Message.new()
+    message = BPXE.Message.new()
     :atomics.add(message.__gen__, 1, 18_446_744_073_709_551_615)
 
-    assert BPEXE.Message.next_txn(%{message | __txn__: 18_446_744_073_709_551_615}) ==
+    assert BPXE.Message.next_txn(%{message | __txn__: 18_446_744_073_709_551_615}) ==
              18_446_744_073_709_551_616
   end
 

@@ -1,10 +1,10 @@
-defmodule BPEXETest.Engine.PrecedenceGateway do
+defmodule BPXETest.Engine.PrecedenceGateway do
   use ExUnit.Case
-  alias BPEXE.Engine.Instance
-  alias BPEXE.Engine.Process
-  alias BPEXE.Engine.Process.Log
-  alias BPEXE.Engine.Event
-  doctest BPEXE.Engine.PrecedenceGateway
+  alias BPXE.Engine.Instance
+  alias BPXE.Engine.Process
+  alias BPXE.Engine.Process.Log
+  alias BPXE.Engine.Event
+  doctest BPXE.Engine.PrecedenceGateway
 
   test "sends first message received (establishment of precedence)" do
     {:ok, pid} = Instance.start_link()
@@ -37,12 +37,12 @@ defmodule BPEXETest.Engine.PrecedenceGateway do
 
     {:ok, _} =
       Process.establish_sequence_flow(proc1, "ev1_t", pg, t1, %{
-        {BPEXE.spec_schema(), "correspondsTo"} => "ev1_pg"
+        {BPXE.BPMN.ext_spec(), "correspondsTo"} => "ev1_pg"
       })
 
     {:ok, _} =
       Process.establish_sequence_flow(proc1, "ev2_t", pg, t2, %{
-        {BPEXE.spec_schema(), "correspondsTo"} => "ev2_pg"
+        {BPXE.BPMN.ext_spec(), "correspondsTo"} => "ev2_pg"
       })
 
     :ok = Process.subscribe_log(proc1)
@@ -65,6 +65,6 @@ defmodule BPEXETest.Engine.PrecedenceGateway do
   end
 
   defp signal(instance, id) do
-    :syn.publish({instance, :signal, id}, {BPEXE.Signal, id})
+    :syn.publish({instance, :signal, id}, {BPXE.Signal, id})
   end
 end

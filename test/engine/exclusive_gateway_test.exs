@@ -1,8 +1,8 @@
-defmodule BPEXETest.Engine.ExclusiveGateway do
+defmodule BPXETest.Engine.ExclusiveGateway do
   use ExUnit.Case
-  alias BPEXE.Engine.{Instance, Process, FlowNode}
+  alias BPXE.Engine.{Instance, Process, FlowNode}
   alias Process.Log
-  doctest BPEXE.Engine.ExclusiveGateway
+  doctest BPXE.Engine.ExclusiveGateway
 
   @xsi "http://www.w3.org/2001/XMLSchema-instance"
   test "sequence flow with the first truthful condition proceeds" do

@@ -1,8 +1,8 @@
-defmodule BPEXE.Engine.Event do
+defmodule BPXE.Engine.Event do
   use GenServer
-  use BPEXE.Engine.FlowNode
-  alias BPEXE.Engine.Process
-  alias BPEXE.Engine.Process.Log
+  use BPXE.Engine.FlowNode
+  alias BPXE.Engine.Process
+  alias BPXE.Engine.Process.Log
 
   defstate([id: nil, type: nil, options: %{}, instance: nil, process: nil, activated: nil],
     persist: ~w(activated)a
@@ -40,7 +40,7 @@ defmodule BPEXE.Engine.Event do
     {:reply, {:ok, options}, state}
   end
 
-  def handle_message({%BPEXE.Message{} = msg, _id}, %__MODULE__{type: :startEvent} = state) do
+  def handle_message({%BPXE.Message{} = msg, _id}, %__MODULE__{type: :startEvent} = state) do
     Process.log(state.process, %Log.EventActivated{
       pid: self(),
       id: state.id,
@@ -50,7 +50,7 @@ defmodule BPEXE.Engine.Event do
     {:send, msg, state}
   end
 
-  def handle_message({%BPEXE.Message{} = msg, _id}, %__MODULE__{type: :endEvent} = state) do
+  def handle_message({%BPXE.Message{} = msg, _id}, %__MODULE__{type: :endEvent} = state) do
     Process.log(state.process, %Log.EventActivated{
       pid: self(),
       id: state.id,
@@ -61,7 +61,7 @@ defmodule BPEXE.Engine.Event do
   end
 
   # Hold the messages until event is trigerred
-  def handle_message({%BPEXE.Message{} = msg, _id}, %__MODULE__{activated: nil} = state) do
+  def handle_message({%BPXE.Message{} = msg, _id}, %__MODULE__{activated: nil} = state) do
     Process.log(state.process, %Log.EventActivated{
       pid: self(),
       id: state.id,
@@ -74,8 +74,8 @@ defmodule BPEXE.Engine.Event do
   # If a different message comes, forget the previous one we held,
   # overwrite it with the new one (FIXME: not sure this is a good default behaviour)
   def handle_message(
-        {%BPEXE.Message{message_id: message_id} = msg, _id},
-        %__MODULE__{activated: %BPEXE.Message{message_id: message_id1}} = state
+        {%BPXE.Message{message_id: message_id} = msg, _id},
+        %__MODULE__{activated: %BPXE.Message{message_id: message_id1}} = state
       )
       when message_id != message_id1 do
     Process.log(state.process, %Log.EventActivated{
@@ -89,7 +89,7 @@ defmodule BPEXE.Engine.Event do
 
   # When event is triggered, send the message
   def handle_info(
-        {BPEXE.Signal, _id},
+        {BPXE.Signal, _id},
         %__MODULE__{type: :intermediateCatchEvent, activated: activated, incoming: [gateway]} =
           state
       )
@@ -120,7 +120,7 @@ defmodule BPEXE.Engine.Event do
     {:noreply, handle_completion(state)}
   end
 
-  def handle_info({BPEXE.Signal, _id}, state) do
+  def handle_info({BPXE.Signal, _id}, state) do
     {:noreply, state}
   end
 

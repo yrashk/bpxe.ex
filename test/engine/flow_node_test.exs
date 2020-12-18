@@ -1,8 +1,8 @@
-defmodule BPEXETest.Engine.FlowNode do
+defmodule BPXETest.Engine.FlowNode do
   use ExUnit.Case
-  alias BPEXE.Engine.{Instance, Process, FlowNode}
+  alias BPXE.Engine.{Instance, Process, FlowNode}
   alias Process.Log
-  doctest BPEXE.Engine.FlowNode
+  doctest BPXE.Engine.FlowNode
 
   @xsi "http://www.w3.org/2001/XMLSchema-instance"
 

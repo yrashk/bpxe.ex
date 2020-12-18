@@ -1,8 +1,8 @@
-defmodule BPEXETest.Engine.Process do
+defmodule BPXETest.Engine.Process do
   use ExUnit.Case
-  alias BPEXE.Engine.Instance
-  alias BPEXE.Engine.Process
-  alias BPEXE.Engine.Event
+  alias BPXE.Engine.Instance
+  alias BPXE.Engine.Process
+  alias BPXE.Engine.Event
   doctest Process
 
   test "re-synthesizing flow nodes doesn't do anything" do

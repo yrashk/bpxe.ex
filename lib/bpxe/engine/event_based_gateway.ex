@@ -1,8 +1,8 @@
-defmodule BPEXE.Engine.EventBasedGateway do
+defmodule BPXE.Engine.EventBasedGateway do
   use GenServer
-  use BPEXE.Engine.FlowNode
-  alias BPEXE.Engine.Process
-  alias BPEXE.Engine.Process.Log
+  use BPXE.Engine.FlowNode
+  alias BPXE.Engine.Process
+  alias BPXE.Engine.Process.Log
 
   defstate([id: nil, options: %{}, instance: nil, process: nil, activated: nil],
     persist: ~w(activated)a
@@ -22,7 +22,7 @@ defmodule BPEXE.Engine.EventBasedGateway do
   end
 
   def handle_message(
-        {%BPEXE.Message{message_id: message_id} = msg, _id},
+        {%BPXE.Message{message_id: message_id} = msg, _id},
         %__MODULE__{activated: nil} = state
       ) do
     Process.log(state.process, %Log.EventBasedGatewayActivated{

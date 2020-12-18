@@ -1,8 +1,8 @@
-defmodule BPEXE.Engine.Task do
+defmodule BPXE.Engine.Task do
   use GenServer
-  use BPEXE.Engine.FlowNode
-  alias BPEXE.Engine.Process
-  alias BPEXE.Engine.Process.Log
+  use BPXE.Engine.FlowNode
+  alias BPXE.Engine.Process
+  alias BPXE.Engine.Process.Log
 
   defstate([id: nil, type: nil, options: %{}, instance: nil, process: nil, script: ""],
     persist: []
@@ -33,23 +33,43 @@ defmodule BPEXE.Engine.Task do
   @process_var "process"
 
   def handle_message({msg, _id}, %__MODULE__{type: :scriptTask} = state) do
-    Process.log(state.process, %Log.TaskActivated{pid: self(), id: state.id, message_id: msg.message_id})
-    {:ok, vm} = BPEXE.Language.Lua.new()
+    Process.log(state.process, %Log.TaskActivated{
+      pid: self(),
+      id: state.id,
+      message_id: msg.message_id
+    })
+
+    {:ok, vm} = BPXE.Language.Lua.new()
     state0 = Process.variables(state.process)
-    vm = BPEXE.Language.set(vm, @process_var, state0)
+    vm = BPXE.Language.set(vm, @process_var, state0)
     # TODO: handle errors
-    {:ok, {_result, vm}} = BPEXE.Language.eval(vm, state.script)
-    state1 = BPEXE.Language.get(vm, @process_var) |> ensure_maps()
+    {:ok, {_result, vm}} = BPXE.Language.eval(vm, state.script)
+    state1 = BPXE.Language.get(vm, @process_var) |> ensure_maps()
 
     Process.set_variables(state.process, updated_state(state0, state1))
 
-    Process.log(state.process, %Log.TaskCompleted{pid: self(), id: state.id, message_id: msg.message_id})
+    Process.log(state.process, %Log.TaskCompleted{
+      pid: self(),
+      id: state.id,
+      message_id: msg.message_id
+    })
+
     {:send, msg, state}
   end
 
   def handle_message({msg, _id}, state) do
-    Process.log(state.process, %Log.TaskActivated{pid: self(), id: state.id, message_id: msg.message_id})
-    Process.log(state.process, %Log.TaskCompleted{pid: self(), id: state.id, message_id: msg.message_id})
+    Process.log(state.process, %Log.TaskActivated{
+      pid: self(),
+      id: state.id,
+      message_id: msg.message_id
+    })
+
+    Process.log(state.process, %Log.TaskCompleted{
+      pid: self(),
+      id: state.id,
+      message_id: msg.message_id
+    })
+
     {:send, msg, state}
   end
 

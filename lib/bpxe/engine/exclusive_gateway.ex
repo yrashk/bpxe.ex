@@ -1,8 +1,8 @@
-defmodule BPEXE.Engine.ExclusiveGateway do
+defmodule BPXE.Engine.ExclusiveGateway do
   use GenServer
-  use BPEXE.Engine.FlowNode
-  alias BPEXE.Engine.Process
-  alias BPEXE.Engine.Process.Log
+  use BPXE.Engine.FlowNode
+  alias BPXE.Engine.Process
+  alias BPXE.Engine.Process.Log
 
   defstate(
     [
@@ -27,7 +27,7 @@ defmodule BPEXE.Engine.ExclusiveGateway do
     {:ok, state}
   end
 
-  def handle_message({%BPEXE.Message{} = msg, id}, state) do
+  def handle_message({%BPXE.Message{} = msg, id}, state) do
     Process.log(state.process, %Log.ExclusiveGatewayActivated{
       pid: self(),
       id: state.id,

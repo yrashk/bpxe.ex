@@ -1,4 +1,4 @@
-defmodule BPEXE.Engine.Instance do
+defmodule BPXE.Engine.Instance do
   use GenServer
 
   defmodule Config do
@@ -60,13 +60,13 @@ defmodule BPEXE.Engine.Instance do
 
   def start(pid, process_id) do
     process = :syn.whereis({pid, :process, process_id})
-    BPEXE.Engine.Process.start(process)
+    BPXE.Engine.Process.start(process)
   end
 
   def synthesize(pid) do
     for process <- processes(pid) do
       pid = :syn.whereis({pid, :process, process})
-      BPEXE.Engine.Process.synthesize(pid)
+      BPXE.Engine.Process.synthesize(pid)
     end
   end
 
@@ -174,7 +174,7 @@ defmodule BPEXE.Engine.Instance do
   end
 
   def handle_call({:add_process, id, options}, _from, state) do
-    case BPEXE.Engine.Process.start_link(id, options, state.config) do
+    case BPXE.Engine.Process.start_link(id, options, state.config) do
       {:ok, pid} ->
         {:reply, {:ok, pid}, %{state | processes: Map.put(state.processes, id, options)}}
 

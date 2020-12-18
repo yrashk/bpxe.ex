@@ -1,4 +1,4 @@
-defmodule BPEXE.Message do
+defmodule BPXE.Message do
   defstruct message_id: nil,
             content: nil,
             __txn__: 0,
@@ -22,7 +22,7 @@ defmodule BPEXE.Message do
   end
 
   defp generate_id() do
-    {m, f, a} = Application.get_env(:bpexe, :message_id_generator)
+    {m, f, a} = Application.get_env(:bpxe, :message_id_generator)
     apply(m, f, a)
   end
 end

@@ -1,10 +1,10 @@
-defmodule BPEXE.Engine.FlowNode do
+defmodule BPXE.Engine.FlowNode do
   defmacro __using__(_options \\ []) do
     quote do
-      use BPEXE.Engine.Base
-      use BPEXE.Engine.Recoverable
+      use BPXE.Engine.Base
+      use BPXE.Engine.Recoverable
 
-      import BPEXE.Engine.FlowNode,
+      import BPXE.Engine.FlowNode,
         only: [defstate: 1, defstate: 2]
 
       def handle_call({:add_incoming, id}, _from, state) do
@@ -90,9 +90,9 @@ defmodule BPEXE.Engine.FlowNode do
         {:reply, state.outgoing, state}
       end
 
-      def handle_info({BPEXE.Message.Ack, message_id, id}, state) do
+      def handle_info({BPXE.Message.Ack, message_id, id}, state) do
         case Map.get(state.buffer, {message_id, id}) do
-          %BPEXE.Message{__txn__: txn} ->
+          %BPXE.Message{__txn__: txn} ->
             state = %{state | buffer: Map.delete(state.buffer, {message_id, id})}
             save_state(txn, state)
             # if this message has been delivered to all recipients
@@ -108,9 +108,9 @@ defmodule BPEXE.Engine.FlowNode do
         end
       end
 
-      def handle_info({%BPEXE.Message{__txn__: txn} = msg, id}, state) do
-        alias BPEXE.Engine.Process
-        alias BPEXE.Engine.Process.Log
+      def handle_info({%BPXE.Message{__txn__: txn} = msg, id}, state) do
+        alias BPXE.Engine.Process
+        alias BPXE.Engine.Process.Log
 
         Process.log(state.process, %Log.FlowNodeActivated{
           pid: self(),
@@ -120,7 +120,7 @@ defmodule BPEXE.Engine.FlowNode do
         })
 
         case handle_message({msg, id}, state) do
-          {:send, %BPEXE.Message{} = new_msg, state} ->
+          {:send, %BPXE.Message{} = new_msg, state} ->
             new_msg = %{
               new_msg
               | __txn__: if(txn == new_msg.__txn__, do: next_txn(new_msg), else: new_msg.__txn__)
@@ -149,7 +149,7 @@ defmodule BPEXE.Engine.FlowNode do
 
             {:noreply, handle_completion(state)}
 
-          {:send, %BPEXE.Message{} = new_msg, outgoing, state} ->
+          {:send, %BPXE.Message{} = new_msg, outgoing, state} ->
             new_msg = %{
               new_msg
               | __txn__: if(txn == new_msg.__txn__, do: next_txn(new_msg), else: new_msg.__txn__)
@@ -183,7 +183,7 @@ defmodule BPEXE.Engine.FlowNode do
         end
       end
 
-      def handle_message({%BPEXE.Message{} = msg, _id}, state) do
+      def handle_message({%BPXE.Message{} = msg, _id}, state) do
         {:send, msg, state}
       end
 
@@ -199,8 +199,8 @@ defmodule BPEXE.Engine.FlowNode do
         end)
       end
 
-      defp next_txn(%BPEXE.Message{} = msg) do
-        BPEXE.Message.next_txn(msg)
+      defp next_txn(%BPXE.Message{} = msg) do
+        BPXE.Message.next_txn(msg)
       end
 
       defp save_state(txn, state) do
@@ -211,21 +211,21 @@ defmodule BPEXE.Engine.FlowNode do
             Map.put(acc, key, state_map[key])
           end)
 
-        BPEXE.Engine.Instance.save_state(state.instance, txn, state.id, self(), saving_state)
+        BPXE.Engine.Instance.save_state(state.instance, txn, state.id, self(), saving_state)
       end
 
       defp commit_state(txn, state) do
-        BPEXE.Engine.Instance.commit_state(state.instance, txn, state.id)
+        BPXE.Engine.Instance.commit_state(state.instance, txn, state.id)
       end
 
-      defp ack(%BPEXE.Message{__txn__: 0}, _id, state) do
+      defp ack(%BPXE.Message{__txn__: 0}, _id, state) do
         commit_state(0, state)
       end
 
-      defp ack(%BPEXE.Message{message_id: message_id}, id, state) do
+      defp ack(%BPXE.Message{message_id: message_id}, id, state) do
         :syn.publish(
           {state.instance.pid, :flow_sequence, id},
-          {BPEXE.Message.Ack, message_id, id}
+          {BPXE.Message.Ack, message_id, id}
         )
       end
 
@@ -247,11 +247,11 @@ defmodule BPEXE.Engine.FlowNode do
           case state.sequence_flows[sequence_flow][:conditionExpression] do
             {%{{@xsi, "type"} => formal_expr}, body}
             when formal_expr == "bpmn:tFormalExpression" or formal_expr == "tFormalExpression" ->
-              {:ok, vm} = BPEXE.Language.Lua.new()
-              state0 = BPEXE.Engine.Process.variables(state.process)
-              vm = BPEXE.Language.set(vm, @process_var, state0)
+              {:ok, vm} = BPXE.Language.Lua.new()
+              state0 = BPXE.Engine.Process.variables(state.process)
+              vm = BPXE.Language.set(vm, @process_var, state0)
               # TODO: handle errors
-              {:ok, {result, _vm}} = BPEXE.Language.eval(vm, body)
+              {:ok, {result, _vm}} = BPXE.Language.eval(vm, body)
 
               case result do
                 [true | _] -> true

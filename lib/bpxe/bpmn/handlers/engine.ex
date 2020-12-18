@@ -1,8 +1,8 @@
-defmodule BPEXE.BPMN.Handler.Engine do
-  alias BPEXE.BPMN.Handler, as: BPMNHandler
+defmodule BPXE.BPMN.Handler.Engine do
+  alias BPXE.BPMN.Handler, as: BPMNHandler
   @behaviour BPMNHandler
 
-  alias BPEXE.Engine
+  alias BPXE.Engine
 
   @impl BPMNHandler
   def add_process(instance, %{"id" => id} = options) do
