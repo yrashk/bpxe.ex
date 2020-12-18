@@ -1,4 +1,4 @@
-# BPXE (Business Process Execution Engine)
+# BPXE (Business Process eXecution Engine)
 
 [![Hex pm](http://img.shields.io/hexpm/v/bpxe.svg?style=flat)](https://hex.pm/packages/bpxe)
 
