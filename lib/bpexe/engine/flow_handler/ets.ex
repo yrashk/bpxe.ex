@@ -103,7 +103,7 @@ defmodule BPEXE.Engine.FlowHandler.ETS do
       ) do
     Set.delete_all(staging)
 
-    for {{^instance_id, id}, {_pid, saved_state}} <- Set.to_list!(table) do
+    for {{^instance_id, id}, saved_state} <- Set.to_list!(table) do
       # FIXME: infinite timeout is not great, but a short timeout isn't great either, need to figure
       # the best way to handle it
       {_replies, _bad_pids} =

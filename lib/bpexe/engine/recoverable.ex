@@ -25,7 +25,7 @@ defmodule BPEXE.Engine.Recoverable do
           end)
 
         saved_state =
-          Enum.reduce(keys, saved_state, fn k, acc ->
+          Enum.reduce(unknown_keys, saved_state, fn k, acc ->
             Map.delete(acc, k)
           end)
 

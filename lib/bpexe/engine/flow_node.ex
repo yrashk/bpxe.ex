@@ -172,6 +172,8 @@ defmodule BPEXE.Engine.FlowNode do
         end)
       end
 
+      defoverridable handle_recovery: 2
+
       defoverridable handle_message: 2, handle_completion: 1
 
       defp next_txn(%BPEXE.Message{} = msg) do
