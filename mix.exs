@@ -50,7 +50,8 @@ defmodule BPXE.MixProject do
       {:map_diff, "~> 1.3.4"},
       {:exconstructor, "~> 1.1.0"},
       {:ex2ms, "~> 1.6.0"},
-      {:xcuid, "~> 0.1.1"}
+      {:xcuid, "~> 0.1.1"},
+      {:versioce, "~> 0.2.1", only: :dev}
     ]
   end
 end
