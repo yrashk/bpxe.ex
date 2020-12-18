@@ -8,14 +8,13 @@ defmodule BPEXE.Message do
 
   def new(options \\ []) do
     result = super(options)
-    %{result | token: result.token || make_ref(), __gen__: :atomics.new(1, [])}
+    %{result | token: result.token || make_ref(), __gen__: :atomics.new(2, [])}
   end
 
-  def next_txn(%__MODULE__{__gen__: gen}) do
+  def next_txn(%__MODULE__{__gen__: gen, __txn__: txn}) do
     case :atomics.add_get(gen, 1, 1) do
-      0 ->
-        # FIXME: we wrapped, what should we do? use the next number in the array and sum them?
-        0
+      n when n < txn ->
+        :atomics.add_get(gen, 2, 1) + 18_446_744_073_709_551_615
 
       n ->
         n
