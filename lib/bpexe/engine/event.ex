@@ -41,18 +41,33 @@ defmodule BPEXE.Engine.Event do
   end
 
   def handle_message({%BPEXE.Message{} = msg, _id}, %__MODULE__{type: :startEvent} = state) do
-    Process.log(state.process, %Log.EventActivated{pid: self(), id: state.id, message_id: msg.message_id})
+    Process.log(state.process, %Log.EventActivated{
+      pid: self(),
+      id: state.id,
+      message_id: msg.message_id
+    })
+
     {:send, msg, state}
   end
 
   def handle_message({%BPEXE.Message{} = msg, _id}, %__MODULE__{type: :endEvent} = state) do
-    Process.log(state.process, %Log.EventActivated{pid: self(), id: state.id, message_id: msg.message_id})
+    Process.log(state.process, %Log.EventActivated{
+      pid: self(),
+      id: state.id,
+      message_id: msg.message_id
+    })
+
     {:dontsend, state}
   end
 
   # Hold the messages until event is trigerred
   def handle_message({%BPEXE.Message{} = msg, _id}, %__MODULE__{activated: nil} = state) do
-    Process.log(state.process, %Log.EventActivated{pid: self(), id: state.id, message_id: msg.message_id})
+    Process.log(state.process, %Log.EventActivated{
+      pid: self(),
+      id: state.id,
+      message_id: msg.message_id
+    })
+
     {:dontsend, %{state | activated: msg}}
   end
 
@@ -63,7 +78,12 @@ defmodule BPEXE.Engine.Event do
         %__MODULE__{activated: %BPEXE.Message{message_id: message_id1}} = state
       )
       when message_id != message_id1 do
-    Process.log(state.process, %Log.EventActivated{pid: self(), id: state.id, message_id: msg.message_id})
+    Process.log(state.process, %Log.EventActivated{
+      pid: self(),
+      id: state.id,
+      message_id: msg.message_id
+    })
+
     {:dontsend, %{state | activated: msg}}
   end
 

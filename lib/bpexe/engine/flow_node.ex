@@ -194,7 +194,7 @@ defmodule BPEXE.Engine.FlowNode do
       def handle_recovery(recovered, state) do
         state = super(recovered, state)
 
-        Enum.reduce(state.buffer, state, fn {{_message_id, sequence_flow}, msg} ->
+        Enum.reduce(state.buffer, state, fn {_message_id, sequence_flow}, msg ->
           send(sequence_flow, msg, state)
         end)
       end
@@ -223,7 +223,10 @@ defmodule BPEXE.Engine.FlowNode do
       end
 
       defp ack(%BPEXE.Message{message_id: message_id}, id, state) do
-        :syn.publish({state.instance.pid, :flow_sequence, id}, {BPEXE.Message.Ack, message_id, id})
+        :syn.publish(
+          {state.instance.pid, :flow_sequence, id},
+          {BPEXE.Message.Ack, message_id, id}
+        )
       end
 
       @initializer :init_flow_node

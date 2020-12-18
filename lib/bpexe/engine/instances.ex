@@ -13,4 +13,8 @@ defmodule BPEXE.Engine.Instances do
   def start_instance(options \\ []) do
     DynamicSupervisor.start_child(__MODULE__, {BPEXE.Engine.Instance, options})
   end
+
+  def stop_instance(pid) do
+    DynamicSupervisor.terminate_child(__MODULE__, pid)
+  end
 end
