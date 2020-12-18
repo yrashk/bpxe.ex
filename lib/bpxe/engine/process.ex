@@ -364,7 +364,6 @@ defmodule BPXE.Engine.Process do
     Enum.reduce(nodes, state, &synthesize_event_based_gateway/2)
   end
 
-  @spec_schema BPXE.BPMN.ext_spec()
   defp synthesize_event_based_gateway(node, state) do
     gateway_outgoing = FlowNode.get_outgoing(node)
     gateway_id = BPXE.Engine.Base.id(node)
@@ -426,25 +425,11 @@ defmodule BPXE.Engine.Process do
 
       FlowNode.add_sequence_flow(gateway, gateway_sequence_flow_id, %{
         "sourceRef" => precedence_gateway_id,
-        "targetRef" => target_id,
-        {BPXE.BPMN.ext_spec(), "correspondsTo"} => event_sequence_flow_id
+        "targetRef" => target_id
       })
 
       target = FlowNode.whereis(state.instance.pid, target_id)
       FlowNode.remove_incoming(target, event_outgoing)
-
-      if BPXE.Engine.Base.module(target) == BPXE.Engine.PrecedenceGateway do
-        # if event's target is a precedence gateway, we need to rewrite incoming/outgoing mapping
-        for {flow, %{{@spec_schema, "correspondsTo"} => ^event_outgoing} = options} <-
-              FlowNode.get_sequence_flows(target) do
-          FlowNode.remove_sequence_flow(target, flow)
-
-          FlowNode.add_sequence_flow(target, flow, %{
-            options
-            | {BPXE.BPMN.ext_spec(), "correspondsTo"} => gateway_sequence_flow_id
-          })
-        end
-      end
 
       FlowNode.add_incoming(target, gateway_sequence_flow_id)
       FlowNode.add_outgoing(gateway, gateway_sequence_flow_id)

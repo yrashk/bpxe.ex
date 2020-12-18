@@ -35,15 +35,9 @@ defmodule BPXETest.Engine.PrecedenceGateway do
     {:ok, t1} = Process.add_task(proc1, "t1", :task, %{"id" => "t1"})
     {:ok, t2} = Process.add_task(proc1, "t2", :task, %{"id" => "t2"})
 
-    {:ok, _} =
-      Process.establish_sequence_flow(proc1, "ev1_t", pg, t1, %{
-        {BPXE.BPMN.ext_spec(), "correspondsTo"} => "ev1_pg"
-      })
+    {:ok, _} = Process.establish_sequence_flow(proc1, "ev1_t", pg, t1, %{})
 
-    {:ok, _} =
-      Process.establish_sequence_flow(proc1, "ev2_t", pg, t2, %{
-        {BPXE.BPMN.ext_spec(), "correspondsTo"} => "ev2_pg"
-      })
+    {:ok, _} = Process.establish_sequence_flow(proc1, "ev2_t", pg, t2, %{})
 
     :ok = Process.subscribe_log(proc1)
 

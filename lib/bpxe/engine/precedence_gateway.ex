@@ -6,9 +6,8 @@ defmodule BPXE.Engine.PrecedenceGateway do
   This gateway will only process the first instance of a received message
   (tracked by message_id) and send it out to a corresponding output. The
   correspondance is achieved by requiring the same number of incoming and
-  outgoing sequence flows. Outgoing sequence flows have to have an additional
-  option `{BPXE.BPMN.ext_spec(), "correspondsTo"}` set to the name of the
-  outgoing sequence flow.
+  outgoing sequence flows and they will be mapped directly, so that Nth incoming
+  flow will trigger Nth outgoing flow.
   """
   use GenServer
   use BPXE.Engine.FlowNode
@@ -78,13 +77,7 @@ defmodule BPXE.Engine.PrecedenceGateway do
   end
 
   defp corresponds_to(id, state) do
-    {matched_id, _} =
-      state.sequence_flows
-      |> Enum.find(
-        {nil, nil},
-        fn {_, options} -> options[{BPXE.BPMN.ext_spec(), "correspondsTo"}] == id end
-      )
-
-    matched_id
+    index = Enum.find_index(state.incoming, fn x -> x == id end)
+    Enum.at(state.outgoing, index)
   end
 end
