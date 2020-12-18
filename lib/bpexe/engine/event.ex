@@ -91,8 +91,8 @@ defmodule BPEXE.Engine.Event do
     })
 
     state =
-      Enum.reduce(state.outgoing, state, fn wire, state ->
-        send_message(wire, activated, state)
+      Enum.reduce(state.outgoing, state, fn sequence_flow, state ->
+        send_message(sequence_flow, activated, state)
       end)
 
     save_state(txn, state)

@@ -140,8 +140,8 @@ defmodule BPEXE.Engine.FlowNode do
               |> Enum.sort_by(fn id -> !state.sequence_flows[id][:conditionExpression] end)
 
             state =
-              Enum.reduce(sequence_flows, state, fn wire, state ->
-                send_message(wire, new_msg, state)
+              Enum.reduce(sequence_flows, state, fn sequence_flow, state ->
+                send_message(sequence_flow, new_msg, state)
               end)
 
             save_state(txn, state)
@@ -163,8 +163,8 @@ defmodule BPEXE.Engine.FlowNode do
             })
 
             state =
-              Enum.reduce(outgoing, state, fn wire, state ->
-                send_message(wire, new_msg, state)
+              Enum.reduce(outgoing, state, fn sequence_flow, state ->
+                send_message(sequence_flow, new_msg, state)
               end)
 
             save_state(txn, state)
@@ -194,8 +194,8 @@ defmodule BPEXE.Engine.FlowNode do
       def handle_recovery(recovered, state) do
         state = super(recovered, state)
 
-        Enum.reduce(state.buffer, state, fn {{_token, wire}, msg} ->
-          send(wire, msg, state)
+        Enum.reduce(state.buffer, state, fn {{_token, sequence_flow}, msg} ->
+          send(sequence_flow, msg, state)
         end)
       end
 
@@ -239,9 +239,9 @@ defmodule BPEXE.Engine.FlowNode do
 
       @xsi "http://www.w3.org/2001/XMLSchema-instance"
       @process_var "process"
-      def send_message(wire, msg, state) do
+      def send_message(sequence_flow, msg, state) do
         proceed =
-          case state.sequence_flows[wire][:conditionExpression] do
+          case state.sequence_flows[sequence_flow][:conditionExpression] do
             {%{{@xsi, "type"} => formal_expr}, body}
             when formal_expr == "bpmn:tFormalExpression" or formal_expr == "tFormalExpression" ->
               {:ok, vm} = BPEXE.Language.Lua.new()
@@ -260,19 +260,19 @@ defmodule BPEXE.Engine.FlowNode do
           end
 
         if proceed do
-          state = send(wire, msg, state)
-          %{state | buffer: Map.put(state.buffer, {msg.token, wire}, msg)}
+          state = send(sequence_flow, msg, state)
+          %{state | buffer: Map.put(state.buffer, {msg.token, sequence_flow}, msg)}
         else
           state
         end
       end
 
-      def send(wire, msg, state) do
-        target = state.sequence_flows[wire]["targetRef"]
+      def send(sequence_flow, msg, state) do
+        target = state.sequence_flows[sequence_flow]["targetRef"]
 
         case :syn.whereis({state.instance.pid, :flow_node, target}) do
           pid when is_pid(pid) ->
-            send(pid, {msg, wire})
+            send(pid, {msg, sequence_flow})
 
           # FIXME: how should we handle this?
           :undefined ->
