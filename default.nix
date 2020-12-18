@@ -7,6 +7,10 @@ pkgs.stdenv.mkDerivation rec {
 
   buildInputs = with pkgs; [ elixir ];
 
+  shellHook = ''
+    export ERL_LIBS=
+  '';
+
 }
 
 
