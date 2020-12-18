@@ -60,6 +60,10 @@ defmodule BPEXE.Engine.Process do
     end
   end
 
+  def add_exclusive_gateway(pid, id, options) do
+    GenServer.call(pid, {:add_exclusive_gateway, id, options})
+  end
+
   def add_parallel_gateway(pid, id, options) do
     GenServer.call(pid, {:add_parallel_gateway, id, options})
   end
@@ -263,8 +267,7 @@ defmodule BPEXE.Engine.Process do
   defp handle_call_internal({:add_sequence_flow, id, options}, _from, state) do
     case :syn.whereis({state.instance.pid, :flow_node, options["sourceRef"]}) do
       pid when is_pid(pid) ->
-        FlowNode.add_sequence_flow(pid, id, options)
-        {:reply, {:ok, id}, state}
+        {:reply, {:ok, FlowNode.add_sequence_flow(pid, id, options)}, state}
 
       :undefined ->
         {:reply, {:ok, id},
@@ -274,6 +277,15 @@ defmodule BPEXE.Engine.Process do
                Map.put(state.pending_sequence_flows, options["sourceRef"], options)
          }}
     end
+  end
+
+  defp handle_call_internal({:add_exclusive_gateway, id, options}, _from, state) do
+    start_flow_node(
+      BPEXE.Engine.ExclusiveGateway,
+      id,
+      [id, options, state.instance, self()],
+      state
+    )
   end
 
   defp handle_call_internal({:add_parallel_gateway, id, options}, _from, state) do

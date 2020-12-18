@@ -5,7 +5,7 @@ defmodule BPEXE.Engine.FlowNode do
       use BPEXE.Engine.Recoverable
 
       import BPEXE.Engine.FlowNode,
-        only: [send_message: 3, send: 3, defstate: 1, defstate: 2]
+        only: [defstate: 1, defstate: 2]
 
       def handle_call({:add_incoming, id}, _from, state) do
         :syn.join({state.instance.pid, :flow_out, id}, self())
@@ -40,15 +40,42 @@ defmodule BPEXE.Engine.FlowNode do
       def handle_call({:add_sequence_flow, id, options}, _from, state) do
         :syn.join({state.instance.pid, :flow_sequence, id}, self())
 
-        {:reply, {:ok, {state.process, :sequence_flow, id}},
-         %{state | sequence_flows: Map.put(state.sequence_flows, id, options)}}
+        {:reply, {:ok, {:sequence_flow, id, self()}},
+         %{
+           state
+           | sequence_flows: Map.put(state.sequence_flows, id, options),
+             sequence_flow_order: [id | state.sequence_flow_order]
+         }}
+      end
+
+      def handle_call({:add_condition_expression, id, options, body}, _from, state) do
+        case Map.get(state.sequence_flows, id) do
+          nil ->
+            {:reply, {:error, :not_found}, state}
+
+          sequence_flow ->
+            {:reply, :ok,
+             %{
+               state
+               | sequence_flows:
+                   Map.put(
+                     state.sequence_flows,
+                     id,
+                     Map.put(sequence_flow, :conditionExpression, {options, body})
+                   )
+             }}
+        end
       end
 
       def handle_call({:remove_sequence_flow, id}, _from, state) do
         :syn.leave({state.instance.pid, :flow_sequence, id}, self())
 
         {:reply, Map.get(state.sequence_flows, id),
-         %{state | sequence_flows: Map.delete(state.sequence_flows, id)}}
+         %{
+           state
+           | sequence_flows: Map.delete(state.sequence_flows, id),
+             sequence_flow_order: state.sequence_flow_order -- [id]
+         }}
       end
 
       def handle_call(:get_sequence_flows, _from, state) do
@@ -106,8 +133,14 @@ defmodule BPEXE.Engine.FlowNode do
               to: state.outgoing
             })
 
+            sequence_flows =
+              state.sequence_flow_order
+              |> Enum.reverse()
+              # ensure condition-expressioned sequence flows are at the top
+              |> Enum.sort_by(fn id -> !state.sequence_flows[id][:conditionExpression] end)
+
             state =
-              Enum.reduce(state.outgoing, state, fn wire, state ->
+              Enum.reduce(sequence_flows, state, fn wire, state ->
                 send_message(wire, new_msg, state)
               end)
 
@@ -166,10 +199,6 @@ defmodule BPEXE.Engine.FlowNode do
         end)
       end
 
-      defoverridable handle_recovery: 2
-
-      defoverridable handle_message: 2, handle_completion: 1
-
       defp next_txn(%BPEXE.Message{} = msg) do
         BPEXE.Message.next_txn(msg)
       end
@@ -207,27 +236,58 @@ defmodule BPEXE.Engine.FlowNode do
       def flow_node?() do
         true
       end
+
+      @xsi "http://www.w3.org/2001/XMLSchema-instance"
+      @process_var "process"
+      def send_message(wire, msg, state) do
+        proceed =
+          case state.sequence_flows[wire][:conditionExpression] do
+            {%{{@xsi, "type"} => formal_expr}, body}
+            when formal_expr == "bpmn:tFormalExpression" or formal_expr == "tFormalExpression" ->
+              {:ok, vm} = BPEXE.Language.Lua.new()
+              state0 = BPEXE.Engine.Process.variables(state.process)
+              vm = BPEXE.Language.set(vm, @process_var, state0)
+              # TODO: handle errors
+              {:ok, {result, _vm}} = BPEXE.Language.eval(vm, body)
+
+              case result do
+                [true | _] -> true
+                _ -> false
+              end
+
+            _ ->
+              true
+          end
+
+        if proceed do
+          state = send(wire, msg, state)
+          %{state | buffer: Map.put(state.buffer, {msg.token, wire}, msg)}
+        else
+          state
+        end
+      end
+
+      def send(wire, msg, state) do
+        target = state.sequence_flows[wire]["targetRef"]
+
+        case :syn.whereis({state.instance.pid, :flow_node, target}) do
+          pid when is_pid(pid) ->
+            send(pid, {msg, wire})
+
+          # FIXME: how should we handle this?
+          :undefined ->
+            :skip
+        end
+
+        state
+      end
+
+      defoverridable handle_recovery: 2,
+                     handle_message: 2,
+                     handle_completion: 1,
+                     send_message: 3,
+                     send: 3
     end
-  end
-
-  def send_message(wire, msg, state) do
-    send(wire, msg, state)
-    %{state | buffer: Map.put(state.buffer, {msg.token, wire}, msg)}
-  end
-
-  def send(wire, msg, state) do
-    target = state.sequence_flows[wire]["targetRef"]
-
-    case :syn.whereis({state.instance.pid, :flow_node, target}) do
-      pid when is_pid(pid) ->
-        send(pid, {msg, wire})
-
-      # FIXME: how should we handle this?
-      :undefined ->
-        :skip
-    end
-
-    state
   end
 
   def whereis(instance_pid, id) do
@@ -281,6 +341,10 @@ defmodule BPEXE.Engine.FlowNode do
     GenServer.call(pid, {:remove_sequence_flow, id})
   end
 
+  def add_condition_expression({:sequence_flow, id, pid}, options, body) do
+    GenServer.call(pid, {:add_condition_expression, id, options, body})
+  end
+
   defmacro defstate(struct, options \\ []) do
     struct =
       struct
@@ -300,6 +364,7 @@ defmodule BPEXE.Engine.FlowNode do
         outgoing: [],
         process: [],
         sequence_flows: Macro.escape(%{}),
+        sequence_flow_order: [],
         buffer: Macro.escape(%{})
       })
       |> Map.to_list()

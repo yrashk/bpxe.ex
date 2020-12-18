@@ -7,6 +7,10 @@ defmodule BPEXE.Engine.Process.Log do
     defstruct pid: nil, id: nil, token: nil, to: []
   end
 
+  defmodule ExclusiveGatewayActivated do
+    defstruct pid: nil, id: nil, token: nil
+  end
+
   defmodule EventBasedGatewayActivated do
     defstruct pid: nil, id: nil, token: nil
   end

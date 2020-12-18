@@ -41,11 +41,13 @@ defmodule BPEXE.Engine.Event do
   end
 
   def handle_message({%BPEXE.Message{} = msg, _id}, %__MODULE__{type: :startEvent} = state) do
+    Process.log(state.process, %Log.EventActivated{pid: self(), id: state.id, token: msg.token})
     {:send, msg, state}
   end
 
   def handle_message({%BPEXE.Message{} = msg, _id}, %__MODULE__{type: :endEvent} = state) do
-    {:send, msg, state}
+    Process.log(state.process, %Log.EventActivated{pid: self(), id: state.id, token: msg.token})
+    {:dontsend, state}
   end
 
   # Hold the messages until event is trigerred
