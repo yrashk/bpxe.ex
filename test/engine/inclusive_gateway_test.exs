@@ -57,8 +57,8 @@ defmodule BPXETest.Engine.InclusiveGateway do
     {:ok, t2} = Process.add_task(proc1, "t2", :task, %{"id" => "t2"})
     {:ok, t3} = Process.add_task(proc1, "t3", :task, %{"id" => "t3"})
 
-    {:ok, f1} = Process.establish_sequence_flow(proc1, "fork_1", fork, t1)
-    {:ok, f2} = Process.establish_sequence_flow(proc1, "fork_2", fork, t2)
+    {:ok, _} = Process.establish_sequence_flow(proc1, "fork_1", fork, t1)
+    {:ok, _} = Process.establish_sequence_flow(proc1, "fork_2", fork, t2)
     {:ok, f3} = Process.establish_sequence_flow(proc1, "fork_3", fork, t3)
 
     FlowNode.add_condition_expression(
@@ -100,8 +100,8 @@ defmodule BPXETest.Engine.InclusiveGateway do
     {:ok, t2} = Process.add_task(proc1, "t2", :task, %{"id" => "t2"})
     {:ok, t3} = Process.add_task(proc1, "t3", :task, %{"id" => "t3"})
 
-    {:ok, f1} = Process.establish_sequence_flow(proc1, "fork_1", fork, t1)
-    {:ok, f2} = Process.establish_sequence_flow(proc1, "fork_2", fork, t2)
+    {:ok, _} = Process.establish_sequence_flow(proc1, "fork_1", fork, t1)
+    {:ok, _} = Process.establish_sequence_flow(proc1, "fork_2", fork, t2)
     {:ok, f3} = Process.establish_sequence_flow(proc1, "fork_3", fork, t3)
 
     FlowNode.add_condition_expression(
@@ -139,8 +139,8 @@ defmodule BPXETest.Engine.InclusiveGateway do
     # We are NOT going to use this signal
     {:ok, _} = Event.add_signal_event_definition(t2, %{"signalRef" => "signal1"})
 
-    {:ok, f1} = Process.establish_sequence_flow(proc1, "fork_1", fork, t1)
-    {:ok, f2} = Process.establish_sequence_flow(proc1, "fork_2", fork, t2)
+    {:ok, _} = Process.establish_sequence_flow(proc1, "fork_1", fork, t1)
+    {:ok, _} = Process.establish_sequence_flow(proc1, "fork_2", fork, t2)
     {:ok, f3} = Process.establish_sequence_flow(proc1, "fork_3", fork, t3)
 
     FlowNode.add_condition_expression(

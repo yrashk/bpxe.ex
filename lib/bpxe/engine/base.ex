@@ -44,8 +44,10 @@ defmodule BPXE.Engine.Base do
   end
 
   defmacro __before_compile__(_) do
-    quote location: :keep do
-      defp __initializers__, do: @initializer || []
+    quote do
+      unless Module.defines?(__MODULE__, {:__initializers__, 0}) do
+        defp __initializers__(), do: @initializer
+      end
     end
   end
 end

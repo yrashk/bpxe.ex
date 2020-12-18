@@ -90,8 +90,7 @@ defmodule BPXE.Engine.Event do
   # When event is triggered, send the message
   def handle_info(
         {BPXE.Signal, _id},
-        %__MODULE__{type: :intermediateCatchEvent, activated: activated, incoming: [gateway]} =
-          state
+        %__MODULE__{type: :intermediateCatchEvent, activated: activated, incoming: [_]} = state
       )
       when not is_nil(activated) do
     Process.log(state.process, %Log.EventTrigerred{

@@ -52,7 +52,7 @@ defmodule BPXE.Engine.FlowHandler.ETS do
 
   @impl GenServer
   def handle_call(
-        {:commit_state, _instance, txn, instance_id, id},
+        {:commit_state, _instance, txn, instance_id, _id},
         _from,
         %State{staging: staging, table: table, last_commit: last_commit} = state
       )

@@ -27,7 +27,7 @@ defmodule BPXE.Engine.ExclusiveGateway do
     {:ok, state}
   end
 
-  def handle_message({%BPXE.Message{} = msg, id}, state) do
+  def handle_message({%BPXE.Message{} = msg, _id}, state) do
     Process.log(state.process, %Log.ExclusiveGatewayActivated{
       pid: self(),
       id: state.id,

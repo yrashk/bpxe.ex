@@ -55,8 +55,8 @@ defmodule BPXE.Engine.FlowHandler.Stepper do
 
   @impl GenServer
   def handle_call(
-        {:commit_state, instance, txn, _instance_id, id},
-        from,
+        {:commit_state, _instance, txn, _instance_id, _id},
+        _from,
         %State{lock: false, last_commit: last_commit} = state
       )
       when last_commit + 1 == txn do

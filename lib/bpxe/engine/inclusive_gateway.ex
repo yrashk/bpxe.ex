@@ -219,26 +219,20 @@ defmodule BPXE.Engine.InclusiveGateway do
     end)
   end
 
-  defp incoming(current, %__MODULE__{incoming: incoming, id: current} = state),
+  defp incoming(current, %__MODULE__{incoming: incoming, id: current}),
     do: incoming
 
-  defp incoming(current, %__MODULE__{instance: instance} = state),
+  defp incoming(current, %__MODULE__{instance: instance}),
     do: FlowNode.whereis(instance.pid, current) |> FlowNode.get_incoming()
 
-  defp outgoing(current, %__MODULE__{outgoing: outgoing, id: current} = state),
-    do: outgoing
-
-  defp outgoing(current, %__MODULE__{process: process} = state) when is_pid(current),
-    do: FlowNode.get_outgoing(current)
-
-  defp find_predecessor(sequence_flow, %__MODULE__{instance: instance} = state) do
+  defp find_predecessor(sequence_flow, %__MODULE__{instance: instance}) do
     :syn.get_members({instance.pid, :flow_sequence, sequence_flow})
     |> Enum.map(fn node -> {node, Base.module(node)} end)
     |> List.first()
   end
 
-  defp build_graph(g, current, %__MODULE__{process: process, id: id} = state) do
-    Enum.reduce(incoming(current, state), nil, fn flow, acc ->
+  defp build_graph(g, current, %__MODULE__{} = state) do
+    Enum.reduce(incoming(current, state), nil, fn flow, _acc ->
       {node, module} = find_predecessor(flow, state)
       pred_id = node |> Base.id()
       G.add_vertex(g, pred_id)

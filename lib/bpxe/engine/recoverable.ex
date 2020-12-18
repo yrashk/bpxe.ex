@@ -14,7 +14,6 @@ defmodule BPXE.Engine.Recoverable do
         saved_keys = Map.keys(saved_state)
         keys = Map.keys(state)
         unknown_keys = saved_keys -- keys
-        keys = keys -- unknown_keys
 
         state =
           Enum.reduce(unknown_keys, state, fn k, acc ->

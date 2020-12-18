@@ -239,10 +239,6 @@ defmodule BPXE.Engine.Process do
     {:reply, :ok, %{state | variables: variables}}
   end
 
-  def handle_call(:id, _from, state) do
-    {:reply, state.id, state}
-  end
-
   def handle_call(:synthesize, from, state) do
     nodes = flow_nodes()
 
