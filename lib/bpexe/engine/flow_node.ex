@@ -26,20 +26,14 @@ defmodule BPEXE.Engine.FlowNode do
       end
 
       def handle_call({:add_outgoing, id}, _from, state) do
-        :syn.join({state.instance.pid, :flow_back, id}, self())
         {:reply, {:ok, id}, %{state | outgoing: [id | state.outgoing]}}
       end
 
       def handle_call({:remove_outgoing, id}, _from, state) do
-        :syn.leave({state.instance.pid, :flow_back, id}, self())
         {:reply, :ok, %{state | outgoing: state.outgoing -- [id]}}
       end
 
       def handle_call(:clear_outgoing, _from, state) do
-        for flow <- state.outgoing do
-          :syn.leave({state.instance.pid, :flow_back, flow}, self())
-        end
-
         {:reply, :ok, %{state | outgoing: []}}
       end
 
