@@ -159,14 +159,6 @@ defmodule BPXE.Engine.Process do
     GenServer.call(pid, :flow_nodes)
   end
 
-  def variables(pid) do
-    GenServer.call(pid, :variables)
-  end
-
-  def set_variables(pid, variables) do
-    GenServer.call(pid, {:set_variables, variables})
-  end
-
   def id(pid) do
     GenServer.call(pid, :id)
   end
@@ -220,23 +212,6 @@ defmodule BPXE.Engine.Process do
 
   def handle_call(:instance, _from, state) do
     {:reply, state.instance, state}
-  end
-
-  def handle_call(:variables, _from, state) do
-    {:reply, state.variables, state}
-  end
-
-  # FIXME: add txn id
-  def handle_call({:set_variables, variables}, _from, state) do
-    variables = Map.merge(state.variables, variables)
-
-    if variables != state.variables do
-      BPXE.Engine.Instance.save_state(state.instance, :FIXME, state.id, self(), %{
-        variables: variables
-      })
-    end
-
-    {:reply, :ok, %{state | variables: variables}}
   end
 
   def handle_call(:synthesize, from, state) do

@@ -1,7 +1,7 @@
 defmodule BPXETest.Engine.Task do
   use ExUnit.Case
   alias BPXE.Engine.Instance
-  alias BPXE.Engine.{Process, Task}
+  alias BPXE.Engine.{Process, Task, Base}
   alias BPXE.Engine.Process.Log
   doctest Task
 
@@ -32,7 +32,7 @@ defmodule BPXETest.Engine.Task do
 
     assert_receive({Log, %Log.TaskCompleted{id: "task"}})
     assert_receive({Log, %Log.TaskCompleted{id: "task2"}})
-    assert Process.variables(proc1) == %{"a" => %{"v" => 3}}
+    assert Base.variables(proc1) == %{"a" => %{"v" => 3}}
   end
 
   test "executes a script that modifies no state" do
@@ -52,6 +52,6 @@ defmodule BPXETest.Engine.Task do
              Instance.start(pid) |> List.keysort(0)
 
     assert_receive({Log, %Log.TaskCompleted{id: "task"}})
-    assert Process.variables(proc1) == %{}
+    assert Base.variables(proc1) == %{}
   end
 end

@@ -3,6 +3,7 @@ defmodule BPXE.Engine.FlowNode do
     quote do
       use BPXE.Engine.Base
       use BPXE.Engine.Recoverable
+      alias BPXE.Engine.Base
 
       import BPXE.Engine.FlowNode,
         only: [defstate: 1, defstate: 2]
@@ -244,7 +245,7 @@ defmodule BPXE.Engine.FlowNode do
 
       def init_flow_node(state) do
         :syn.register({state.instance.pid, :flow_node, state.id}, self())
-        state
+        %{state | variables: %{"id" => state.id}}
       end
 
       def flow_node?() do
@@ -252,15 +253,16 @@ defmodule BPXE.Engine.FlowNode do
       end
 
       @xsi "http://www.w3.org/2001/XMLSchema-instance"
-      @process_var "process"
       def send_message(sequence_flow, msg, state) do
         proceed =
           case state.sequence_flows[sequence_flow][:conditionExpression] do
             {%{{@xsi, "type"} => formal_expr}, body}
             when formal_expr == "bpmn:tFormalExpression" or formal_expr == "tFormalExpression" ->
               {:ok, vm} = BPXE.Language.Lua.new()
-              state0 = BPXE.Engine.Process.variables(state.process)
-              vm = BPXE.Language.set(vm, @process_var, state0)
+              process_vars = Base.variables(state.process)
+              vm = BPXE.Language.set(vm, "process", process_vars)
+              {:reply, flow_node_vars, state1} = handle_call(:variables, :ignored, state)
+              vm = BPXE.Language.set(vm, "flow_node", flow_node_vars)
               # TODO: handle errors
               {:ok, {result, _vm}} = BPXE.Language.eval(vm, body)
 
@@ -392,11 +394,12 @@ defmodule BPXE.Engine.FlowNode do
         process: [],
         sequence_flows: Macro.escape(%{}),
         sequence_flow_order: [],
-        buffer: Macro.escape(%{})
+        buffer: Macro.escape(%{}),
+        variables: Macro.escape(%{})
       })
       |> Map.to_list()
 
-    persist = [:buffer | persist] |> Enum.uniq()
+    persist = [:buffer, :variables | persist] |> Enum.uniq()
 
     quote bind_quoted: [struct: struct, persist: persist] do
       defstruct struct

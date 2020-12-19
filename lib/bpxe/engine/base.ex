@@ -31,6 +31,36 @@ defmodule BPXE.Engine.Base do
         :gen_server.enter_loop(__MODULE__, [], state)
       end
 
+      def handle_call(:variables, _from, state) do
+        if Map.has_key?(state, :variables) do
+          {:reply, state.variables, state}
+        else
+          {:reply, {:error, :not_supported}, state}
+        end
+      end
+
+      def handle_call({:merge_variables, variables, message}, _from, state) do
+        if Map.has_key?(state, :variables) do
+          changes =
+            case MapDiff.diff(state.variables, variables) do
+              %{added: added} -> added |> Map.new()
+              _ -> %{}
+            end
+
+          variables = Map.merge(state.variables, changes)
+
+          if variables != state.variables do
+            BPXE.Engine.Instance.save_state(state.instance, message.__txn__, state.id, self(), %{
+              variables: variables
+            })
+          end
+
+          {:reply, :ok, %{state | variables: variables}}
+        else
+          {:reply, {:error, :not_supported}, state}
+        end
+      end
+
       @before_compile BPXE.Engine.Base
     end
   end
@@ -41,6 +71,14 @@ defmodule BPXE.Engine.Base do
 
   def module(pid) do
     GenServer.call(pid, :module)
+  end
+
+  def variables(pid) do
+    GenServer.call(pid, :variables)
+  end
+
+  def merge_variables(pid, variables, message) do
+    GenServer.call(pid, {:merge_variables, variables, message})
   end
 
   defmacro __before_compile__(_) do

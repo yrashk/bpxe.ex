@@ -1,7 +1,7 @@
 defmodule BPXE.Engine.Task do
   use GenServer
   use BPXE.Engine.FlowNode
-  alias BPXE.Engine.Process
+  alias BPXE.Engine.{Process, Base}
   alias BPXE.Engine.Process.Log
 
   defstate([id: nil, type: nil, options: %{}, instance: nil, process: nil, script: ""],
@@ -30,8 +30,6 @@ defmodule BPXE.Engine.Task do
     enter_loop(state)
   end
 
-  @process_var "process"
-
   def handle_message({msg, _id}, %__MODULE__{type: :scriptTask} = state) do
     Process.log(state.process, %Log.TaskActivated{
       pid: self(),
@@ -40,13 +38,16 @@ defmodule BPXE.Engine.Task do
     })
 
     {:ok, vm} = BPXE.Language.Lua.new()
-    state0 = Process.variables(state.process)
-    vm = BPXE.Language.set(vm, @process_var, state0)
+    process_vars = Base.variables(state.process)
+    vm = BPXE.Language.set(vm, "process", process_vars)
+    {:reply, flow_node_vars, state} = handle_call(:variables, :ignored, state)
+    vm = BPXE.Language.set(vm, "flow_node", flow_node_vars)
     # TODO: handle errors
     {:ok, {_result, vm}} = BPXE.Language.eval(vm, state.script)
-    state1 = BPXE.Language.get(vm, @process_var) |> ensure_maps()
-
-    Process.set_variables(state.process, updated_state(state0, state1))
+    process_vars = BPXE.Language.get(vm, "process") |> ensure_maps()
+    flow_node_vars = BPXE.Language.get(vm, "flow_node") |> ensure_maps()
+    Base.merge_variables(state.process, process_vars, msg)
+    {:reply, _, state} = handle_call({:merge_variables, flow_node_vars, msg}, :ignored, state)
 
     Process.log(state.process, %Log.TaskCompleted{
       pid: self(),
@@ -77,22 +78,13 @@ defmodule BPXE.Engine.Task do
     {:reply, {:ok, script}, %{state | script: script}}
   end
 
-  defp ensure_maps(m) when is_map(m), do: m
-
-  defp ensure_maps([{key, value} | rest]) do
-    [{key, ensure_maps(value)} | ensure_maps_(rest)] |> Map.new()
+  def ensure_maps([{key, value}]) do
+    %{key => ensure_maps(value)}
   end
 
-  defp ensure_maps([]), do: %{}
-  defp ensure_maps(other), do: other
-  # handles end of list
-  defp ensure_maps_([]), do: []
-  defp ensure_maps_(other), do: ensure_maps(other)
-
-  defp updated_state(state0, state1) do
-    case MapDiff.diff(state0, state1) do
-      %{added: added} -> added
-      _ -> %{}
-    end
+  def ensure_maps([{key, value} | rest]) do
+    Map.merge(ensure_maps(rest), %{key => ensure_maps(value)})
   end
+
+  def ensure_maps(v), do: v
 end
