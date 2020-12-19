@@ -8,7 +8,10 @@ defmodule BPXETest.Message do
     pid = self()
 
     for _ <- 1..1000 do
-      spawn_link(fn -> send(pid, BPXE.Message.next_txn(message)) end)
+      spawn_link(fn ->
+        {_activation, id} = BPXE.Message.next_txn(message)
+        send(pid, id)
+      end)
     end
 
     messages = receive_all(1000) |> Enum.uniq() |> Enum.sort()
@@ -21,8 +24,8 @@ defmodule BPXETest.Message do
     message = BPXE.Message.new()
     :atomics.add(message.__gen__, 1, 18_446_744_073_709_551_615)
 
-    assert BPXE.Message.next_txn(%{message | __txn__: 18_446_744_073_709_551_615}) ==
-             18_446_744_073_709_551_616
+    assert BPXE.Message.next_txn(%{message | __txn__: {0, 18_446_744_073_709_551_615}}) ==
+             {0, 18_446_744_073_709_551_616}
   end
 
   defp receive_all(0), do: []

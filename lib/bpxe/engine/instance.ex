@@ -1,5 +1,7 @@
 defmodule BPXE.Engine.Instance do
   use GenServer
+  alias :persistent_term, as: PT
+  alias :atomics, as: Atomics
 
   defmodule Config do
     defstruct flow_handler: nil, pid: nil, init_fn: nil, id: nil
@@ -44,6 +46,11 @@ defmodule BPXE.Engine.Instance do
 
   def processes(pid) do
     GenServer.call(pid, :processes)
+  end
+
+  def new_activation(pid) do
+    PT.get({__MODULE__, pid, :activation})
+    |> Atomics.add_get(1, 1)
   end
 
   def start(pid) do
@@ -147,6 +154,7 @@ defmodule BPXE.Engine.Instance do
   defstruct config: %{}, processes: %{}, notify_when_initialized: nil
 
   def init(config) do
+    PT.put({__MODULE__, self(), :activation}, Atomics.new(1, signed: false))
     {:ok, %__MODULE__{config: %{config | pid: self()}}, {:continue, :init_fn}}
   end
 

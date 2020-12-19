@@ -31,7 +31,7 @@ defmodule BPXE.Engine.FlowHandler.ETS do
   end
 
   defmodule State do
-    defstruct states: %{}, staging: nil, table: nil, last_commit: -1, pending_commits: []
+    defstruct states: %{}, staging: nil, table: nil, last_commit: %{}, pending_commits: []
   end
 
   @impl GenServer
@@ -52,47 +52,47 @@ defmodule BPXE.Engine.FlowHandler.ETS do
 
   @impl GenServer
   def handle_call(
-        {:commit_state, _instance, txn, instance_id, _id},
-        _from,
+        {:commit_state, instance, {activation, txn_ctr} = txn, instance_id, id},
+        from,
         %State{staging: staging, table: table, last_commit: last_commit} = state
-      )
-      when last_commit + 1 == txn do
-    import Ex2ms
+      ) do
+    last = last_commit[{instance_id, activation}]
 
-    pattern =
-      fun do
-        {{txn_, instance_id_, id}, {_pid, saving_state}}
-        when txn_ == ^txn and instance_id_ == ^instance_id ->
-          {id, saving_state}
-      end
+    if is_nil(last) or last == txn_ctr - 1 do
+      # if we can commit now (first transaction or a subsequent transaction in instance's activation)
+      import Ex2ms
 
-    case Set.select(staging, pattern) do
-      {:ok, results} ->
-        for {id, saving_state} <- results do
-          Set.delete(staging, {txn, instance_id, id})
-          Set.put(table, {{instance_id, id}, saving_state})
+      pattern =
+        fun do
+          {{txn_, instance_id_, id}, {_pid, saving_state}}
+          when txn_ == ^txn and instance_id_ == ^instance_id ->
+            {id, saving_state}
         end
 
-        {:reply, :ok, %{state | last_commit: txn} |> next()}
+      case Set.select(staging, pattern) do
+        {:ok, results} ->
+          for {id, saving_state} <- results do
+            Set.delete(staging, {txn, instance_id, id})
+            Set.put(table, {{instance_id, id}, saving_state})
+          end
 
-      {:error, err} ->
-        {:reply, {:error, err}, state}
+          last_commit = Map.put(last_commit, {instance_id, activation}, txn_ctr)
+
+          {:reply, :ok, %{state | last_commit: last_commit} |> next()}
+
+        {:error, err} ->
+          {:reply, {:error, err}, state}
+      end
+    else
+      # can't commit right now
+      {:noreply,
+       %{
+         state
+         | pending_commits:
+             [{from, instance, txn, instance_id, id} | state.pending_commits]
+             |> Enum.sort_by(fn {_, _, txn, _, _} -> txn end)
+       }}
     end
-  end
-
-  @impl GenServer
-  def handle_call(
-        {:commit_state, instance, txn, instance_id, id},
-        from,
-        %State{} = state
-      ) do
-    {:noreply,
-     %{
-       state
-       | pending_commits:
-           [{from, instance, txn, instance_id, id} | state.pending_commits]
-           |> Enum.sort_by(fn {_, _, txn, _, _} -> txn end)
-     }}
   end
 
   @impl GenServer
@@ -118,27 +118,36 @@ defmodule BPXE.Engine.FlowHandler.ETS do
     {:reply, :ok, state}
   end
 
-  defp next(
-         %State{
-           pending_commits: [{from, instance, txn, instance_id, id} | rest],
-           last_commit: last_commit
-         } = state
-       )
-       when last_commit + 1 == txn do
-    case handle_call({:commit_state, instance, txn, instance_id, id}, from, %{
-           state
-           | pending_commits: rest
-         }) do
-      {:reply, response, state} ->
-        GenServer.reply(from, response)
-        state
-
-      {:noreply, state} ->
-        state
-    end
+  defp next(%State{pending_commits: []} = state) do
+    state
   end
 
-  defp next(%State{} = state) do
-    state
+  defp next(
+         %State{
+           pending_commits: [
+             {from, instance, {activation, txn_ctr} = txn, instance_id, id} | rest
+           ],
+           last_commit: last_commit
+         } = state
+       ) do
+    last = last_commit[{instance_id, activation}]
+
+    if is_nil(last) or last == txn_ctr - 1 do
+      # Again, this is a subsequent transaction in instance+activation, we can commit it
+      case handle_call({:commit_state, instance, txn, instance_id, id}, from, %{
+             state
+             | pending_commits: rest
+           }) do
+        {:reply, response, state} ->
+          GenServer.reply(from, response)
+          state
+
+        {:noreply, state} ->
+          state
+      end
+    else
+      # But if it is not, we can't
+      state
+    end
   end
 end

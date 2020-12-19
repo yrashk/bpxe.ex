@@ -2,7 +2,7 @@ defmodule BPXE.Engine.Process do
   use GenServer
   use BPXE.Engine.Base
   use BPXE.Engine.Recoverable
-  alias BPXE.Engine.FlowNode
+  alias BPXE.Engine.{Instance, FlowNode}
 
   def start_link(id, options, instance) do
     start_link([{id, options, instance}])
@@ -146,7 +146,7 @@ defmodule BPXE.Engine.Process do
     synthesize(pid)
     instance = GenServer.call(pid, :instance)
     event = :syn.whereis({instance.pid, :event, :startEvent, id})
-    msg = BPXE.Message.new()
+    msg = BPXE.Message.new(activation: Instance.new_activation(instance.pid))
     send(event, {msg, nil})
     :ok
   end

@@ -29,7 +29,11 @@ defmodule BPXE.Engine.FlowHandler.Stepper do
   end
 
   defmodule State do
-    defstruct transactions: %{}, lock: false, committed: nil, pending_commits: [], last_commit: -1
+    defstruct transactions: %{},
+              lock: %{},
+              committed: %{},
+              pending_commits: [],
+              last_commit: %{}
   end
 
   @impl GenServer
@@ -39,14 +43,14 @@ defmodule BPXE.Engine.FlowHandler.Stepper do
 
   @impl GenServer
   def handle_call(
-        {:save_state, instance, txn, _instance_id, id, pid, saving_state},
+        {:save_state, instance, txn, instance_id, id, pid, saving_state},
         _from,
         %State{} = state
       ) do
     data = {{instance, id}, {id, pid, saving_state}}
 
     transactions =
-      Map.update(state.transactions, txn, [data], fn txns ->
+      Map.update(state.transactions, {instance_id, txn}, [data], fn txns ->
         [data | txns] |> Enum.uniq_by(fn {k, _} -> k end)
       end)
 
@@ -55,30 +59,35 @@ defmodule BPXE.Engine.FlowHandler.Stepper do
 
   @impl GenServer
   def handle_call(
-        {:commit_state, _instance, txn, _instance_id, _id},
-        _from,
-        %State{lock: false, last_commit: last_commit} = state
-      )
-      when last_commit + 1 == txn do
-    data = Map.get(state.transactions, txn)
-    transactions = Map.delete(state.transactions, txn)
-
-    {:reply, :ok,
-     %{state | lock: true, committed: data, transactions: transactions, last_commit: txn}}
-  end
-
-  @impl GenServer
-  def handle_call(
-        {:commit_state, instance, txn, _instance_id, id},
+        {:commit_state, instance, {activation, txn_ctr} = txn, instance_id, id},
         from,
-        %State{} = state
+        %State{lock: lock, last_commit: last_commit} = state
       ) do
-    {:noreply, %{state | pending_commits: [{from, txn, instance, id} | state.pending_commits]}}
-  end
+    last = last_commit[{instance_id, activation}]
 
-  @impl GenServer
-  def handle_call(:continue, _from, %State{lock: false} = state) do
-    {:reply, :ok, state}
+    if !lock[{instance_id, activation}] and (is_nil(last) or last == txn_ctr - 1) do
+      # We can commit now
+      data = Map.get(state.transactions, {instance_id, txn})
+      transactions = Map.delete(state.transactions, {activation, txn})
+
+      lock = Map.put(lock, {instance_id, activation}, true)
+
+      {:reply, :ok,
+       %{
+         state
+         | lock: lock,
+           committed: Map.put(state.committed, {instance_id, activation}, data),
+           transactions: transactions,
+           last_commit: Map.put(state.last_commit, {instance_id, activation}, txn_ctr)
+       }}
+    else
+      # We can't commit now
+      {:noreply,
+       %{
+         state
+         | pending_commits: [{from, txn, instance, instance_id, id} | state.pending_commits]
+       }}
+    end
   end
 
   @impl GenServer
@@ -87,35 +96,60 @@ defmodule BPXE.Engine.FlowHandler.Stepper do
         _from,
         %State{} = state
       ) do
-    {:reply, state.committed,
-     %{
-       state
-       | committed: nil,
-         pending_commits: Enum.sort_by(state.pending_commits, fn {_, txn, _, _} -> txn end),
-         lock: false
-     }
-     |> next()}
-  end
+    case Enum.find(state.lock, fn {_key, locked} -> locked end) do
+      nil ->
+        # There was nothing yet
 
-  defp next(
-         %State{pending_commits: [{from, txn, instance, id} | rest], last_commit: last_commit} =
+        {:reply, :ok,
+         %{
            state
-       )
-       when last_commit + 1 == txn do
-    case handle_call({:commit_state, instance, txn, :ignored, id}, from, %{
-           state
-           | pending_commits: rest
-         }) do
-      {:reply, response, state} ->
-        GenServer.reply(from, response)
-        state
+           | pending_commits: Enum.sort_by(state.pending_commits, fn {_, txn, _, _, _} -> txn end)
+         }
+         |> next()}
 
-      {:noreply, state} ->
-        state
+      {key, true} ->
+        {:reply, Map.get(state.committed, key),
+         %{
+           state
+           | committed: Map.delete(state.committed, key),
+             pending_commits:
+               Enum.sort_by(state.pending_commits, fn {_, txn, _, _, _} -> txn end),
+             lock: Map.put(state.lock, key, false)
+         }
+         |> next()}
     end
   end
 
-  defp next(%State{} = state) do
+  defp next(%State{pending_commits: []} = state) do
     state
+  end
+
+  defp next(
+         %State{
+           pending_commits: [
+             {from, {activation, txn_ctr} = txn, instance, instance_id, id} | rest
+           ],
+           last_commit: last_commit
+         } = state
+       ) do
+    last = last_commit[{instance_id, activation}]
+
+    if is_nil(last) or last == txn_ctr - 1 do
+      # We can commit now
+      case handle_call({:commit_state, instance, txn, instance_id, id}, from, %{
+             state
+             | pending_commits: rest
+           }) do
+        {:reply, response, state} ->
+          GenServer.reply(from, response)
+          state
+
+        {:noreply, state} ->
+          state
+      end
+    else
+      # We can't commit now
+      state
+    end
   end
 end

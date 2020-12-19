@@ -54,8 +54,10 @@ defmodule BPXE.Engine.SensorGateway do
       })
 
       {:send,
-       BPXE.Message.new(content: Message.new(fired: state.fired, message_id: msg.message_id)),
-       [state.outgoing |> List.first()], %{state | fired: []}}
+       BPXE.Message.new(
+         activation: BPXE.Message.activation(msg),
+         content: Message.new(fired: state.fired, message_id: msg.message_id)
+       ), [state.outgoing |> List.first()], %{state | fired: []}}
     else
       # regular flow
       {:send, msg, [state.outgoing |> Enum.at(index)],
