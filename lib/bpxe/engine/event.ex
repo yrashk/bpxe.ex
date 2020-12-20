@@ -41,54 +41,54 @@ defmodule BPXE.Engine.Event do
     {:reply, {:ok, options}, state}
   end
 
-  def handle_message({%BPXE.Message{} = msg, _id}, %__MODULE__{type: :startEvent} = state) do
+  def handle_token({%BPXE.Token{} = token, _id}, %__MODULE__{type: :startEvent} = state) do
     Process.log(state.process, %Log.EventActivated{
       pid: self(),
       id: state.id,
-      message_id: msg.message_id
+      token_id: token.token_id
     })
 
-    {:send, msg, state}
+    {:send, token, state}
   end
 
-  def handle_message({%BPXE.Message{} = msg, _id}, %__MODULE__{type: :endEvent} = state) do
+  def handle_token({%BPXE.Token{} = token, _id}, %__MODULE__{type: :endEvent} = state) do
     Process.log(state.process, %Log.EventActivated{
       pid: self(),
       id: state.id,
-      message_id: msg.message_id
+      token_id: token.token_id
     })
 
     {:dontsend, state}
   end
 
-  # Hold the messages until event is trigerred
-  def handle_message({%BPXE.Message{} = msg, _id}, %__MODULE__{activated: nil} = state) do
+  # Hold the tokens until event is trigerred
+  def handle_token({%BPXE.Token{} = token, _id}, %__MODULE__{activated: nil} = state) do
     Process.log(state.process, %Log.EventActivated{
       pid: self(),
       id: state.id,
-      message_id: msg.message_id
+      token_id: token.token_id
     })
 
-    {:dontsend, %{state | activated: msg}}
+    {:dontsend, %{state | activated: token}}
   end
 
-  # If a different message comes, forget the previous one we held,
+  # If a different token comes, forget the previous one we held,
   # overwrite it with the new one (FIXME: not sure this is a good default behaviour)
-  def handle_message(
-        {%BPXE.Message{message_id: message_id} = msg, _id},
-        %__MODULE__{activated: %BPXE.Message{message_id: message_id1}} = state
+  def handle_token(
+        {%BPXE.Token{token_id: token_id} = token, _id},
+        %__MODULE__{activated: %BPXE.Token{token_id: token_id1}} = state
       )
-      when message_id != message_id1 do
+      when token_id != token_id1 do
     Process.log(state.process, %Log.EventActivated{
       pid: self(),
       id: state.id,
-      message_id: msg.message_id
+      token_id: token.token_id
     })
 
-    {:dontsend, %{state | activated: msg}}
+    {:dontsend, %{state | activated: token}}
   end
 
-  # When event is triggered, send the message
+  # When event is triggered, send the token
   def handle_info(
         {BPXE.Signal, _id},
         %__MODULE__{type: :intermediateCatchEvent, activated: activated, incoming: [_]} = state
@@ -97,7 +97,7 @@ defmodule BPXE.Engine.Event do
     Process.log(state.process, %Log.EventTrigerred{
       pid: self(),
       id: state.id,
-      message_id: activated.message_id
+      token_id: activated.token_id
     })
 
     generation = next_generation(activated)
@@ -106,13 +106,13 @@ defmodule BPXE.Engine.Event do
     Process.log(state.process, %Log.FlowNodeForward{
       pid: self(),
       id: state.id,
-      message_id: activated.message_id,
+      token_id: activated.token_id,
       to: state.outgoing
     })
 
     state =
       Enum.reduce(state.outgoing, state, fn sequence_flow, state ->
-        send_message(sequence_flow, activated, state)
+        send_token(sequence_flow, activated, state)
       end)
 
     save_state(generation, state)

@@ -31,11 +31,11 @@ defmodule BPXE.Engine.Task do
     enter_loop(state)
   end
 
-  def handle_message({msg, _id}, %__MODULE__{type: :scriptTask} = state) do
+  def handle_token({token, _id}, %__MODULE__{type: :scriptTask} = state) do
     Process.log(state.process, %Log.TaskActivated{
       pid: self(),
       id: state.id,
-      message_id: msg.message_id
+      token_id: token.token_id
     })
 
     {:ok, vm} = BPXE.Language.Lua.new()
@@ -47,32 +47,32 @@ defmodule BPXE.Engine.Task do
     {:ok, {_result, vm}} = BPXE.Language.eval(vm, state.script)
     process_vars = BPXE.Language.get(vm, "process") |> ensure_maps()
     flow_node_vars = BPXE.Language.get(vm, "flow_node") |> ensure_maps()
-    Base.merge_variables(state.process, process_vars, msg)
-    {:reply, _, state} = handle_call({:merge_variables, flow_node_vars, msg}, :ignored, state)
+    Base.merge_variables(state.process, process_vars, token)
+    {:reply, _, state} = handle_call({:merge_variables, flow_node_vars, token}, :ignored, state)
 
     Process.log(state.process, %Log.TaskCompleted{
       pid: self(),
       id: state.id,
-      message_id: msg.message_id
+      token_id: token.token_id
     })
 
-    {:send, msg, state}
+    {:send, token, state}
   end
 
-  def handle_message({msg, _id}, state) do
+  def handle_token({token, _id}, state) do
     Process.log(state.process, %Log.TaskActivated{
       pid: self(),
       id: state.id,
-      message_id: msg.message_id
+      token_id: token.token_id
     })
 
     Process.log(state.process, %Log.TaskCompleted{
       pid: self(),
       id: state.id,
-      message_id: msg.message_id
+      token_id: token.token_id
     })
 
-    {:send, msg, state}
+    {:send, token, state}
   end
 
   def handle_call({:add_script, script}, _from, state) do

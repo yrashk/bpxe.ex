@@ -1,6 +1,6 @@
-defmodule BPXE.Message do
-  defstruct message_id: nil,
-            content: nil,
+defmodule BPXE.Token do
+  defstruct token_id: nil,
+            payload: nil,
             __generation__: 0,
             __generation_atomic__: nil
 
@@ -12,7 +12,7 @@ defmodule BPXE.Message do
     %{
       result
       | __generation__: {options[:activation] || 0, 0},
-        message_id: result.message_id || generate_id(),
+        token_id: result.token_id || generate_id(),
         __generation_atomic__: :atomics.new(2, [])
     }
   end
@@ -32,7 +32,7 @@ defmodule BPXE.Message do
   end
 
   defp generate_id() do
-    {m, f, a} = Application.get_env(:bpxe, :message_id_generator)
+    {m, f, a} = Application.get_env(:bpxe, :token_id_generator)
     apply(m, f, a)
   end
 

@@ -91,14 +91,14 @@ defmodule BPXE.Engine.Process do
   end
 
   @doc """
-  Passively listen for log messages from a process. This will start delivering messages in the following
+  Passively listen for log tokens from a process. This will start delivering tokens in the following
   format:
 
   ```elixir
-  {BPXE.Engine.Process.Log, message}
+  {BPXE.Engine.Process.Log, token}
   ```
 
-  to `subscriber` (`self()` by default). Most (if not all?) log messages should be defined in
+  to `subscriber` (`self()` by default). Most (if not all?) log tokens should be defined in
   `BPXE.Engine.Process.Log` module.
 
   This is particularly useful for testing, rendering visualizations, etc.
@@ -112,7 +112,7 @@ defmodule BPXE.Engine.Process do
   end
 
   @doc """
-  Stop receiving passive log messages from a process (initiated by `subscribe_logs/2`). If you were not listening
+  Stop receiving passive log tokens from a process (initiated by `subscribe_logs/2`). If you were not listening
   originally, it will return `{:error, :not_listening}`. Otherwise, it will return `:ok`.
   """
   @spec unsubscribe_log(pid()) :: :ok | {:error, term}
@@ -146,8 +146,8 @@ defmodule BPXE.Engine.Process do
     synthesize(pid)
     blueprint = GenServer.call(pid, :blueprint)
     event = :syn.whereis({blueprint.pid, :event, :startEvent, id})
-    msg = BPXE.Message.new(activation: new_activation(pid))
-    send(event, {msg, nil})
+    token = BPXE.Token.new(activation: new_activation(pid))
+    send(event, {token, nil})
     :ok
   end
 

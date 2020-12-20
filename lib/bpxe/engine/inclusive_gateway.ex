@@ -12,10 +12,10 @@ defmodule BPXE.Engine.InclusiveGateway do
       blueprint: nil,
       process: nil,
       fired: nil,
-      incoming_messages: [],
+      incoming_tokens: [],
       synthesized: false
     ],
-    persist: ~w(fired incoming_messages)a
+    persist: ~w(fired incoming_tokens)a
   )
 
   def start_link(id, options, blueprint, process) do
@@ -28,11 +28,11 @@ defmodule BPXE.Engine.InclusiveGateway do
     {:ok, state}
   end
 
-  def handle_message({%BPXE.Message{} = msg, id}, state) do
+  def handle_token({%BPXE.Token{} = token, id}, state) do
     Process.log(state.process, %Log.InclusiveGatewayReceived{
       pid: self(),
       id: state.id,
-      message_id: msg.message_id,
+      token_id: token.token_id,
       from: id
     })
 
@@ -42,17 +42,17 @@ defmodule BPXE.Engine.InclusiveGateway do
         Process.log(state.process, %Log.InclusiveGatewayCompleted{
           pid: self(),
           id: state.id,
-          message_id: msg.message_id
+          token_id: token.token_id
         })
 
-        {:send, msg, state}
+        {:send, token, state}
 
       [] ->
-        # there's a message but it couldn't come from anywhere. What gives?
+        # there's a token but it couldn't come from anywhere. What gives?
         Process.log(state.process, %Log.InclusiveGatewayCompleted{
           pid: self(),
           id: state.id,
-          message_id: nil
+          token_id: nil
         })
 
         {:dontsend, state}
@@ -63,11 +63,11 @@ defmodule BPXE.Engine.InclusiveGateway do
         index = Enum.find_index(state.incoming, fn x -> x == id end)
 
         if index == 0 do
-          # completion message
-          try_complete(%__MODULE__{state | fired: msg})
+          # completion token
+          try_complete(%__MODULE__{state | fired: token})
         else
-          incoming_messages = [{msg, id} | state.incoming_messages]
-          try_complete(%__MODULE__{state | incoming_messages: incoming_messages})
+          incoming_tokens = [{token, id} | state.incoming_tokens]
+          try_complete(%__MODULE__{state | incoming_tokens: incoming_tokens})
         end
     end
   end
@@ -78,8 +78,8 @@ defmodule BPXE.Engine.InclusiveGateway do
 
   defp try_complete(
          %__MODULE__{
-           fired: fired_msg,
-           incoming_messages: incoming_messages,
+           fired: fired_token,
+           incoming_tokens: incoming_tokens,
            # don't include sensor wire
            incoming: [_ | incoming]
          } = state
@@ -87,11 +87,11 @@ defmodule BPXE.Engine.InclusiveGateway do
     incoming = incoming |> Enum.reverse()
 
     all_fired? =
-      Enum.all?(fired_msg.content.fired, fn index ->
+      Enum.all?(fired_token.payload.fired, fn index ->
         flow_id = incoming |> Enum.at(index)
 
-        Enum.find(incoming_messages, fn {msg, id} ->
-          id == flow_id and msg.message_id == fired_msg.content.message_id
+        Enum.find(incoming_tokens, fn {token, id} ->
+          id == flow_id and token.token_id == fired_token.payload.token_id
         end)
       end)
 
@@ -99,31 +99,31 @@ defmodule BPXE.Engine.InclusiveGateway do
       Process.log(state.process, %Log.InclusiveGatewayCompleted{
         pid: self(),
         id: state.id,
-        message_id: fired_msg.content.message_id,
+        token_id: fired_token.payload.token_id,
         fired:
-          fired_msg.content.fired
+          fired_token.payload.fired
           |> Enum.zip(state.incoming |> tl() |> Enum.reverse())
           |> Enum.map(fn {_index, seq_flow} -> seq_flow end)
       })
 
-      {out_msg, _} =
-        Enum.find(incoming_messages, fn {msg, _} ->
-          msg.message_id == fired_msg.content.message_id
+      {out_token, _} =
+        Enum.find(incoming_tokens, fn {token, _} ->
+          token.token_id == fired_token.payload.token_id
         end)
 
-      content =
-        Enum.reduce(incoming_messages, [], fn {msg, _}, acc ->
-          if msg.message_id == out_msg.message_id do
-            [msg.content | acc]
+      payload =
+        Enum.reduce(incoming_tokens, [], fn {token, _}, acc ->
+          if token.token_id == out_token.token_id do
+            [token.payload | acc]
           else
             acc
           end
         end)
         |> Enum.reverse()
 
-      out_msg = %{out_msg | content: content}
+      out_token = %{out_token | payload: payload}
 
-      {:send, out_msg, %{state | fired: nil, incoming_messages: []}}
+      {:send, out_token, %{state | fired: nil, incoming_tokens: []}}
     else
       {:dontsend, state}
     end

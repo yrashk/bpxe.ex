@@ -65,7 +65,7 @@ defmodule BPXETest.Engine.Blueprint do
     assert_receive({Log, %Log.EventActivated{id: "ev1"}})
     # at this point, ev1 is ready to get a signal
 
-    flush_messages()
+    flush_tokens()
 
     # but we crash the blueprint
     :erlang.exit(pid, :kill)
@@ -116,7 +116,7 @@ defmodule BPXETest.Engine.Blueprint do
     assert_receive({Log, %Log.EventActivated{id: "ev1"}})
     # at this point, ev1 is ready to get a signal
 
-    flush_messages()
+    flush_tokens()
 
     # but we crash the blueprint
     :erlang.exit(pid, :kill)
@@ -143,10 +143,10 @@ defmodule BPXETest.Engine.Blueprint do
     :syn.publish({blueprint, :signal, id}, {BPXE.Signal, id})
   end
 
-  defp flush_messages() do
+  defp flush_tokens() do
     receive do
       _m ->
-        flush_messages()
+        flush_tokens()
     after
       1000 ->
         :ok

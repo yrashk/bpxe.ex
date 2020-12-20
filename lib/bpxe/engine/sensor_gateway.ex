@@ -32,16 +32,16 @@ defmodule BPXE.Engine.SensorGateway do
     {:ok, state}
   end
 
-  defmodule Message do
-    defstruct fired: [], message_id: nil
+  defmodule Token do
+    defstruct fired: [], token_id: nil
     use ExConstructor
   end
 
-  def handle_message({%BPXE.Message{} = msg, id}, state) do
+  def handle_token({%BPXE.Token{} = token, id}, state) do
     Process.log(state.process, %Log.SensorGatewayActivated{
       pid: self(),
       id: state.id,
-      message_id: msg.message_id
+      token_id: token.token_id
     })
 
     index = Enum.find_index(state.incoming, fn id_ -> id_ == id end)
@@ -51,17 +51,17 @@ defmodule BPXE.Engine.SensorGateway do
       Process.log(state.process, %Log.SensorGatewayCompleted{
         pid: self(),
         id: state.id,
-        message_id: msg.message_id
+        token_id: token.token_id
       })
 
       {:send,
-       BPXE.Message.new(
-         activation: BPXE.Message.activation(msg),
-         content: Message.new(fired: state.fired, message_id: msg.message_id)
+       BPXE.Token.new(
+         activation: BPXE.Token.activation(token),
+         payload: Token.new(fired: state.fired, token_id: token.token_id)
        ), [state.outgoing |> List.first()], %{state | fired: []}}
     else
       # regular flow
-      {:send, msg, [state.outgoing |> Enum.at(index)],
+      {:send, token, [state.outgoing |> Enum.at(index)],
        %{state | fired: [length(state.incoming) - index - 1 | state.fired]}}
     end
   end

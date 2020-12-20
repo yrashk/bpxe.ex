@@ -1,31 +1,31 @@
-defmodule BPXETest.Message do
+defmodule BPXETest.Token do
   use ExUnit.Case
-  doctest BPXE.Message
+  doctest BPXE.Token
 
   test "generating new generation ID always generates non-duplicate, monotonic IDs" do
-    message = BPXE.Message.new()
+    token = BPXE.Token.new()
 
     pid = self()
 
     for _ <- 1..1000 do
       spawn_link(fn ->
-        {_activation, id} = BPXE.Message.next_generation(message)
+        {_activation, id} = BPXE.Token.next_generation(token)
         send(pid, id)
       end)
     end
 
-    messages = receive_all(1000) |> Enum.uniq() |> Enum.sort()
+    tokens = receive_all(1000) |> Enum.uniq() |> Enum.sort()
 
-    assert length(messages) == 1000
-    assert 1..1000 |> Enum.to_list() == messages
+    assert length(tokens) == 1000
+    assert 1..1000 |> Enum.to_list() == tokens
   end
 
   test "generating more than 2^64 IDs still works (even though this is unlikely)" do
-    message = BPXE.Message.new()
-    :atomics.add(message.__generation_atomic__, 1, 18_446_744_073_709_551_615)
+    token = BPXE.Token.new()
+    :atomics.add(token.__generation_atomic__, 1, 18_446_744_073_709_551_615)
 
-    assert BPXE.Message.next_generation(%{
-             message
+    assert BPXE.Token.next_generation(%{
+             token
              | __generation__: {0, 18_446_744_073_709_551_615}
            }) ==
              {0, 18_446_744_073_709_551_616}
@@ -35,7 +35,7 @@ defmodule BPXETest.Message do
 
   defp receive_all(n) do
     receive do
-      message -> [message | receive_all(n - 1)]
+      token -> [token | receive_all(n - 1)]
     end
   end
 end

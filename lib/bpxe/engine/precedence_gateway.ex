@@ -3,8 +3,8 @@ defmodule BPXE.Engine.PrecedenceGateway do
   *Note: This gateway is not described in BPMN 2.0. Currently it can only be
   added programmatically (not through BPMN XML document, at this time)*
 
-  This gateway will only process the first blueprint of a received message
-  (tracked by message_id) and send it out to a corresponding output. The
+  This gateway will only process the first blueprint of a received token
+  (tracked by token_id) and send it out to a corresponding output. The
   correspondance is achieved by requiring the same number of incoming and
   outgoing sequence flows and they will be mapped directly, so that Nth incoming
   flow will trigger Nth outgoing flow.
@@ -29,50 +29,50 @@ defmodule BPXE.Engine.PrecedenceGateway do
     {:ok, state}
   end
 
-  def handle_message({%BPXE.Message{} = msg, id}, state) do
+  def handle_token({%BPXE.Token{} = token, id}, state) do
     Process.log(state.process, %Log.PrecedenceGatewayActivated{
       pid: self(),
       id: state.id,
-      message_id: msg.message_id
+      token_id: token.token_id
     })
 
-    case state.precedence[msg.message_id] do
+    case state.precedence[token.token_id] do
       nil ->
         Process.log(state.process, %Log.PrecedenceGatewayPrecedenceEstablished{
           pid: self(),
           id: state.id,
-          message_id: msg.message_id
+          token_id: token.token_id
         })
 
-        state = %{state | precedence: Map.put(state.precedence, msg.message_id, [id])}
+        state = %{state | precedence: Map.put(state.precedence, token.token_id, [id])}
 
         case corresponds_to(id, state) do
           nil ->
             # There's no mapping between these flows
-            # Drop the message
+            # Drop the token
             {:dontsend, state}
 
           outgoing ->
             # There's a mapping, send it there
-            {:send, msg, [outgoing], state}
+            {:send, token, [outgoing], state}
         end
 
       precedence ->
-        Process.log(state.process, %Log.PrecedenceGatewayMessageDiscarded{
+        Process.log(state.process, %Log.PrecedenceGatewayTokenDiscarded{
           pid: self(),
           id: state.id,
-          message_id: msg.message_id
+          token_id: token.token_id
         })
 
         new_precedence = [id | precedence]
 
         if length(new_precedence) == length(state.incoming) == length(state.outgoing) do
           # We've received them all, drop it from the state
-          {:dontsend, %{state | precedence: Map.delete(state.precedence, msg.message_id)}}
+          {:dontsend, %{state | precedence: Map.delete(state.precedence, token.token_id)}}
         else
-          # Drop the message
+          # Drop the token
           {:dontsend,
-           %{state | precedence: Map.put(state.precedence, msg.message_id, new_precedence)}}
+           %{state | precedence: Map.put(state.precedence, token.token_id, new_precedence)}}
         end
     end
   end

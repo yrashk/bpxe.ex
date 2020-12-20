@@ -60,7 +60,7 @@ defmodule BPXETest.Engine.SensorGateway do
       {Log,
        %Log.FlowNodeActivated{
          id: "sensorReader",
-         message: %BPXE.Message{content: %BPXE.Engine.SensorGateway.Message{fired: fired}}
+         token: %BPXE.Token{payload: %BPXE.Engine.SensorGateway.Token{fired: fired}}
        }}
     )
 

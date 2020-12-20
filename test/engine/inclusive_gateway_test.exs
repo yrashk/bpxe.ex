@@ -7,7 +7,7 @@ defmodule BPXETest.Engine.InclusiveGateway do
 
   @xsi "http://www.w3.org/2001/XMLSchema-blueprint"
 
-  test "forking inclusive gateway should send message to all forks that have truthful conditions" do
+  test "forking inclusive gateway should send token to all forks that have truthful conditions" do
     {:ok, pid} = Blueprint.start_link()
     {:ok, proc1} = Blueprint.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
 
@@ -45,7 +45,7 @@ defmodule BPXETest.Engine.InclusiveGateway do
     refute_receive({Log, %Log.TaskActivated{id: "t2"}})
   end
 
-  test "joining inclusive gateway should send a combined messaged forward, only from forks that had truthful conditions" do
+  test "joining inclusive gateway should send a combined tokend forward, only from forks that had truthful conditions" do
     {:ok, pid} = Blueprint.start_link()
     {:ok, proc1} = Blueprint.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
 
@@ -83,9 +83,9 @@ defmodule BPXETest.Engine.InclusiveGateway do
     assert [{"proc1", [{"start", :ok}]}] |> List.keysort(0) ==
              Blueprint.start(pid) |> List.keysort(0)
 
-    # We should receive a collection of two messages (third condition was falsy)
+    # We should receive a collection of two tokens (third condition was falsy)
     assert_receive(
-      {Log, %Log.FlowNodeActivated{id: "t4", message: %BPXE.Message{content: [nil, nil]}}}
+      {Log, %Log.FlowNodeActivated{id: "t4", token: %BPXE.Token{payload: [nil, nil]}}}
     )
   end
 
@@ -127,7 +127,7 @@ defmodule BPXETest.Engine.InclusiveGateway do
     assert :ok = Process.synthesize(proc1)
   end
 
-  test "joining inclusive gateway should send a combined messaged forward, only from forks that had truthful conditions, only if they actually reached the gateway" do
+  test "joining inclusive gateway should send a combined tokend forward, only from forks that had truthful conditions, only if they actually reached the gateway" do
     {:ok, pid} = Blueprint.start_link()
     {:ok, proc1} = Blueprint.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
 

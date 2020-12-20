@@ -104,13 +104,13 @@ defmodule BPXE.Engine.FlowNode do
         end
       end
 
-      def handle_info({BPXE.Message.Ack, message_id, id}, state) do
-        case Map.get(state.buffer, {message_id, id}) do
-          %BPXE.Message{__generation__: generation} ->
-            state = %{state | buffer: Map.delete(state.buffer, {message_id, id})}
+      def handle_info({BPXE.Token.Ack, token_id, id}, state) do
+        case Map.get(state.buffer, {token_id, id}) do
+          %BPXE.Token{__generation__: generation} ->
+            state = %{state | buffer: Map.delete(state.buffer, {token_id, id})}
             save_state(generation, state)
-            # if this message has been delivered to all recipients
-            unless Enum.any?(state.buffer, fn {{t, _}, _} -> t == message_id end) do
+            # if this token has been delivered to all recipients
+            unless Enum.any?(state.buffer, fn {{t, _}, _} -> t == token_id end) do
               # commit
               commit_state(generation, state)
             end
@@ -122,32 +122,32 @@ defmodule BPXE.Engine.FlowNode do
         end
       end
 
-      def handle_info({%BPXE.Message{__generation__: generation} = msg, id}, state) do
+      def handle_info({%BPXE.Token{__generation__: generation} = token, id}, state) do
         alias BPXE.Engine.Process
         alias BPXE.Engine.Process.Log
 
         Process.log(state.process, %Log.FlowNodeActivated{
           pid: self(),
           id: state.id,
-          message: msg,
-          message_id: msg.message_id
+          token: token,
+          token_id: token.token_id
         })
 
-        case handle_message({msg, id}, state) do
-          {:send, %BPXE.Message{} = new_msg, state} ->
-            new_msg = %{
-              new_msg
+        case handle_token({token, id}, state) do
+          {:send, %BPXE.Token{} = new_token, state} ->
+            new_token = %{
+              new_token
               | __generation__:
-                  if(generation == new_msg.__generation__,
-                    do: next_generation(new_msg),
-                    else: new_msg.__generation__
+                  if(generation == new_token.__generation__,
+                    do: next_generation(new_token),
+                    else: new_token.__generation__
                   )
             }
 
             Process.log(state.process, %Log.FlowNodeForward{
               pid: self(),
               id: state.id,
-              message_id: msg.message_id,
+              token_id: token.token_id,
               to: state.outgoing
             })
 
@@ -159,44 +159,44 @@ defmodule BPXE.Engine.FlowNode do
 
             state =
               Enum.reduce(sequence_flows, state, fn sequence_flow, state ->
-                send_message(sequence_flow, new_msg, state)
+                send_token(sequence_flow, new_token, state)
               end)
 
             save_state(generation, state)
-            ack(msg, id, state)
+            ack(token, id, state)
 
             {:noreply, handle_completion(state)}
 
-          {:send, %BPXE.Message{} = new_msg, outgoing, state} ->
-            new_msg = %{
-              new_msg
+          {:send, %BPXE.Token{} = new_token, outgoing, state} ->
+            new_token = %{
+              new_token
               | __generation__:
-                  if(generation == new_msg.__generation__,
-                    do: next_generation(new_msg),
-                    else: new_msg.__generation__
+                  if(generation == new_token.__generation__,
+                    do: next_generation(new_token),
+                    else: new_token.__generation__
                   )
             }
 
             Process.log(state.process, %Log.FlowNodeForward{
               pid: self(),
               id: state.id,
-              message_id: msg.message_id,
+              token_id: token.token_id,
               to: outgoing
             })
 
             state =
               Enum.reduce(outgoing, state, fn sequence_flow, state ->
-                send_message(sequence_flow, new_msg, state)
+                send_token(sequence_flow, new_token, state)
               end)
 
             save_state(generation, state)
-            ack(msg, id, state)
+            ack(token, id, state)
 
             {:noreply, handle_completion(state)}
 
           {:dontsend, state} ->
             save_state(generation, state)
-            ack(msg, id, state)
+            ack(token, id, state)
 
             {:noreply, handle_completion(state)}
 
@@ -205,8 +205,8 @@ defmodule BPXE.Engine.FlowNode do
         end
       end
 
-      def handle_message({%BPXE.Message{} = msg, _id}, state) do
-        {:send, msg, state}
+      def handle_token({%BPXE.Token{} = token, _id}, state) do
+        {:send, token, state}
       end
 
       def handle_completion(state) do
@@ -216,13 +216,13 @@ defmodule BPXE.Engine.FlowNode do
       def handle_recovery(recovered, state) do
         state = super(recovered, state)
 
-        Enum.reduce(state.buffer, state, fn {_message_id, sequence_flow}, msg ->
-          send(sequence_flow, msg, state)
+        Enum.reduce(state.buffer, state, fn {_token_id, sequence_flow}, token ->
+          send(sequence_flow, token, state)
         end)
       end
 
-      defp next_generation(%BPXE.Message{} = msg) do
-        BPXE.Message.next_generation(msg)
+      defp next_generation(%BPXE.Token{} = token) do
+        BPXE.Token.next_generation(token)
       end
 
       defp save_state(generation, state) do
@@ -246,14 +246,14 @@ defmodule BPXE.Engine.FlowNode do
         BPXE.Engine.Blueprint.commit_state(state.blueprint, generation, state.id)
       end
 
-      defp ack(%BPXE.Message{__generation__: 0}, _id, state) do
+      defp ack(%BPXE.Token{__generation__: 0}, _id, state) do
         commit_state(0, state)
       end
 
-      defp ack(%BPXE.Message{message_id: message_id}, id, state) do
+      defp ack(%BPXE.Token{token_id: token_id}, id, state) do
         :syn.publish(
           {state.blueprint.pid, :flow_sequence, id},
-          {BPXE.Message.Ack, message_id, id}
+          {BPXE.Token.Ack, token_id, id}
         )
       end
 
@@ -269,7 +269,7 @@ defmodule BPXE.Engine.FlowNode do
       end
 
       @xsi "http://www.w3.org/2001/XMLSchema-blueprint"
-      def send_message(sequence_flow, msg, state) do
+      def send_token(sequence_flow, token, state) do
         proceed =
           case state.sequence_flows[sequence_flow][:conditionExpression] do
             {%{{@xsi, "type"} => formal_expr}, body}
@@ -292,19 +292,19 @@ defmodule BPXE.Engine.FlowNode do
           end
 
         if proceed do
-          state = send(sequence_flow, msg, state)
-          %{state | buffer: Map.put(state.buffer, {msg.message_id, sequence_flow}, msg)}
+          state = send(sequence_flow, token, state)
+          %{state | buffer: Map.put(state.buffer, {token.token_id, sequence_flow}, token)}
         else
           state
         end
       end
 
-      def send(sequence_flow, msg, state) do
+      def send(sequence_flow, token, state) do
         target = state.sequence_flows[sequence_flow]["targetRef"]
 
         case :syn.whereis({state.blueprint.pid, :flow_node, target}) do
           pid when is_pid(pid) ->
-            send(pid, {msg, sequence_flow})
+            send(pid, {token, sequence_flow})
 
           # FIXME: how should we handle this?
           :undefined ->
@@ -319,9 +319,9 @@ defmodule BPXE.Engine.FlowNode do
       end
 
       defoverridable handle_recovery: 2,
-                     handle_message: 2,
+                     handle_token: 2,
                      handle_completion: 1,
-                     send_message: 3,
+                     send_token: 3,
                      send: 3,
                      synthesize: 1
     end

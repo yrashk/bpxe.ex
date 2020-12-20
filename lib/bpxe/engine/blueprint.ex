@@ -28,7 +28,7 @@ defmodule BPXE.Engine.Blueprint do
     # Blueprint PID is transient and will be changed at every restart, so we don't use this
     # for restarts. However, it *is* used as a component of `syn` pub/sub groups to identify this
     # particular worker of the blueprint so that there is no chance these can be mixed up and wrong
-    # messages get to wrong groups at a wrong time.
+    # tokens get to wrong groups at a wrong time.
     #
     # FIXME: is this thinking sound or am I over-engineering here?
     config =

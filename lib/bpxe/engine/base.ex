@@ -41,7 +41,7 @@ defmodule BPXE.Engine.Base do
         end
       end
 
-      def handle_call({:merge_variables, variables, message}, _from, state) do
+      def handle_call({:merge_variables, variables, token}, _from, state) do
         if Map.has_key?(state, :variables) do
           changes =
             case MapDiff.diff(state.variables, variables) do
@@ -54,7 +54,7 @@ defmodule BPXE.Engine.Base do
           if variables != state.variables do
             BPXE.Engine.Blueprint.save_state(
               state.blueprint,
-              message.__generation__,
+              token.__generation__,
               state.id,
               self(),
               %{
@@ -85,8 +85,8 @@ defmodule BPXE.Engine.Base do
     GenServer.call(pid, :variables)
   end
 
-  def merge_variables(pid, variables, message) do
-    GenServer.call(pid, {:merge_variables, variables, message})
+  def merge_variables(pid, variables, token) do
+    GenServer.call(pid, {:merge_variables, variables, token})
   end
 
   defmacro __before_compile__(_) do

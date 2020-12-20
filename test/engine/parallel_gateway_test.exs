@@ -5,7 +5,7 @@ defmodule BPXETest.Engine.ParallelGateway do
   alias BPXE.Engine.Process.Log
   doctest BPXE.Engine.ParallelGateway
 
-  test "forking parallel gateway should send message to all forks" do
+  test "forking parallel gateway should send token to all forks" do
     {:ok, pid} = Blueprint.start_link()
     {:ok, proc1} = Blueprint.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
 
@@ -31,7 +31,7 @@ defmodule BPXETest.Engine.ParallelGateway do
     assert_receive({Log, %Log.TaskActivated{id: "t2"}})
   end
 
-  test "joining parallel gateway should send a combined messaged forward" do
+  test "joining parallel gateway should send a combined tokend forward" do
     {:ok, pid} = Blueprint.start_link()
     {:ok, proc1} = Blueprint.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
 
@@ -61,7 +61,7 @@ defmodule BPXETest.Engine.ParallelGateway do
              Blueprint.start(pid) |> List.keysort(0)
 
     assert_receive(
-      {Log, %Log.FlowNodeActivated{id: "t3", message: %BPXE.Message{content: [nil, nil]}}}
+      {Log, %Log.FlowNodeActivated{id: "t3", token: %BPXE.Token{payload: [nil, nil]}}}
     )
   end
 
@@ -98,8 +98,6 @@ defmodule BPXETest.Engine.ParallelGateway do
     assert [{"proc1", [{"start", :ok}]}] |> List.keysort(0) ==
              Blueprint.start(pid) |> List.keysort(0)
 
-    assert_receive(
-      {Log, %Log.FlowNodeActivated{id: "t3", message: %BPXE.Message{content: [nil]}}}
-    )
+    assert_receive({Log, %Log.FlowNodeActivated{id: "t3", token: %BPXE.Token{payload: [nil]}}})
   end
 end

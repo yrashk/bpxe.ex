@@ -6,8 +6,8 @@ defmodule BPXE.Engine.ParallelGateway do
   alias BPXE.Engine.Process.Log
 
   defstate(
-    [id: nil, options: %{}, blueprint: nil, process: nil, message_ids: %{}, drop_messages: %{}],
-    persist: ~w(message_ids drop_messages)a
+    [id: nil, options: %{}, blueprint: nil, process: nil, token_ids: %{}, drop_tokens: %{}],
+    persist: ~w(token_ids drop_tokens)a
   )
 
   def start_link(id, options, blueprint, process) do
@@ -20,11 +20,11 @@ defmodule BPXE.Engine.ParallelGateway do
     {:ok, state}
   end
 
-  def handle_message({%BPXE.Message{} = msg, id}, state) do
+  def handle_token({%BPXE.Token{} = token, id}, state) do
     Process.log(state.process, %Log.ParallelGatewayReceived{
       pid: self(),
       id: state.id,
-      message_id: msg.message_id,
+      token_id: token.token_id,
       from: id
     })
 
@@ -34,18 +34,18 @@ defmodule BPXE.Engine.ParallelGateway do
         Process.log(state.process, %Log.ParallelGatewayCompleted{
           pid: self(),
           id: state.id,
-          message_id: msg.message_id,
+          token_id: token.token_id,
           to: state.outgoing
         })
 
-        {:send, msg, state}
+        {:send, token, state}
 
       [] ->
-        # there's a message but it couldn't come from anywhere. What gives?
+        # there's a token but it couldn't come from anywhere. What gives?
         Process.log(state.process, %Log.ParallelGatewayCompleted{
           pid: self(),
           id: state.id,
-          message_id: msg.message_id,
+          token_id: token.token_id,
           to: []
         })
 
@@ -54,55 +54,55 @@ defmodule BPXE.Engine.ParallelGateway do
       _ ->
         # Join
 
-        # If join threshold was already reached, drop a message
-        drop_message = state.drop_messages[msg.message_id]
+        # If join threshold was already reached, drop a token
+        drop_token = state.drop_tokens[token.token_id]
 
-        if !!drop_message do
-          drop_message = drop_message - 1
+        if !!drop_token do
+          drop_token = drop_token - 1
 
-          drop_messages =
-            if drop_message == 0 do
-              Map.delete(state.drop_messages, msg.message_id)
+          drop_tokens =
+            if drop_token == 0 do
+              Map.delete(state.drop_tokens, token.token_id)
             else
-              Map.put(state.drop_messages, msg.message_id, drop_message)
+              Map.put(state.drop_tokens, token.token_id, drop_token)
             end
 
-          {:dontsend, %{state | drop_messages: drop_messages}}
+          {:dontsend, %{state | drop_tokens: drop_tokens}}
         else
-          message_ids =
-            Map.update(state.message_ids, msg.message_id, [msg], fn x -> [msg | x] end)
+          token_ids =
+            Map.update(state.token_ids, token.token_id, [token], fn x -> [token | x] end)
 
-          messages = message_ids[msg.message_id]
+          tokens = token_ids[token.token_id]
 
           join_threshold =
             (state.options[{BPXE.BPMN.ext_spec(), "joinThreshold"}] || "#{length(state.incoming)}")
             |> String.to_integer()
 
-          if length(messages) == join_threshold do
-            message_ids = Map.delete(message_ids, msg.message_id)
+          if length(tokens) == join_threshold do
+            token_ids = Map.delete(token_ids, token.token_id)
 
-            message = %{hd(messages) | content: Enum.map(messages, fn m -> m.content end)}
+            token = %{hd(tokens) | payload: Enum.map(tokens, fn m -> m.payload end)}
 
             Process.log(state.process, %Log.ParallelGatewayCompleted{
               pid: self(),
               id: state.id,
-              message_id: msg.message_id,
+              token_id: token.token_id,
               to: state.outgoing
             })
 
-            {:send, message,
+            {:send, token,
              %{
                state
-               | message_ids: message_ids,
-                 drop_messages:
+               | token_ids: token_ids,
+                 drop_tokens:
                    Map.put(
-                     state.drop_messages,
-                     msg.message_id,
+                     state.drop_tokens,
+                     token.token_id,
                      length(state.incoming) - join_threshold
                    )
              }}
           else
-            {:dontsend, %{state | message_ids: message_ids}}
+            {:dontsend, %{state | token_ids: token_ids}}
           end
         end
     end

@@ -6,7 +6,7 @@ defmodule BPXETest.Engine.PrecedenceGateway do
   alias BPXE.Engine.Event
   doctest BPXE.Engine.PrecedenceGateway
 
-  test "sends first message received (establishment of precedence)" do
+  test "sends first token received (establishment of precedence)" do
     {:ok, pid} = Blueprint.start_link()
     {:ok, proc1} = Blueprint.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
 

@@ -11,11 +11,11 @@ defmodule BPXE.Engine.ExclusiveGateway do
       options: %{},
       blueprint: nil,
       process: nil,
-      message_ids: %{},
-      drop_messages: %{},
+      token_ids: %{},
+      drop_tokens: %{},
       decision_made: false
     ],
-    persist: ~w(message_ids drop_messages)a
+    persist: ~w(token_ids drop_tokens)a
   )
 
   def start_link(id, options, blueprint, process) do
@@ -28,35 +28,35 @@ defmodule BPXE.Engine.ExclusiveGateway do
     {:ok, state}
   end
 
-  def handle_message({%BPXE.Message{} = msg, _id}, state) do
+  def handle_token({%BPXE.Token{} = token, _id}, state) do
     Process.log(state.process, %Log.ExclusiveGatewayActivated{
       pid: self(),
       id: state.id,
-      message_id: msg.message_id
+      token_id: token.token_id
     })
 
-    {:send, msg, state}
+    {:send, token, state}
   end
 
-  def send_message(sequence_flow, msg, %__MODULE__{decision_made: false} = state) do
-    state1 = super(sequence_flow, msg, state)
+  def send_token(sequence_flow, token, %__MODULE__{decision_made: false} = state) do
+    state1 = super(sequence_flow, token, state)
 
-    if Enum.any?(state1.buffer, fn {{message_id, _}, _} -> message_id == msg.message_id end) do
+    if Enum.any?(state1.buffer, fn {{token_id, _}, _} -> token_id == token.token_id end) do
       %{state1 | decision_made: true}
     else
       state1
     end
   end
 
-  def send_message(sequence_flow, msg, %__MODULE__{decision_made: true} = state) do
-    super(sequence_flow, msg, state)
+  def send_token(sequence_flow, token, %__MODULE__{decision_made: true} = state) do
+    super(sequence_flow, token, state)
   end
 
-  def send(sequence_flow, msg, %__MODULE__{decision_made: false} = state) do
-    super(sequence_flow, msg, state)
+  def send(sequence_flow, token, %__MODULE__{decision_made: false} = state) do
+    super(sequence_flow, token, state)
   end
 
-  def send(_sequence_flow, _msg, %__MODULE__{decision_made: true} = state) do
+  def send(_sequence_flow, _token, %__MODULE__{decision_made: true} = state) do
     state
   end
 
