@@ -1,5 +1,5 @@
 defmodule BPXE.BPMN.JSON do
-  defstruct value: nil, current: nil, characters: nil, kv: false
+  defstruct value: nil, current: nil, characters: nil, keyed: false
   use ExConstructor
 
   def handle_event(
@@ -8,7 +8,7 @@ defmodule BPXE.BPMN.JSON do
         %__MODULE__{current: nil} = state
       )
       when map_size(args) == 0 do
-    {:ok, %{state | value: %{}, current: [], kv: true}}
+    {:ok, %{state | value: %{}, current: []}}
   end
 
   def handle_event(
@@ -17,15 +17,24 @@ defmodule BPXE.BPMN.JSON do
         %__MODULE__{current: path, value: value} = state
       )
       when map_size(args) == 0 do
-    {:ok, %{state | value: update(value, path, %{}), kv: true}}
+    {:ok, %{state | value: update(value, path, %{})}}
   end
 
   def handle_event(
         :start_element,
-        {{_, "map"}, %{"key" => key}},
+        {{_, _} = element, %{"key" => key}},
         %__MODULE__{current: path} = state
       ) do
-    {:ok, %{state | current: [key | path]}}
+    handle_event(:start_element, {element, %{}}, %{state | current: [key | path], keyed: true})
+  end
+
+  def handle_event(
+        :end_element,
+        {_, _} = element,
+        %__MODULE__{keyed: true} = state
+      ) do
+    handle_event(:end_element, element, %{state | keyed: false})
+    |> Result.map(fn state -> %{state | current: tl(state.current)} end)
   end
 
   def handle_event(
@@ -34,21 +43,13 @@ defmodule BPXE.BPMN.JSON do
         %__MODULE__{current: current} = state
       )
       when current == [] or is_nil(current) do
-    {:ok, %{state | current: nil, kv: false}}
+    {:ok, %{state | current: nil}}
   end
 
   def handle_event(
         :end_element,
         {_, "map"},
         %__MODULE__{current: [_ | path]} = state
-      ) do
-    {:ok, %{state | current: path, kv: false}}
-  end
-
-  def handle_event(
-        :end_element,
-        {_, "map"},
-        %__MODULE__{current: [_ | path], kv: false} = state
       ) do
     {:ok, %{state | current: path}}
   end

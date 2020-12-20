@@ -4,12 +4,10 @@
     <bpmn:serviceTask id="task">
       <bpmn:extensionElements>
        <j:map>
-        <j:map key="test"><j:number>123</j:number></j:map>
-        <j:map key="world"><j:string>hello</j:string></j:map>
+        <j:number key="test">123</j:number>
+        <j:string key="world">hello</j:string>
         <j:map key="again">
-          <j:map>
-            <j:map key="yes"><j:number>321</j:number></j:map>
-          </j:map>
+            <j:number key="yes">321</j:number>
         </j:map>
       </j:map>
       <j:array>
