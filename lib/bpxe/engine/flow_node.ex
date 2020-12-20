@@ -106,13 +106,13 @@ defmodule BPXE.Engine.FlowNode do
 
       def handle_info({BPXE.Message.Ack, message_id, id}, state) do
         case Map.get(state.buffer, {message_id, id}) do
-          %BPXE.Message{__txn__: txn} ->
+          %BPXE.Message{__generation__: generation} ->
             state = %{state | buffer: Map.delete(state.buffer, {message_id, id})}
-            save_state(txn, state)
+            save_state(generation, state)
             # if this message has been delivered to all recipients
             unless Enum.any?(state.buffer, fn {{t, _}, _} -> t == message_id end) do
               # commit
-              commit_state(txn, state)
+              commit_state(generation, state)
             end
 
             {:noreply, state}
@@ -122,7 +122,7 @@ defmodule BPXE.Engine.FlowNode do
         end
       end
 
-      def handle_info({%BPXE.Message{__txn__: txn} = msg, id}, state) do
+      def handle_info({%BPXE.Message{__generation__: generation} = msg, id}, state) do
         alias BPXE.Engine.Process
         alias BPXE.Engine.Process.Log
 
@@ -137,7 +137,11 @@ defmodule BPXE.Engine.FlowNode do
           {:send, %BPXE.Message{} = new_msg, state} ->
             new_msg = %{
               new_msg
-              | __txn__: if(txn == new_msg.__txn__, do: next_txn(new_msg), else: new_msg.__txn__)
+              | __generation__:
+                  if(generation == new_msg.__generation__,
+                    do: next_generation(new_msg),
+                    else: new_msg.__generation__
+                  )
             }
 
             Process.log(state.process, %Log.FlowNodeForward{
@@ -158,7 +162,7 @@ defmodule BPXE.Engine.FlowNode do
                 send_message(sequence_flow, new_msg, state)
               end)
 
-            save_state(txn, state)
+            save_state(generation, state)
             ack(msg, id, state)
 
             {:noreply, handle_completion(state)}
@@ -166,7 +170,11 @@ defmodule BPXE.Engine.FlowNode do
           {:send, %BPXE.Message{} = new_msg, outgoing, state} ->
             new_msg = %{
               new_msg
-              | __txn__: if(txn == new_msg.__txn__, do: next_txn(new_msg), else: new_msg.__txn__)
+              | __generation__:
+                  if(generation == new_msg.__generation__,
+                    do: next_generation(new_msg),
+                    else: new_msg.__generation__
+                  )
             }
 
             Process.log(state.process, %Log.FlowNodeForward{
@@ -181,13 +189,13 @@ defmodule BPXE.Engine.FlowNode do
                 send_message(sequence_flow, new_msg, state)
               end)
 
-            save_state(txn, state)
+            save_state(generation, state)
             ack(msg, id, state)
 
             {:noreply, handle_completion(state)}
 
           {:dontsend, state} ->
-            save_state(txn, state)
+            save_state(generation, state)
             ack(msg, id, state)
 
             {:noreply, handle_completion(state)}
@@ -213,11 +221,11 @@ defmodule BPXE.Engine.FlowNode do
         end)
       end
 
-      defp next_txn(%BPXE.Message{} = msg) do
-        BPXE.Message.next_txn(msg)
+      defp next_generation(%BPXE.Message{} = msg) do
+        BPXE.Message.next_generation(msg)
       end
 
-      defp save_state(txn, state) do
+      defp save_state(generation, state) do
         state_map = Map.from_struct(state)
 
         saving_state =
@@ -225,14 +233,20 @@ defmodule BPXE.Engine.FlowNode do
             Map.put(acc, key, state_map[key])
           end)
 
-        BPXE.Engine.Blueprint.save_state(state.blueprint, txn, state.id, self(), saving_state)
+        BPXE.Engine.Blueprint.save_state(
+          state.blueprint,
+          generation,
+          state.id,
+          self(),
+          saving_state
+        )
       end
 
-      defp commit_state(txn, state) do
-        BPXE.Engine.Blueprint.commit_state(state.blueprint, txn, state.id)
+      defp commit_state(generation, state) do
+        BPXE.Engine.Blueprint.commit_state(state.blueprint, generation, state.id)
       end
 
-      defp ack(%BPXE.Message{__txn__: 0}, _id, state) do
+      defp ack(%BPXE.Message{__generation__: 0}, _id, state) do
         commit_state(0, state)
       end
 

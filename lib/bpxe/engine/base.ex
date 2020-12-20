@@ -54,7 +54,7 @@ defmodule BPXE.Engine.Base do
           if variables != state.variables do
             BPXE.Engine.Blueprint.save_state(
               state.blueprint,
-              message.__txn__,
+              message.__generation__,
               state.id,
               self(),
               %{

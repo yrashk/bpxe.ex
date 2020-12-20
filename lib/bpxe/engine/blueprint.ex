@@ -103,54 +103,54 @@ defmodule BPXE.Engine.Blueprint do
     GenServer.call(pid, :config)
   end
 
-  def save_state(%Config{flow_handler: nil}, _txn, _id, _pid, _state) do
+  def save_state(%Config{flow_handler: nil}, _generation, _id, _pid, _state) do
     :ok
   end
 
   def save_state(
         %Config{flow_handler: handler, pid: blueprint, id: blueprint_id},
-        txn,
+        generation,
         id,
         pid,
         state
       )
       when is_atom(handler) do
-    handler.save_state(blueprint, txn, blueprint_id, id, pid, state, nil)
+    handler.save_state(blueprint, generation, blueprint_id, id, pid, state, nil)
   end
 
   def save_state(
         %Config{flow_handler: %{__struct__: handler} = config, pid: blueprint, id: blueprint_id},
-        txn,
+        generation,
         id,
         pid,
         state
       ) do
-    handler.save_state(blueprint, txn, blueprint_id, id, pid, state, config)
+    handler.save_state(blueprint, generation, blueprint_id, id, pid, state, config)
   end
 
-  def save_state(blueprint, txn, id, pid, state) when is_pid(pid) do
-    blueprint |> config() |> save_state(txn, id, pid, state)
+  def save_state(blueprint, generation, id, pid, state) when is_pid(pid) do
+    blueprint |> config() |> save_state(generation, id, pid, state)
   end
 
-  def commit_state(%Config{flow_handler: nil}, _txn, _id) do
+  def commit_state(%Config{flow_handler: nil}, _generation, _id) do
     :ok
   end
 
-  def commit_state(%Config{flow_handler: handler, pid: blueprint, id: blueprint_id}, txn, id)
+  def commit_state(%Config{flow_handler: handler, pid: blueprint, id: blueprint_id}, generation, id)
       when is_atom(handler) do
-    handler.commit_state(blueprint, blueprint_id, txn, id, nil)
+    handler.commit_state(blueprint, blueprint_id, generation, id, nil)
   end
 
   def commit_state(
         %Config{flow_handler: %{__struct__: handler} = config, pid: blueprint, id: blueprint_id},
-        txn,
+        generation,
         id
       ) do
-    handler.commit_state(blueprint, txn, blueprint_id, id, config)
+    handler.commit_state(blueprint, generation, blueprint_id, id, config)
   end
 
-  def commit_state(blueprint, txn, id) when is_pid(blueprint) do
-    blueprint |> config() |> commit_state(txn, id)
+  def commit_state(blueprint, generation, id) when is_pid(blueprint) do
+    blueprint |> config() |> commit_state(generation, id)
   end
 
   def restore_state(%Config{flow_handler: nil}) do

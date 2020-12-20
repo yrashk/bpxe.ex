@@ -16,17 +16,17 @@ defmodule BPXE.Engine.FlowHandler.ETS do
   end
 
   @impl FlowHandler
-  def save_state(blueprint, txn, blueprint_id, id, pid, state, %__MODULE__{pid: handler}) do
+  def save_state(blueprint, generation, blueprint_id, id, pid, state, %__MODULE__{pid: handler}) do
     GenServer.call(
       handler,
-      {:save_state, blueprint, txn, blueprint_id, id, pid, state},
+      {:save_state, blueprint, generation, blueprint_id, id, pid, state},
       :infinity
     )
   end
 
   @impl FlowHandler
-  def commit_state(blueprint, txn, blueprint_id, id, %__MODULE__{pid: handler}) do
-    GenServer.call(handler, {:commit_state, blueprint, txn, blueprint_id, id}, :infinity)
+  def commit_state(blueprint, generation, blueprint_id, id, %__MODULE__{pid: handler}) do
+    GenServer.call(handler, {:commit_state, blueprint, generation, blueprint_id, id}, :infinity)
   end
 
   @impl FlowHandler
@@ -46,41 +46,41 @@ defmodule BPXE.Engine.FlowHandler.ETS do
 
   @impl GenServer
   def handle_call(
-        {:save_state, _blueprint, txn, blueprint_id, id, pid, saving_state},
+        {:save_state, _blueprint, generation, blueprint_id, id, pid, saving_state},
         _from,
         %State{staging: staging} = state
       ) do
-    Set.put(staging, {{txn, blueprint_id, id}, {pid, saving_state}})
+    Set.put(staging, {{generation, blueprint_id, id}, {pid, saving_state}})
     {:reply, :ok, state}
   end
 
   @impl GenServer
   def handle_call(
-        {:commit_state, blueprint, {activation, txn_ctr} = txn, blueprint_id, id},
+        {:commit_state, blueprint, {activation, generation_ctr} = generation, blueprint_id, id},
         from,
         %State{staging: staging, table: table, last_commit: last_commit} = state
       ) do
     last = last_commit[{blueprint_id, activation}]
 
-    if is_nil(last) or last == txn_ctr - 1 do
-      # if we can commit now (first transaction or a subsequent transaction in blueprint's activation)
+    if is_nil(last) or last == generation_ctr - 1 do
+      # if we can commit now (first generation or a subsequent generation in blueprint's activation)
       import Ex2ms
 
       pattern =
         fun do
-          {{txn_, blueprint_id_, id}, {_pid, saving_state}}
-          when txn_ == ^txn and blueprint_id_ == ^blueprint_id ->
+          {{generation_, blueprint_id_, id}, {_pid, saving_state}}
+          when generation_ == ^generation and blueprint_id_ == ^blueprint_id ->
             {id, saving_state}
         end
 
       case Set.select(staging, pattern) do
         {:ok, results} ->
           for {id, saving_state} <- results do
-            Set.delete(staging, {txn, blueprint_id, id})
+            Set.delete(staging, {generation, blueprint_id, id})
             Set.put(table, {{blueprint_id, id}, saving_state})
           end
 
-          last_commit = Map.put(last_commit, {blueprint_id, activation}, txn_ctr)
+          last_commit = Map.put(last_commit, {blueprint_id, activation}, generation_ctr)
 
           {:reply, :ok, %{state | last_commit: last_commit} |> next()}
 
@@ -93,8 +93,8 @@ defmodule BPXE.Engine.FlowHandler.ETS do
        %{
          state
          | pending_commits:
-             [{from, blueprint, txn, blueprint_id, id} | state.pending_commits]
-             |> Enum.sort_by(fn {_, _, txn, _, _} -> txn end)
+             [{from, blueprint, generation, blueprint_id, id} | state.pending_commits]
+             |> Enum.sort_by(fn {_, _, generation, _, _} -> generation end)
        }}
     end
   end
@@ -129,16 +129,16 @@ defmodule BPXE.Engine.FlowHandler.ETS do
   defp next(
          %State{
            pending_commits: [
-             {from, blueprint, {activation, txn_ctr} = txn, blueprint_id, id} | rest
+             {from, blueprint, {activation, generation_ctr} = generation, blueprint_id, id} | rest
            ],
            last_commit: last_commit
          } = state
        ) do
     last = last_commit[{blueprint_id, activation}]
 
-    if is_nil(last) or last == txn_ctr - 1 do
-      # Again, this is a subsequent transaction in blueprint+activation, we can commit it
-      case handle_call({:commit_state, blueprint, txn, blueprint_id, id}, from, %{
+    if is_nil(last) or last == generation_ctr - 1 do
+      # Again, this is a subsequent generation in blueprint+activation, we can commit it
+      case handle_call({:commit_state, blueprint, generation, blueprint_id, id}, from, %{
              state
              | pending_commits: rest
            }) do

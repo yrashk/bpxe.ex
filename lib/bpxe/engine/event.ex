@@ -100,8 +100,8 @@ defmodule BPXE.Engine.Event do
       message_id: activated.message_id
     })
 
-    txn = next_txn(activated)
-    activated = %{activated | __txn__: txn}
+    generation = next_generation(activated)
+    activated = %{activated | __generation__: generation}
 
     Process.log(state.process, %Log.FlowNodeForward{
       pid: self(),
@@ -115,7 +115,7 @@ defmodule BPXE.Engine.Event do
         send_message(sequence_flow, activated, state)
       end)
 
-    save_state(txn, state)
+    save_state(generation, state)
 
     {:noreply, handle_completion(state)}
   end

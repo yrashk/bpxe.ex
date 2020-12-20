@@ -1,7 +1,7 @@
 defmodule BPXE.Engine.FlowHandler do
   @callback save_state(
               blueprint :: term,
-              txn :: term,
+              generation :: term,
               blueprint_id :: term,
               id :: term,
               pid :: pid,
@@ -11,7 +11,7 @@ defmodule BPXE.Engine.FlowHandler do
               :ok | {:error, :term}
   @callback commit_state(
               blueprint :: term,
-              txn :: term,
+              generation :: term,
               blueprint_id :: term,
               id :: term,
               handler_config :: term

@@ -2,14 +2,14 @@ defmodule BPXETest.Message do
   use ExUnit.Case
   doctest BPXE.Message
 
-  test "generating new transaction ID always generates non-duplicate, monotonic IDs" do
+  test "generating new generation ID always generates non-duplicate, monotonic IDs" do
     message = BPXE.Message.new()
 
     pid = self()
 
     for _ <- 1..1000 do
       spawn_link(fn ->
-        {_activation, id} = BPXE.Message.next_txn(message)
+        {_activation, id} = BPXE.Message.next_generation(message)
         send(pid, id)
       end)
     end
@@ -22,9 +22,12 @@ defmodule BPXETest.Message do
 
   test "generating more than 2^64 IDs still works (even though this is unlikely)" do
     message = BPXE.Message.new()
-    :atomics.add(message.__gen__, 1, 18_446_744_073_709_551_615)
+    :atomics.add(message.__generation_atomic__, 1, 18_446_744_073_709_551_615)
 
-    assert BPXE.Message.next_txn(%{message | __txn__: {0, 18_446_744_073_709_551_615}}) ==
+    assert BPXE.Message.next_generation(%{
+             message
+             | __generation__: {0, 18_446_744_073_709_551_615}
+           }) ==
              {0, 18_446_744_073_709_551_616}
   end
 
