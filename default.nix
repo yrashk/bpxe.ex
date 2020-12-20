@@ -3,7 +3,7 @@
 }:
 
 pkgs.stdenv.mkDerivation rec {
-  name = "bpex-shell";
+  name = "bpxe-shell";
 
   buildInputs = with pkgs; [ elixir ];
 
