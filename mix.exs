@@ -27,6 +27,7 @@ defmodule BPXE.MixProject do
       mod: {BPXE.Application, []},
       env: [
         token_id_generator: {XCUID, :generate, []},
+        spec_id_generator: {XCUID, :generate, []},
         default_expression_language: BPXE.Language.Lua,
         expression_languages: %{"lua" => BPXE.Language.Lua},
         extra_expression_languages: %{"lua" => BPXE.Language.Lua}
