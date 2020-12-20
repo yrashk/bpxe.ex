@@ -3,25 +3,26 @@ defmodule BPXE.Engine.Task do
   use BPXE.Engine.FlowNode
   alias BPXE.Engine.{Process, Base}
   alias BPXE.Engine.Process.Log
+  use BPXE.Engine.Blueprint.Recordable
 
-  defstate([id: nil, type: nil, options: %{}, instance: nil, process: nil, script: ""],
+  defstate([id: nil, type: nil, options: %{}, blueprint: nil, process: nil, script: ""],
     persist: []
   )
 
-  def start_link(id, type, options, instance, process) do
-    start_link([{id, type, options, instance, process}])
+  def start_link(id, type, options, blueprint, process) do
+    start_link([{id, type, options, blueprint, process}])
   end
 
   def add_script(pid, script) do
-    GenServer.call(pid, {:add_script, script})
+    call(pid, {:add_script, script})
   end
 
-  def init({id, type, options, instance, process}) do
+  def init({id, type, options, blueprint, process}) do
     state = %__MODULE__{
       id: id,
       type: type,
       options: options,
-      instance: instance,
+      blueprint: blueprint,
       process: process
     }
 

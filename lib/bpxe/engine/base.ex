@@ -1,4 +1,6 @@
 defmodule BPXE.Engine.Base do
+  use BPXE.Engine.Blueprint.Recordable
+
   defmacro __using__(_ \\ []) do
     quote do
       Module.register_attribute(__MODULE__, :initializer, accumulate: true)
@@ -50,9 +52,15 @@ defmodule BPXE.Engine.Base do
           variables = Map.merge(state.variables, changes)
 
           if variables != state.variables do
-            BPXE.Engine.Instance.save_state(state.instance, message.__txn__, state.id, self(), %{
-              variables: variables
-            })
+            BPXE.Engine.Blueprint.save_state(
+              state.blueprint,
+              message.__txn__,
+              state.id,
+              self(),
+              %{
+                variables: variables
+              }
+            )
           end
 
           {:reply, :ok, %{state | variables: variables}}
@@ -66,7 +74,7 @@ defmodule BPXE.Engine.Base do
   end
 
   def id(pid) do
-    GenServer.call(pid, :id)
+    call(pid, :id)
   end
 
   def module(pid) do

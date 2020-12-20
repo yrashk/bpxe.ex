@@ -10,7 +10,7 @@ defmodule BPXE.Application do
     children = [
       # Starts a worker by calling: BPXE.Worker.start_link(arg)
       # {BPXE.Worker, arg}
-      BPXE.Engine.Instances
+      BPXE.Engine.Blueprints
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

@@ -15,13 +15,13 @@ defmodule BPXE.Engine.FlowHandler.Stepper do
   end
 
   @impl FlowHandler
-  def save_state(instance, txn, instance_id, id, pid, state, %__MODULE__{pid: stepper}) do
-    GenServer.call(stepper, {:save_state, instance, txn, instance_id, id, pid, state}, :infinity)
+  def save_state(blueprint, txn, blueprint_id, id, pid, state, %__MODULE__{pid: stepper}) do
+    GenServer.call(stepper, {:save_state, blueprint, txn, blueprint_id, id, pid, state}, :infinity)
   end
 
   @impl FlowHandler
-  def commit_state(instance, txn, instance_id, id, %__MODULE__{pid: stepper}) do
-    GenServer.call(stepper, {:commit_state, instance, txn, instance_id, id}, :infinity)
+  def commit_state(blueprint, txn, blueprint_id, id, %__MODULE__{pid: stepper}) do
+    GenServer.call(stepper, {:commit_state, blueprint, txn, blueprint_id, id}, :infinity)
   end
 
   def continue(%__MODULE__{pid: stepper}) do
@@ -43,14 +43,14 @@ defmodule BPXE.Engine.FlowHandler.Stepper do
 
   @impl GenServer
   def handle_call(
-        {:save_state, instance, txn, instance_id, id, pid, saving_state},
+        {:save_state, blueprint, txn, blueprint_id, id, pid, saving_state},
         _from,
         %State{} = state
       ) do
-    data = {{instance, id}, {id, pid, saving_state}}
+    data = {{blueprint, id}, {id, pid, saving_state}}
 
     transactions =
-      Map.update(state.transactions, {instance_id, txn}, [data], fn txns ->
+      Map.update(state.transactions, {blueprint_id, txn}, [data], fn txns ->
         [data | txns] |> Enum.uniq_by(fn {k, _} -> k end)
       end)
 
@@ -59,33 +59,33 @@ defmodule BPXE.Engine.FlowHandler.Stepper do
 
   @impl GenServer
   def handle_call(
-        {:commit_state, instance, {activation, txn_ctr} = txn, instance_id, id},
+        {:commit_state, blueprint, {activation, txn_ctr} = txn, blueprint_id, id},
         from,
         %State{lock: lock, last_commit: last_commit} = state
       ) do
-    last = last_commit[{instance_id, activation}]
+    last = last_commit[{blueprint_id, activation}]
 
-    if !lock[{instance_id, activation}] and (is_nil(last) or last == txn_ctr - 1) do
+    if !lock[{blueprint_id, activation}] and (is_nil(last) or last == txn_ctr - 1) do
       # We can commit now
-      data = Map.get(state.transactions, {instance_id, txn})
+      data = Map.get(state.transactions, {blueprint_id, txn})
       transactions = Map.delete(state.transactions, {activation, txn})
 
-      lock = Map.put(lock, {instance_id, activation}, true)
+      lock = Map.put(lock, {blueprint_id, activation}, true)
 
       {:reply, :ok,
        %{
          state
          | lock: lock,
-           committed: Map.put(state.committed, {instance_id, activation}, data),
+           committed: Map.put(state.committed, {blueprint_id, activation}, data),
            transactions: transactions,
-           last_commit: Map.put(state.last_commit, {instance_id, activation}, txn_ctr)
+           last_commit: Map.put(state.last_commit, {blueprint_id, activation}, txn_ctr)
        }}
     else
       # We can't commit now
       {:noreply,
        %{
          state
-         | pending_commits: [{from, txn, instance, instance_id, id} | state.pending_commits]
+         | pending_commits: [{from, txn, blueprint, blueprint_id, id} | state.pending_commits]
        }}
     end
   end
@@ -127,16 +127,16 @@ defmodule BPXE.Engine.FlowHandler.Stepper do
   defp next(
          %State{
            pending_commits: [
-             {from, {activation, txn_ctr} = txn, instance, instance_id, id} | rest
+             {from, {activation, txn_ctr} = txn, blueprint, blueprint_id, id} | rest
            ],
            last_commit: last_commit
          } = state
        ) do
-    last = last_commit[{instance_id, activation}]
+    last = last_commit[{blueprint_id, activation}]
 
     if is_nil(last) or last == txn_ctr - 1 do
       # We can commit now
-      case handle_call({:commit_state, instance, txn, instance_id, id}, from, %{
+      case handle_call({:commit_state, blueprint, txn, blueprint_id, id}, from, %{
              state
              | pending_commits: rest
            }) do

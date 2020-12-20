@@ -1,4 +1,6 @@
 defmodule BPXE.Engine.FlowNode do
+  use BPXE.Engine.Blueprint.Recordable
+
   defmacro __using__(_options \\ []) do
     quote do
       use BPXE.Engine.Base
@@ -9,20 +11,20 @@ defmodule BPXE.Engine.FlowNode do
         only: [defstate: 1, defstate: 2]
 
       def handle_call({:add_incoming, id}, _from, state) do
-        :syn.join({state.instance.pid, :flow_out, id}, self())
+        :syn.join({state.blueprint.pid, :flow_out, id}, self())
         {:reply, {:ok, id}, %{state | incoming: [id | state.incoming]}}
       end
 
       def handle_call(:clear_incoming, _from, state) do
         for flow <- state.incoming do
-          :syn.leave({state.instance.pid, :flow_out, flow}, self())
+          :syn.leave({state.blueprint.pid, :flow_out, flow}, self())
         end
 
         {:reply, :ok, %{state | incoming: []}}
       end
 
       def handle_call({:remove_incoming, id}, _from, state) do
-        :syn.leave({state.instance.pid, :flow_out, id}, self())
+        :syn.leave({state.blueprint.pid, :flow_out, id}, self())
         {:reply, :ok, %{state | incoming: state.incoming -- [id]}}
       end
 
@@ -39,9 +41,9 @@ defmodule BPXE.Engine.FlowNode do
       end
 
       def handle_call({:add_sequence_flow, id, options}, _from, state) do
-        :syn.join({state.instance.pid, :flow_sequence, id}, self())
+        :syn.join({state.blueprint.pid, :flow_sequence, id}, self())
 
-        {:reply, {:ok, {:sequence_flow, id, self()}},
+        {:reply, {:ok, {BPXE.Engine.FlowNode, {:sequence_flow, self(), id}}},
          %{
            state
            | sequence_flows: Map.put(state.sequence_flows, id, options),
@@ -73,7 +75,7 @@ defmodule BPXE.Engine.FlowNode do
       end
 
       def handle_call({:remove_sequence_flow, id}, _from, state) do
-        :syn.leave({state.instance.pid, :flow_sequence, id}, self())
+        :syn.leave({state.blueprint.pid, :flow_sequence, id}, self())
 
         {:reply, Map.get(state.sequence_flows, id),
          %{
@@ -223,11 +225,11 @@ defmodule BPXE.Engine.FlowNode do
             Map.put(acc, key, state_map[key])
           end)
 
-        BPXE.Engine.Instance.save_state(state.instance, txn, state.id, self(), saving_state)
+        BPXE.Engine.Blueprint.save_state(state.blueprint, txn, state.id, self(), saving_state)
       end
 
       defp commit_state(txn, state) do
-        BPXE.Engine.Instance.commit_state(state.instance, txn, state.id)
+        BPXE.Engine.Blueprint.commit_state(state.blueprint, txn, state.id)
       end
 
       defp ack(%BPXE.Message{__txn__: 0}, _id, state) do
@@ -236,7 +238,7 @@ defmodule BPXE.Engine.FlowNode do
 
       defp ack(%BPXE.Message{message_id: message_id}, id, state) do
         :syn.publish(
-          {state.instance.pid, :flow_sequence, id},
+          {state.blueprint.pid, :flow_sequence, id},
           {BPXE.Message.Ack, message_id, id}
         )
       end
@@ -244,7 +246,7 @@ defmodule BPXE.Engine.FlowNode do
       @initializer :init_flow_node
 
       def init_flow_node(state) do
-        :syn.register({state.instance.pid, :flow_node, state.id}, self())
+        :syn.register({state.blueprint.pid, :flow_node, state.id}, self())
         %{state | variables: %{"id" => state.id}}
       end
 
@@ -252,7 +254,7 @@ defmodule BPXE.Engine.FlowNode do
         true
       end
 
-      @xsi "http://www.w3.org/2001/XMLSchema-instance"
+      @xsi "http://www.w3.org/2001/XMLSchema-blueprint"
       def send_message(sequence_flow, msg, state) do
         proceed =
           case state.sequence_flows[sequence_flow][:conditionExpression] do
@@ -286,7 +288,7 @@ defmodule BPXE.Engine.FlowNode do
       def send(sequence_flow, msg, state) do
         target = state.sequence_flows[sequence_flow]["targetRef"]
 
-        case :syn.whereis({state.instance.pid, :flow_node, target}) do
+        case :syn.whereis({state.blueprint.pid, :flow_node, target}) do
           pid when is_pid(pid) ->
             send(pid, {msg, sequence_flow})
 
@@ -311,67 +313,82 @@ defmodule BPXE.Engine.FlowNode do
     end
   end
 
-  def whereis(instance_pid, id) do
-    case :syn.whereis({instance_pid, :flow_node, id}) do
+  def whereis(blueprint_pid, id) do
+    case :syn.whereis({blueprint_pid, :flow_node, id}) do
       :undefined -> nil
       pid when is_pid(pid) -> pid
     end
   end
 
   def add_outgoing(pid, name) do
-    GenServer.call(pid, {:add_outgoing, name})
+    call(pid, {:add_outgoing, name})
   end
 
   def get_outgoing(pid) do
-    GenServer.call(pid, :get_outgoing)
+    call(pid, :get_outgoing)
   end
 
   def remove_outgoing(pid, name) do
-    GenServer.call(pid, {:remove_outgoing, name})
+    call(pid, {:remove_outgoing, name})
   end
 
   def clear_outgoing(pid) do
-    GenServer.call(pid, :clear_outgoing)
+    call(pid, :clear_outgoing)
   end
 
   def add_incoming(pid, name) do
-    GenServer.call(pid, {:add_incoming, name})
+    call(pid, {:add_incoming, name})
   end
 
   def remove_incoming(pid, name) do
-    GenServer.call(pid, {:remove_incoming, name})
+    call(pid, {:remove_incoming, name})
   end
 
   def get_incoming(pid) do
-    GenServer.call(pid, :get_incoming)
+    call(pid, :get_incoming)
   end
 
   def clear_incoming(pid) do
-    GenServer.call(pid, :clear_incoming)
+    call(pid, :clear_incoming)
   end
 
   def add_sequence_flow(pid, id, options) do
-    GenServer.call(pid, {:add_sequence_flow, id, options})
+    call(pid, {:add_sequence_flow, id, options})
   end
 
   def get_sequence_flows(pid) do
-    GenServer.call(pid, :get_sequence_flows)
+    call(pid, :get_sequence_flows)
   end
 
   def remove_sequence_flow(pid, id) do
-    GenServer.call(pid, {:remove_sequence_flow, id})
+    call(pid, {:remove_sequence_flow, id})
   end
 
   def clear_sequence_flows(pid) do
-    GenServer.call(pid, :clear_sequence_flows)
+    call(pid, :clear_sequence_flows)
   end
 
   def add_condition_expression({:sequence_flow, id, pid}, options, body) do
-    GenServer.call(pid, {:add_condition_expression, id, options, body})
+    call(pid, {:add_condition_expression, id, options, body})
+  end
+
+  def add_condition_expression(
+        %BPXE.Engine.Blueprint.Recordable.Ref{} = ref,
+        options,
+        body
+      ) do
+    call(ref, {:add_condition_expression, options, body})
   end
 
   def synthesize(pid) do
-    GenServer.call(pid, :synthesize)
+    call(pid, :synthesize)
+  end
+
+  def subcall(
+        {:sequence_flow, pid, id},
+        {:add_condition_expression, options, body}
+      ) do
+    call(pid, {:add_condition_expression, id, options, body})
   end
 
   defmacro defstate(struct, options \\ []) do

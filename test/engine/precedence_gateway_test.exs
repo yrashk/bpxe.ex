@@ -1,14 +1,14 @@
 defmodule BPXETest.Engine.PrecedenceGateway do
   use ExUnit.Case
-  alias BPXE.Engine.Instance
+  alias BPXE.Engine.Blueprint
   alias BPXE.Engine.Process
   alias BPXE.Engine.Process.Log
   alias BPXE.Engine.Event
   doctest BPXE.Engine.PrecedenceGateway
 
   test "sends first message received (establishment of precedence)" do
-    {:ok, pid} = Instance.start_link()
-    {:ok, proc1} = Instance.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
+    {:ok, pid} = Blueprint.start_link()
+    {:ok, proc1} = Blueprint.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
 
     {:ok, start} = Process.add_event(proc1, "start", :startEvent, %{"id" => "start"})
 
@@ -39,10 +39,11 @@ defmodule BPXETest.Engine.PrecedenceGateway do
 
     {:ok, _} = Process.establish_sequence_flow(proc1, "ev2_t", pg, t2, %{})
 
+    {:ok, proc1} = Blueprint.instantiate_process(pid, "proc1")
     :ok = Process.subscribe_log(proc1)
 
     assert [{"proc1", [{"start", :ok}]}] |> List.keysort(0) ==
-             Instance.start(pid) |> List.keysort(0)
+             Blueprint.start(pid) |> List.keysort(0)
 
     assert_receive({Log, %Log.EventBasedGatewayActivated{id: "event_gate"}})
     assert_receive({Log, %Log.EventActivated{id: "ev1"}})
@@ -58,7 +59,7 @@ defmodule BPXETest.Engine.PrecedenceGateway do
     refute_receive({Log, %Log.TaskActivated{id: "t2"}})
   end
 
-  defp signal(instance, id) do
-    :syn.publish({instance, :signal, id}, {BPXE.Signal, id})
+  defp signal(blueprint, id) do
+    :syn.publish({blueprint, :signal, id}, {BPXE.Signal, id})
   end
 end

@@ -3,7 +3,7 @@ defmodule BPXE.Engine.PrecedenceGateway do
   *Note: This gateway is not described in BPMN 2.0. Currently it can only be
   added programmatically (not through BPMN XML document, at this time)*
 
-  This gateway will only process the first instance of a received message
+  This gateway will only process the first blueprint of a received message
   (tracked by message_id) and send it out to a corresponding output. The
   correspondance is achieved by requiring the same number of incoming and
   outgoing sequence flows and they will be mapped directly, so that Nth incoming
@@ -11,19 +11,20 @@ defmodule BPXE.Engine.PrecedenceGateway do
   """
   use GenServer
   use BPXE.Engine.FlowNode
+  use BPXE.Engine.Blueprint.Recordable
   alias BPXE.Engine.Process
   alias BPXE.Engine.Process.Log
 
-  defstate([id: nil, options: %{}, instance: nil, process: nil, precedence: %{}],
+  defstate([id: nil, options: %{}, blueprint: nil, process: nil, precedence: %{}],
     persist: ~w(precedence)a
   )
 
-  def start_link(id, options, instance, process) do
-    GenServer.start_link(__MODULE__, {id, options, instance, process})
+  def start_link(id, options, blueprint, process) do
+    GenServer.start_link(__MODULE__, {id, options, blueprint, process})
   end
 
-  def init({id, options, instance, process}) do
-    state = %__MODULE__{id: id, options: options, instance: instance, process: process}
+  def init({id, options, blueprint, process}) do
+    state = %__MODULE__{id: id, options: options, blueprint: blueprint, process: process}
     state = initialize(state)
     {:ok, state}
   end

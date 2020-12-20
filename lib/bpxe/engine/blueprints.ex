@@ -1,4 +1,4 @@
-defmodule BPXE.Engine.Instances do
+defmodule BPXE.Engine.Blueprints do
   use DynamicSupervisor
 
   def start_link(init_arg) do
@@ -10,11 +10,11 @@ defmodule BPXE.Engine.Instances do
     DynamicSupervisor.init(strategy: :one_for_one)
   end
 
-  def start_instance(options \\ []) do
-    DynamicSupervisor.start_child(__MODULE__, {BPXE.Engine.Instance, options})
+  def start_blueprint(options \\ []) do
+    DynamicSupervisor.start_child(__MODULE__, {BPXE.Engine.Blueprint, options})
   end
 
-  def stop_instance(pid) do
+  def stop_blueprint(pid) do
     DynamicSupervisor.terminate_child(__MODULE__, pid)
   end
 end

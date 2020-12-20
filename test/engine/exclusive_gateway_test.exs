@@ -1,13 +1,13 @@
 defmodule BPXETest.Engine.ExclusiveGateway do
   use ExUnit.Case
-  alias BPXE.Engine.{Instance, Process, FlowNode}
+  alias BPXE.Engine.{Blueprint, Process, FlowNode}
   alias Process.Log
   doctest BPXE.Engine.ExclusiveGateway
 
-  @xsi "http://www.w3.org/2001/XMLSchema-instance"
+  @xsi "http://www.w3.org/2001/XMLSchema-blueprint"
   test "sequence flow with the first truthful condition proceeds" do
-    {:ok, pid} = Instance.start_link()
-    {:ok, proc1} = Instance.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
+    {:ok, pid} = Blueprint.start_link()
+    {:ok, proc1} = Blueprint.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
 
     {:ok, start} = Process.add_event(proc1, "start", :startEvent, %{"id" => "start"})
     {:ok, the_end} = Process.add_event(proc1, "end", :endEvent, %{"id" => "end"})
@@ -34,10 +34,11 @@ defmodule BPXETest.Engine.ExclusiveGateway do
       "return true"
     )
 
+    {:ok, proc1} = Blueprint.instantiate_process(pid, "proc1")
     :ok = Process.subscribe_log(proc1)
 
     assert [{"proc1", [{"start", :ok}]}] |> List.keysort(0) ==
-             Instance.start(pid) |> List.keysort(0)
+             Blueprint.start(pid) |> List.keysort(0)
 
     assert_receive({Log, %Log.EventActivated{id: "start"}})
     assert_receive({Log, %Log.EventActivated{id: "end"}})
@@ -45,8 +46,8 @@ defmodule BPXETest.Engine.ExclusiveGateway do
   end
 
   test "sequence flow with the default case proceeds if no other matches" do
-    {:ok, pid} = Instance.start_link()
-    {:ok, proc1} = Instance.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
+    {:ok, pid} = Blueprint.start_link()
+    {:ok, proc1} = Blueprint.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
 
     {:ok, start} = Process.add_event(proc1, "start", :startEvent, %{"id" => "start"})
     {:ok, the_end} = Process.add_event(proc1, "end", :endEvent, %{"id" => "end"})
@@ -74,10 +75,11 @@ defmodule BPXETest.Engine.ExclusiveGateway do
       "return false"
     )
 
+    {:ok, proc1} = Blueprint.instantiate_process(pid, "proc1")
     :ok = Process.subscribe_log(proc1)
 
     assert [{"proc1", [{"start", :ok}]}] |> List.keysort(0) ==
-             Instance.start(pid) |> List.keysort(0)
+             Blueprint.start(pid) |> List.keysort(0)
 
     assert_receive({Log, %Log.EventActivated{id: "start"}})
     assert_receive({Log, %Log.EventActivated{id: "anotherEnd"}})
@@ -85,8 +87,8 @@ defmodule BPXETest.Engine.ExclusiveGateway do
   end
 
   test "sequence flow with the default case does not proceed if other matches, even if it was added before" do
-    {:ok, pid} = Instance.start_link()
-    {:ok, proc1} = Instance.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
+    {:ok, pid} = Blueprint.start_link()
+    {:ok, proc1} = Blueprint.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
 
     {:ok, start} = Process.add_event(proc1, "start", :startEvent, %{"id" => "start"})
     {:ok, the_end} = Process.add_event(proc1, "end", :endEvent, %{"id" => "end"})
@@ -114,10 +116,11 @@ defmodule BPXETest.Engine.ExclusiveGateway do
       "return true"
     )
 
+    {:ok, proc1} = Blueprint.instantiate_process(pid, "proc1")
     :ok = Process.subscribe_log(proc1)
 
     assert [{"proc1", [{"start", :ok}]}] |> List.keysort(0) ==
-             Instance.start(pid) |> List.keysort(0)
+             Blueprint.start(pid) |> List.keysort(0)
 
     assert_receive({Log, %Log.EventActivated{id: "start"}})
     assert_receive({Log, %Log.EventActivated{id: "end"}})

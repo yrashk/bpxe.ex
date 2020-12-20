@@ -37,7 +37,7 @@ defmodule BPXE.BPMN.Handler do
     {:ok,
      %__MODULE__{
        handler: options[:handler] || BPXE.BPMN.Handler.Engine,
-       current: [options[:instance]]
+       current: [options[:blueprint]]
      }}
   end
 
@@ -89,10 +89,10 @@ defmodule BPXE.BPMN.Handler do
   def handle_event(
         :start_element,
         {{bpmn, "process"}, args},
-        %__MODULE__{ns: %{@bpmn_spec => bpmn}, current: [instance | _], handler: handler} = state
+        %__MODULE__{ns: %{@bpmn_spec => bpmn}, current: [blueprint | _], handler: handler} = state
       )
-      when not is_nil(instance) do
-    handler.add_process(instance, args)
+      when not is_nil(blueprint) do
+    handler.add_process(blueprint, args)
     |> Result.map(fn process -> %{state | current: [process | state.current]} end)
   end
 
@@ -322,8 +322,8 @@ defmodule BPXE.BPMN.Handler do
     |> Result.map(fn _ -> %{state | characters: nil, args: nil} end)
   end
 
-  def handle_event(:end_document, _, %__MODULE__{current: [instance], handler: handler}) do
-    handler.complete(instance)
+  def handle_event(:end_document, _, %__MODULE__{current: [blueprint], handler: handler}) do
+    handler.complete(blueprint)
   end
 
   def handle_event(_event, _arg, state) do

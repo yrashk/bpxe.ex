@@ -7,18 +7,18 @@ defmodule BPXE.Language.Lua do
 end
 
 defimpl BPXE.Language, for: BPXE.Language.Lua do
-  def eval(%BPXE.Language.Lua{vm: vm} = instance, code) do
+  def eval(%BPXE.Language.Lua{vm: vm} = blueprint, code) do
     try do
       {result, vm} = :luerl.do(code, vm)
-      {:ok, {result, %{instance | vm: vm}}}
+      {:ok, {result, %{blueprint | vm: vm}}}
     rescue
       e ->
         {:error, e}
     end
   end
 
-  def set(%BPXE.Language.Lua{vm: vm} = instance, name, variables) do
-    %{instance | vm: :luerl.set_table( [name], variables, vm)}
+  def set(%BPXE.Language.Lua{vm: vm} = blueprint, name, variables) do
+    %{blueprint | vm: :luerl.set_table([name], variables, vm)}
   end
 
   def get(%BPXE.Language.Lua{vm: vm}, name) do

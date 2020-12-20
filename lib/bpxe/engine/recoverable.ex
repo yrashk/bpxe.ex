@@ -38,7 +38,7 @@ defmodule BPXE.Engine.Recoverable do
       defoverridable handle_recovery: 2, handle_unknown_state_key: 2
 
       def init_recoverable(state) do
-        :syn.join({state.instance.pid, :state_recovery, state.id}, self())
+        :syn.join({state.blueprint.pid, :state_recovery, state.id}, self())
         state
       end
 

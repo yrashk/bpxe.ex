@@ -16,18 +16,22 @@ defmodule BPXE.Engine.FlowHandler.ETS do
   end
 
   @impl FlowHandler
-  def save_state(instance, txn, instance_id, id, pid, state, %__MODULE__{pid: handler}) do
-    GenServer.call(handler, {:save_state, instance, txn, instance_id, id, pid, state}, :infinity)
+  def save_state(blueprint, txn, blueprint_id, id, pid, state, %__MODULE__{pid: handler}) do
+    GenServer.call(
+      handler,
+      {:save_state, blueprint, txn, blueprint_id, id, pid, state},
+      :infinity
+    )
   end
 
   @impl FlowHandler
-  def commit_state(instance, txn, instance_id, id, %__MODULE__{pid: handler}) do
-    GenServer.call(handler, {:commit_state, instance, txn, instance_id, id}, :infinity)
+  def commit_state(blueprint, txn, blueprint_id, id, %__MODULE__{pid: handler}) do
+    GenServer.call(handler, {:commit_state, blueprint, txn, blueprint_id, id}, :infinity)
   end
 
   @impl FlowHandler
-  def restore_state(instance, instance_id, %__MODULE__{pid: handler}) do
-    GenServer.call(handler, {:restore_state, instance, instance_id}, :infinity)
+  def restore_state(blueprint, blueprint_id, %__MODULE__{pid: handler}) do
+    GenServer.call(handler, {:restore_state, blueprint, blueprint_id}, :infinity)
   end
 
   defmodule State do
@@ -42,41 +46,41 @@ defmodule BPXE.Engine.FlowHandler.ETS do
 
   @impl GenServer
   def handle_call(
-        {:save_state, _instance, txn, instance_id, id, pid, saving_state},
+        {:save_state, _blueprint, txn, blueprint_id, id, pid, saving_state},
         _from,
         %State{staging: staging} = state
       ) do
-    Set.put(staging, {{txn, instance_id, id}, {pid, saving_state}})
+    Set.put(staging, {{txn, blueprint_id, id}, {pid, saving_state}})
     {:reply, :ok, state}
   end
 
   @impl GenServer
   def handle_call(
-        {:commit_state, instance, {activation, txn_ctr} = txn, instance_id, id},
+        {:commit_state, blueprint, {activation, txn_ctr} = txn, blueprint_id, id},
         from,
         %State{staging: staging, table: table, last_commit: last_commit} = state
       ) do
-    last = last_commit[{instance_id, activation}]
+    last = last_commit[{blueprint_id, activation}]
 
     if is_nil(last) or last == txn_ctr - 1 do
-      # if we can commit now (first transaction or a subsequent transaction in instance's activation)
+      # if we can commit now (first transaction or a subsequent transaction in blueprint's activation)
       import Ex2ms
 
       pattern =
         fun do
-          {{txn_, instance_id_, id}, {_pid, saving_state}}
-          when txn_ == ^txn and instance_id_ == ^instance_id ->
+          {{txn_, blueprint_id_, id}, {_pid, saving_state}}
+          when txn_ == ^txn and blueprint_id_ == ^blueprint_id ->
             {id, saving_state}
         end
 
       case Set.select(staging, pattern) do
         {:ok, results} ->
           for {id, saving_state} <- results do
-            Set.delete(staging, {txn, instance_id, id})
-            Set.put(table, {{instance_id, id}, saving_state})
+            Set.delete(staging, {txn, blueprint_id, id})
+            Set.put(table, {{blueprint_id, id}, saving_state})
           end
 
-          last_commit = Map.put(last_commit, {instance_id, activation}, txn_ctr)
+          last_commit = Map.put(last_commit, {blueprint_id, activation}, txn_ctr)
 
           {:reply, :ok, %{state | last_commit: last_commit} |> next()}
 
@@ -89,7 +93,7 @@ defmodule BPXE.Engine.FlowHandler.ETS do
        %{
          state
          | pending_commits:
-             [{from, instance, txn, instance_id, id} | state.pending_commits]
+             [{from, blueprint, txn, blueprint_id, id} | state.pending_commits]
              |> Enum.sort_by(fn {_, _, txn, _, _} -> txn end)
        }}
     end
@@ -97,18 +101,18 @@ defmodule BPXE.Engine.FlowHandler.ETS do
 
   @impl GenServer
   def handle_call(
-        {:restore_state, instance, instance_id},
+        {:restore_state, blueprint, blueprint_id},
         _from,
         %State{staging: staging, table: table} = state
       ) do
     Set.delete_all(staging)
 
-    for {{^instance_id, id}, saved_state} <- Set.to_list!(table) do
+    for {{^blueprint_id, id}, saved_state} <- Set.to_list!(table) do
       # FIXME: infinite timeout is not great, but a short timeout isn't great either, need to figure
       # the best way to handle it
       {_replies, _bad_pids} =
         :syn.multi_call(
-          {instance, :state_recovery, id},
+          {blueprint, :state_recovery, id},
           {BPXE.Engine.Recoverable, :recovered_state, saved_state}
         )
 
@@ -125,16 +129,16 @@ defmodule BPXE.Engine.FlowHandler.ETS do
   defp next(
          %State{
            pending_commits: [
-             {from, instance, {activation, txn_ctr} = txn, instance_id, id} | rest
+             {from, blueprint, {activation, txn_ctr} = txn, blueprint_id, id} | rest
            ],
            last_commit: last_commit
          } = state
        ) do
-    last = last_commit[{instance_id, activation}]
+    last = last_commit[{blueprint_id, activation}]
 
     if is_nil(last) or last == txn_ctr - 1 do
-      # Again, this is a subsequent transaction in instance+activation, we can commit it
-      case handle_call({:commit_state, instance, txn, instance_id, id}, from, %{
+      # Again, this is a subsequent transaction in blueprint+activation, we can commit it
+      case handle_call({:commit_state, blueprint, txn, blueprint_id, id}, from, %{
              state
              | pending_commits: rest
            }) do

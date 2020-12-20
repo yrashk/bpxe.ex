@@ -1,14 +1,14 @@
 defmodule BPXETest.Engine.EventBasedGateway do
   use ExUnit.Case
-  alias BPXE.Engine.Instance
+  alias BPXE.Engine.Blueprint
   alias BPXE.Engine.Process
   alias BPXE.Engine.Process.Log
   alias BPXE.Engine.Event
   doctest BPXE.Engine.EventBasedGateway
 
   test "no event captured means no event-based branch will be chosen" do
-    {:ok, pid} = Instance.start_link()
-    {:ok, proc1} = Instance.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
+    {:ok, pid} = Blueprint.start_link()
+    {:ok, proc1} = Blueprint.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
 
     {:ok, start} = Process.add_event(proc1, "start", :startEvent, %{"id" => "start"})
 
@@ -32,10 +32,11 @@ defmodule BPXETest.Engine.EventBasedGateway do
     {:ok, _} = Process.establish_sequence_flow(proc1, "ev1_t", ev1, t1)
     {:ok, _} = Process.establish_sequence_flow(proc1, "ev2_t", ev2, t2)
 
+    {:ok, proc1} = Blueprint.instantiate_process(pid, "proc1")
     :ok = Process.subscribe_log(proc1)
 
     assert [{"proc1", [{"start", :ok}]}] |> List.keysort(0) ==
-             Instance.start(pid) |> List.keysort(0)
+             Blueprint.start(pid) |> List.keysort(0)
 
     assert_receive({Log, %Log.EventBasedGatewayActivated{id: "event_gate"}})
     assert_receive({Log, %Log.EventActivated{id: "ev1"}})
@@ -46,8 +47,8 @@ defmodule BPXETest.Engine.EventBasedGateway do
   end
 
   test "one event captured should advance the flow and the other one will not be activated" do
-    {:ok, pid} = Instance.start_link()
-    {:ok, proc1} = Instance.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
+    {:ok, pid} = Blueprint.start_link()
+    {:ok, proc1} = Blueprint.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
 
     {:ok, start} = Process.add_event(proc1, "start", :startEvent, %{"id" => "start"})
 
@@ -71,10 +72,11 @@ defmodule BPXETest.Engine.EventBasedGateway do
     {:ok, _} = Process.establish_sequence_flow(proc1, "ev1_t", ev1, t1)
     {:ok, _} = Process.establish_sequence_flow(proc1, "ev2_t", ev2, t2)
 
+    {:ok, proc1} = Blueprint.instantiate_process(pid, "proc1")
     :ok = Process.subscribe_log(proc1)
 
     assert [{"proc1", [{"start", :ok}]}] |> List.keysort(0) ==
-             Instance.start(pid) |> List.keysort(0)
+             Blueprint.start(pid) |> List.keysort(0)
 
     assert_receive({Log, %Log.EventBasedGatewayActivated{id: "event_gate"}})
     assert_receive({Log, %Log.EventActivated{id: "ev1"}})
@@ -89,8 +91,8 @@ defmodule BPXETest.Engine.EventBasedGateway do
   end
 
   test "one event captured should advance the flow and the other one will not be activated -- after re-synthesis" do
-    {:ok, pid} = Instance.start_link()
-    {:ok, proc1} = Instance.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
+    {:ok, pid} = Blueprint.start_link()
+    {:ok, proc1} = Blueprint.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
 
     {:ok, start} = Process.add_event(proc1, "start", :startEvent, %{"id" => "start"})
 
@@ -114,13 +116,15 @@ defmodule BPXETest.Engine.EventBasedGateway do
     {:ok, _} = Process.establish_sequence_flow(proc1, "ev1_t", ev1, t1)
     {:ok, _} = Process.establish_sequence_flow(proc1, "ev2_t", ev2, t2)
 
+    {:ok, proc1} = Blueprint.instantiate_process(pid, "proc1")
+
     Process.synthesize(proc1)
     Process.synthesize(proc1)
 
     :ok = Process.subscribe_log(proc1)
 
     assert [{"proc1", [{"start", :ok}]}] |> List.keysort(0) ==
-             Instance.start(pid) |> List.keysort(0)
+             Blueprint.start(pid) |> List.keysort(0)
 
     assert_receive({Log, %Log.EventBasedGatewayActivated{id: "event_gate"}})
     assert_receive({Log, %Log.EventActivated{id: "ev1"}})
@@ -134,7 +138,7 @@ defmodule BPXETest.Engine.EventBasedGateway do
     refute_receive({Log, %Log.TaskActivated{id: "t2"}})
   end
 
-  defp signal(instance, id) do
-    :syn.publish({instance, :signal, id}, {BPXE.Signal, id})
+  defp signal(blueprint, id) do
+    :syn.publish({blueprint, :signal, id}, {BPXE.Signal, id})
   end
 end

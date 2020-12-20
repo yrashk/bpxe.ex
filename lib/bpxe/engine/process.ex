@@ -1,23 +1,24 @@
 defmodule BPXE.Engine.Process do
   use GenServer
+  use BPXE.Engine.Blueprint.Recordable
   use BPXE.Engine.Base
   use BPXE.Engine.Recoverable
-  alias BPXE.Engine.{Instance, FlowNode}
+  alias BPXE.Engine.{Blueprint, FlowNode}
 
-  def start_link(id, options, instance) do
-    start_link([{id, options, instance}])
+  def start_link(id, options, blueprint) do
+    start_link([{id, options, blueprint}])
   end
 
   def add_event(pid, id, type, options) do
-    GenServer.call(pid, {:add_event, id, type, options})
+    call(pid, {:add_event, id, type, options})
   end
 
   def add_task(pid, id, type, options) do
-    GenServer.call(pid, {:add_task, id, type, options})
+    call(pid, {:add_task, id, type, options})
   end
 
   def add_sequence_flow(pid, id, options) do
-    GenServer.call(pid, {:add_sequence_flow, id, options})
+    call(pid, {:add_sequence_flow, id, options})
   end
 
   @doc """
@@ -31,10 +32,7 @@ defmodule BPXE.Engine.Process do
   easier to debug.
 
   """
-  @spec establish_sequence_flow(pid(), term(), pid(), pid()) :: {:ok, pid()} | {:error, term()}
-  @spec establish_sequence_flow(pid(), term(), pid(), pid(), Map.t() | [term]) ::
-          {:ok, pid()} | {:error, term()}
-  def establish_sequence_flow(pid, id, source, target, options \\ []) do
+  def establish_sequence_flow(server, id, source, target, options \\ []) do
     require OK
 
     OK.for do
@@ -43,7 +41,7 @@ defmodule BPXE.Engine.Process do
 
       seq_flow <-
         add_sequence_flow(
-          pid,
+          server,
           id,
           %{
             "id" => id,
@@ -61,33 +59,33 @@ defmodule BPXE.Engine.Process do
   end
 
   def add_exclusive_gateway(pid, id, options) do
-    GenServer.call(pid, {:add_exclusive_gateway, id, options})
+    call(pid, {:add_exclusive_gateway, id, options})
   end
 
   def add_parallel_gateway(pid, id, options) do
-    GenServer.call(pid, {:add_parallel_gateway, id, options})
+    call(pid, {:add_parallel_gateway, id, options})
   end
 
   def add_inclusive_gateway(pid, id, options) do
-    GenServer.call(pid, {:add_inclusive_gateway, id, options})
+    call(pid, {:add_inclusive_gateway, id, options})
   end
 
   def add_event_based_gateway(pid, id, options) do
-    GenServer.call(pid, {:add_event_based_gateway, id, options})
+    call(pid, {:add_event_based_gateway, id, options})
   end
 
   @doc """
   Adds Precedence Gateway (`BPXE.Engine.PrecedenceGateway`). Please note that this is not a standard gateway.
   """
   def add_precedence_gateway(pid, id, options) do
-    GenServer.call(pid, {:add_precedence_gateway, id, options})
+    call(pid, {:add_precedence_gateway, id, options})
   end
 
   @doc """
   Adds Sensor Gateway (`BPXE.Engine.SensorGateway`). Please note that this is not a standard gateway.
   """
   def add_sensor_gateway(pid, id, options) do
-    GenServer.call(pid, {:add_sensor_gateway, id, options})
+    call(pid, {:add_sensor_gateway, id, options})
   end
 
   @doc """
@@ -144,9 +142,9 @@ defmodule BPXE.Engine.Process do
 
   def start(pid, id) do
     synthesize(pid)
-    instance = GenServer.call(pid, :instance)
-    event = :syn.whereis({instance.pid, :event, :startEvent, id})
-    msg = BPXE.Message.new(activation: Instance.new_activation(instance.pid))
+    blueprint = GenServer.call(pid, :blueprint)
+    event = :syn.whereis({blueprint.pid, :event, :startEvent, id})
+    msg = BPXE.Message.new(activation: Blueprint.new_activation(blueprint.pid))
     send(event, {msg, nil})
     :ok
   end
@@ -165,19 +163,19 @@ defmodule BPXE.Engine.Process do
 
   defstruct id: nil,
             options: %{},
-            instance: nil,
+            blueprint: nil,
             start_events: %{},
             variables: %{},
             pending_sequence_flows: %{},
             intermediate_catch_events: %{}
 
-  def init({id, options, instance}) do
-    :syn.register({instance.pid, :process, id}, self())
+  def init({id, options, blueprint}) do
+    :syn.register({blueprint.pid, :process, id}, self())
 
     state = %__MODULE__{
       id: id,
       options: options,
-      instance: instance
+      blueprint: blueprint
     }
 
     state = initialize(state)
@@ -210,8 +208,8 @@ defmodule BPXE.Engine.Process do
     {:reply, Map.keys(state.start_events), state}
   end
 
-  def handle_call(:instance, _from, state) do
-    {:reply, state.instance, state}
+  def handle_call(:blueprint, _from, state) do
+    {:reply, state.blueprint, state}
   end
 
   def handle_call(:synthesize, from, state) do
@@ -241,7 +239,7 @@ defmodule BPXE.Engine.Process do
           start_flow_node(
             BPXE.Engine.Event,
             id,
-            [id, type, options, state.instance, self()],
+            [id, type, options, state.blueprint, self()],
             state
           )} do
       {:startEvent, {:reply, result, state}} ->
@@ -253,13 +251,13 @@ defmodule BPXE.Engine.Process do
   end
 
   defp handle_call_internal({:add_task, id, type, options}, _from, state) do
-    start_flow_node(BPXE.Engine.Task, id, [id, type, options, state.instance, self()], state)
+    start_flow_node(BPXE.Engine.Task, id, [id, type, options, state.blueprint, self()], state)
   end
 
   defp handle_call_internal({:add_sequence_flow, id, options}, _from, state) do
-    case :syn.whereis({state.instance.pid, :flow_node, options["sourceRef"]}) do
+    case :syn.whereis({state.blueprint.pid, :flow_node, options["sourceRef"]}) do
       pid when is_pid(pid) ->
-        {:reply, {:ok, FlowNode.add_sequence_flow(pid, id, options)}, state}
+        {:reply, FlowNode.add_sequence_flow(pid, id, options), state}
 
       :undefined ->
         {:reply, {:ok, id},
@@ -275,7 +273,7 @@ defmodule BPXE.Engine.Process do
     start_flow_node(
       BPXE.Engine.ExclusiveGateway,
       id,
-      [id, options, state.instance, self()],
+      [id, options, state.blueprint, self()],
       state
     )
   end
@@ -284,7 +282,7 @@ defmodule BPXE.Engine.Process do
     start_flow_node(
       BPXE.Engine.ParallelGateway,
       id,
-      [id, options, state.instance, self()],
+      [id, options, state.blueprint, self()],
       state
     )
   end
@@ -293,7 +291,7 @@ defmodule BPXE.Engine.Process do
     start_flow_node(
       BPXE.Engine.InclusiveGateway,
       id,
-      [id, options, state.instance, self()],
+      [id, options, state.blueprint, self()],
       state
     )
   end
@@ -302,7 +300,7 @@ defmodule BPXE.Engine.Process do
     start_flow_node(
       BPXE.Engine.EventBasedGateway,
       id,
-      [id, options, state.instance, self()],
+      [id, options, state.blueprint, self()],
       state
     )
   end
@@ -311,7 +309,7 @@ defmodule BPXE.Engine.Process do
     start_flow_node(
       BPXE.Engine.PrecedenceGateway,
       id,
-      [id, options, state.instance, self()],
+      [id, options, state.blueprint, self()],
       state
     )
   end
@@ -320,7 +318,7 @@ defmodule BPXE.Engine.Process do
     start_flow_node(
       BPXE.Engine.SensorGateway,
       id,
-      [id, options, state.instance, self()],
+      [id, options, state.blueprint, self()],
       state
     )
   end
@@ -369,7 +367,7 @@ defmodule BPXE.Engine.Process do
       event_original_sequence_flow = FlowNode.remove_sequence_flow(event, event_outgoing)
 
       {acc, gateway} =
-        case FlowNode.whereis(state.instance.pid, precedence_gateway_id) do
+        case FlowNode.whereis(state.blueprint.pid, precedence_gateway_id) do
           nil ->
             {:reply, {:ok, gateway}, acc} =
               handle_call_internal(
@@ -403,7 +401,7 @@ defmodule BPXE.Engine.Process do
         "targetRef" => target_id
       })
 
-      target = FlowNode.whereis(state.instance.pid, target_id)
+      target = FlowNode.whereis(state.blueprint.pid, target_id)
       FlowNode.remove_incoming(target, event_outgoing)
 
       FlowNode.add_incoming(target, gateway_sequence_flow_id)

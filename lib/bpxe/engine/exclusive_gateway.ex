@@ -1,5 +1,6 @@
 defmodule BPXE.Engine.ExclusiveGateway do
   use GenServer
+  use BPXE.Engine.Blueprint.Recordable
   use BPXE.Engine.FlowNode
   alias BPXE.Engine.Process
   alias BPXE.Engine.Process.Log
@@ -8,7 +9,7 @@ defmodule BPXE.Engine.ExclusiveGateway do
     [
       id: nil,
       options: %{},
-      instance: nil,
+      blueprint: nil,
       process: nil,
       message_ids: %{},
       drop_messages: %{},
@@ -17,12 +18,12 @@ defmodule BPXE.Engine.ExclusiveGateway do
     persist: ~w(message_ids drop_messages)a
   )
 
-  def start_link(id, options, instance, process) do
-    GenServer.start_link(__MODULE__, {id, options, instance, process})
+  def start_link(id, options, blueprint, process) do
+    GenServer.start_link(__MODULE__, {id, options, blueprint, process})
   end
 
-  def init({id, options, instance, process}) do
-    state = %__MODULE__{id: id, options: options, instance: instance, process: process}
+  def init({id, options, blueprint, process}) do
+    state = %__MODULE__{id: id, options: options, blueprint: blueprint, process: process}
     state = initialize(state)
     {:ok, state}
   end

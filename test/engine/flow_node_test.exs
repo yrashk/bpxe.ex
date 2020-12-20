@@ -1,32 +1,34 @@
 defmodule BPXETest.Engine.FlowNode do
   use ExUnit.Case
-  alias BPXE.Engine.{Instance, Process, FlowNode, Task}
+  alias BPXE.Engine.{Blueprint, Process, FlowNode, Task}
   alias Process.Log
   doctest BPXE.Engine.FlowNode
 
-  @xsi "http://www.w3.org/2001/XMLSchema-instance"
+  @xsi "http://www.w3.org/2001/XMLSchema-blueprint"
 
   test "sequence flow with no condition proceeds" do
-    {:ok, pid} = Instance.start_link()
-    {:ok, proc1} = Instance.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
+    {:ok, pid} = Blueprint.start_link()
+    {:ok, proc1} = Blueprint.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
 
     {:ok, start} = Process.add_event(proc1, "start", :startEvent, %{"id" => "start"})
     {:ok, the_end} = Process.add_event(proc1, "end", :endEvent, %{"id" => "end"})
 
     {:ok, _} = Process.establish_sequence_flow(proc1, "s1", start, the_end)
 
+    {:ok, proc1} = Blueprint.instantiate_process(pid, "proc1")
+
     :ok = Process.subscribe_log(proc1)
 
     assert [{"proc1", [{"start", :ok}]}] |> List.keysort(0) ==
-             Instance.start(pid) |> List.keysort(0)
+             Blueprint.start(pid) |> List.keysort(0)
 
     assert_receive({Log, %Log.EventActivated{id: "start"}})
     assert_receive({Log, %Log.EventActivated{id: "end"}})
   end
 
   test "sequence flow with a truthful condition proceeds" do
-    {:ok, pid} = Instance.start_link()
-    {:ok, proc1} = Instance.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
+    {:ok, pid} = Blueprint.start_link()
+    {:ok, proc1} = Blueprint.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
 
     {:ok, start} = Process.add_event(proc1, "start", :startEvent, %{"id" => "start"})
     {:ok, the_end} = Process.add_event(proc1, "end", :endEvent, %{"id" => "end"})
@@ -35,18 +37,19 @@ defmodule BPXETest.Engine.FlowNode do
 
     FlowNode.add_condition_expression(sf, %{{@xsi, "type"} => "tFormalExpression"}, "return true")
 
+    {:ok, proc1} = Blueprint.instantiate_process(pid, "proc1")
     :ok = Process.subscribe_log(proc1)
 
     assert [{"proc1", [{"start", :ok}]}] |> List.keysort(0) ==
-             Instance.start(pid) |> List.keysort(0)
+             Blueprint.start(pid) |> List.keysort(0)
 
     assert_receive({Log, %Log.EventActivated{id: "start"}})
     assert_receive({Log, %Log.EventActivated{id: "end"}})
   end
 
   test "sequence flow with a falsy condition does not proceed" do
-    {:ok, pid} = Instance.start_link()
-    {:ok, proc1} = Instance.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
+    {:ok, pid} = Blueprint.start_link()
+    {:ok, proc1} = Blueprint.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
 
     {:ok, start} = Process.add_event(proc1, "start", :startEvent, %{"id" => "start"})
     {:ok, the_end} = Process.add_event(proc1, "end", :endEvent, %{"id" => "end"})
@@ -59,10 +62,11 @@ defmodule BPXETest.Engine.FlowNode do
       "return false"
     )
 
+    {:ok, proc1} = Blueprint.instantiate_process(pid, "proc1")
     :ok = Process.subscribe_log(proc1)
 
     assert [{"proc1", [{"start", :ok}]}] |> List.keysort(0) ==
-             Instance.start(pid) |> List.keysort(0)
+             Blueprint.start(pid) |> List.keysort(0)
 
     assert_receive({Log, %Log.EventActivated{id: "start"}})
     refute_receive({Log, %Log.EventActivated{id: "end"}})
@@ -72,8 +76,8 @@ defmodule BPXETest.Engine.FlowNode do
     # Current list:
     # `process` -- unbounded dictionary for process state
     # `flow_node` -- current flow_node
-    {:ok, pid} = Instance.start_link()
-    {:ok, proc1} = Instance.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
+    {:ok, pid} = Blueprint.start_link()
+    {:ok, proc1} = Blueprint.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
 
     {:ok, start} = Process.add_event(proc1, "start", :startEvent, %{"id" => "start"})
     {:ok, task} = Process.add_task(proc1, "task", :scriptTask, %{"id" => "task"})
@@ -93,10 +97,11 @@ defmodule BPXETest.Engine.FlowNode do
       ~s|return process.proceed and flow_node.test == "task"|
     )
 
+    {:ok, proc1} = Blueprint.instantiate_process(pid, "proc1")
     :ok = Process.subscribe_log(proc1)
 
     assert [{"proc1", [{"start", :ok}]}] |> List.keysort(0) ==
-             Instance.start(pid) |> List.keysort(0)
+             Blueprint.start(pid) |> List.keysort(0)
 
     assert_receive({Log, %Log.EventActivated{id: "start"}})
     assert_receive({Log, %Log.TaskActivated{id: "task"}})

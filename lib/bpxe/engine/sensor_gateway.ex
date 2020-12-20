@@ -14,19 +14,20 @@ defmodule BPXE.Engine.SensorGateway do
   """
   use GenServer
   use BPXE.Engine.FlowNode
+  use BPXE.Engine.Blueprint.Recordable
   alias BPXE.Engine.Process
   alias BPXE.Engine.Process.Log
 
-  defstate([id: nil, options: %{}, instance: nil, process: nil, fired: []],
+  defstate([id: nil, options: %{}, blueprint: nil, process: nil, fired: []],
     persist: ~w(fired)a
   )
 
-  def start_link(id, options, instance, process) do
-    GenServer.start_link(__MODULE__, {id, options, instance, process})
+  def start_link(id, options, blueprint, process) do
+    GenServer.start_link(__MODULE__, {id, options, blueprint, process})
   end
 
-  def init({id, options, instance, process}) do
-    state = %__MODULE__{id: id, options: options, instance: instance, process: process}
+  def init({id, options, blueprint, process}) do
+    state = %__MODULE__{id: id, options: options, blueprint: blueprint, process: process}
     state = initialize(state)
     {:ok, state}
   end

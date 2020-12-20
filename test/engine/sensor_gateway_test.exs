@@ -1,13 +1,13 @@
 defmodule BPXETest.Engine.SensorGateway do
   use ExUnit.Case
-  alias BPXE.Engine.{Instance, Process, FlowNode}
+  alias BPXE.Engine.{Blueprint, Process, FlowNode}
   alias BPXE.Engine.Process.Log
   doctest BPXE.Engine.SensorGateway
 
-  @xsi "http://www.w3.org/2001/XMLSchema-instance"
+  @xsi "http://www.w3.org/2001/XMLSchema-blueprint"
   test "sends completion notification with fired sequence flows" do
-    {:ok, pid} = Instance.start_link()
-    {:ok, proc1} = Instance.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
+    {:ok, pid} = Blueprint.start_link()
+    {:ok, proc1} = Blueprint.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
 
     {:ok, start} = Process.add_event(proc1, "start", :startEvent, %{"id" => "start"})
 
@@ -50,10 +50,11 @@ defmodule BPXETest.Engine.SensorGateway do
 
     {:ok, _} = Process.establish_sequence_flow(proc1, "sensorReading", sensor, sensor_reader)
 
+    {:ok, proc1} = Blueprint.instantiate_process(pid, "proc1")
     :ok = Process.subscribe_log(proc1)
 
     assert [{"proc1", [{"start", :ok}]}] |> List.keysort(0) ==
-             Instance.start(pid) |> List.keysort(0)
+             Blueprint.start(pid) |> List.keysort(0)
 
     assert_receive(
       {Log,

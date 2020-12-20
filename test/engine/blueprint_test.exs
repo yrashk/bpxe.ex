@@ -1,38 +1,38 @@
-defmodule BPXETest.Engine.Instance do
+defmodule BPXETest.Engine.Blueprint do
   use ExUnit.Case
-  alias BPXE.Engine.Instance
+  alias BPXE.Engine.Blueprint
   alias BPXE.Engine.Process
   alias BPXE.Engine.Process.Log
   alias BPXE.Engine.Event
-  doctest Instance
+  doctest Blueprint
 
-  test "starting instance" do
-    {:ok, _pid} = Instance.start_link()
+  test "starting blueprint" do
+    {:ok, _pid} = Blueprint.start_link()
   end
 
   test "adding processes and listing them" do
-    {:ok, pid} = Instance.start_link()
-    {:ok, _} = Instance.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
-    {:ok, _} = Instance.add_process(pid, "proc2", %{"id" => "proc2", "name" => "Proc 2"})
+    {:ok, pid} = Blueprint.start_link()
+    {:ok, _} = Blueprint.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
+    {:ok, _} = Blueprint.add_process(pid, "proc2", %{"id" => "proc2", "name" => "Proc 2"})
 
-    assert Instance.processes(pid) |> Enum.sort() == ["proc1", "proc2"] |> Enum.sort()
+    assert Blueprint.processes(pid) |> Enum.sort() == ["proc1", "proc2"] |> Enum.sort()
   end
 
-  test "starting an instance with no processes" do
-    {:ok, pid} = Instance.start_link()
-    assert {:error, :no_processes} == Instance.start(pid)
+  test "starting an blueprint with no processes" do
+    {:ok, pid} = Blueprint.start_link()
+    assert {:error, :no_processes} == Blueprint.start(pid)
   end
 
-  test "starting an instance with one process that has no start events" do
-    {:ok, pid} = Instance.start_link()
-    {:ok, _} = Instance.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
+  test "starting an blueprint with one process that has no start events" do
+    {:ok, pid} = Blueprint.start_link()
+    {:ok, _} = Blueprint.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
 
-    {:ok, proc2} = Instance.add_process(pid, "proc2", %{"id" => "proc2", "name" => "Proc 2"})
+    {:ok, proc2} = Blueprint.add_process(pid, "proc2", %{"id" => "proc2", "name" => "Proc 2"})
 
     {:ok, _} = Process.add_event(proc2, "start", :startEvent, %{"id" => "start"})
 
     assert [{"proc1", {:error, :no_start_events}}, {"proc2", [{"start", :ok}]}] |> List.keysort(0) ==
-             Instance.start(pid) |> List.keysort(0)
+             Blueprint.start(pid) |> List.keysort(0)
   end
 
   test "should resume after a restart if we restore the state" do
@@ -41,39 +41,39 @@ defmodule BPXETest.Engine.Instance do
 
     me = self()
     id = make_ref()
-    :syn.join({BPXE.Engine.Instance, id}, me)
+    :syn.join({BPXE.Engine.Blueprint, id}, me)
 
     {:ok, pid} =
-      BPXE.Engine.Instances.start_instance(
+      BPXE.Engine.Blueprints.start_blueprint(
         flow_handler: h,
         id: id,
         init_fn: fn pid ->
           proc1 = restart_setup(pid)
 
           :ok = Process.subscribe_log(proc1, me)
-          BPXE.Engine.Instance.restore_state(pid)
-          send(me, {BPXE.Engine.Instance, :started, pid})
+          BPXE.Engine.Blueprint.restore_state(pid)
+          send(me, {BPXE.Engine.Blueprint, :started, pid})
         end
       )
 
     receive do
-      {BPXE.Engine.Instance, :started, _pid} -> :ok
+      {BPXE.Engine.Blueprint, :started, _pid} -> :ok
     end
 
-    BPXE.Engine.Instance.start(pid)
+    BPXE.Engine.Blueprint.start(pid)
 
     assert_receive({Log, %Log.EventActivated{id: "ev1"}})
     # at this point, ev1 is ready to get a signal
 
     flush_messages()
 
-    # but we crash the instance
+    # but we crash the blueprint
     :erlang.exit(pid, :kill)
 
     # wait until it restarts
     pid =
       receive do
-        {BPXE.Engine.Instance, :started, pid} -> pid
+        {BPXE.Engine.Blueprint, :started, pid} -> pid
       end
 
     # send it the signal
@@ -84,7 +84,7 @@ defmodule BPXETest.Engine.Instance do
     assert_receive({Log, %Log.TaskActivated{id: "t1"}})
 
     # shutdown
-    BPXE.Engine.Instances.stop_instance(pid)
+    BPXE.Engine.Blueprints.stop_blueprint(pid)
   end
 
   test "should not resume after a restart if we don't restore the state" do
@@ -93,38 +93,38 @@ defmodule BPXETest.Engine.Instance do
 
     me = self()
     id = make_ref()
-    :syn.join({BPXE.Engine.Instance, id}, me)
+    :syn.join({BPXE.Engine.Blueprint, id}, me)
 
     {:ok, pid} =
-      BPXE.Engine.Instances.start_instance(
+      BPXE.Engine.Blueprints.start_blueprint(
         flow_handler: h,
         id: id,
         init_fn: fn pid ->
           proc1 = restart_setup(pid)
 
           :ok = Process.subscribe_log(proc1, me)
-          send(me, {BPXE.Engine.Instance, :started, pid})
+          send(me, {BPXE.Engine.Blueprint, :started, pid})
         end
       )
 
     receive do
-      {BPXE.Engine.Instance, :started, _pid} -> :ok
+      {BPXE.Engine.Blueprint, :started, _pid} -> :ok
     end
 
-    BPXE.Engine.Instance.start(pid)
+    BPXE.Engine.Blueprint.start(pid)
 
     assert_receive({Log, %Log.EventActivated{id: "ev1"}})
     # at this point, ev1 is ready to get a signal
 
     flush_messages()
 
-    # but we crash the instance
+    # but we crash the blueprint
     :erlang.exit(pid, :kill)
 
     # wait until it restarts
     pid =
       receive do
-        {BPXE.Engine.Instance, :started, pid} -> pid
+        {BPXE.Engine.Blueprint, :started, pid} -> pid
       end
 
     # send it the signal
@@ -136,11 +136,11 @@ defmodule BPXETest.Engine.Instance do
     refute_receive({Log, %Log.TaskActivated{id: "t1"}})
 
     # shutdown
-    BPXE.Engine.Instances.stop_instance(pid)
+    BPXE.Engine.Blueprints.stop_blueprint(pid)
   end
 
-  defp signal(instance, id) do
-    :syn.publish({instance, :signal, id}, {BPXE.Signal, id})
+  defp signal(blueprint, id) do
+    :syn.publish({blueprint, :signal, id}, {BPXE.Signal, id})
   end
 
   defp flush_messages() do
@@ -154,7 +154,7 @@ defmodule BPXETest.Engine.Instance do
   end
 
   def restart_setup(pid) do
-    {:ok, proc1} = Instance.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
+    {:ok, proc1} = Blueprint.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
 
     {:ok, start} = Process.add_event(proc1, "start", :startEvent, %{"id" => "start"})
 
@@ -178,7 +178,8 @@ defmodule BPXETest.Engine.Instance do
     {:ok, _} = Process.establish_sequence_flow(proc1, "ev1_t", ev1, t1)
     {:ok, _} = Process.establish_sequence_flow(proc1, "ev2_t", ev2, t2)
 
-    BPXE.Engine.Instance.synthesize(pid)
+    {:ok, proc1} = Blueprint.instantiate_process(pid, "proc1")
+    BPXE.Engine.Blueprint.synthesize(pid)
     proc1
   end
 end

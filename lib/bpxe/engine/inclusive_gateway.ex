@@ -1,6 +1,7 @@
 defmodule BPXE.Engine.InclusiveGateway do
   alias BPXE.Engine.{Process, FlowNode, Base}
   alias BPXE.Engine.Process.Log
+  use BPXE.Engine.Blueprint.Recordable
   use GenServer
   use FlowNode
 
@@ -8,7 +9,7 @@ defmodule BPXE.Engine.InclusiveGateway do
     [
       id: nil,
       options: %{},
-      instance: nil,
+      blueprint: nil,
       process: nil,
       fired: nil,
       incoming_messages: [],
@@ -17,12 +18,12 @@ defmodule BPXE.Engine.InclusiveGateway do
     persist: ~w(fired incoming_messages)a
   )
 
-  def start_link(id, options, instance, process) do
-    GenServer.start_link(__MODULE__, {id, options, instance, process})
+  def start_link(id, options, blueprint, process) do
+    GenServer.start_link(__MODULE__, {id, options, blueprint, process})
   end
 
-  def init({id, options, instance, process}) do
-    state = %__MODULE__{id: id, options: options, instance: instance, process: process}
+  def init({id, options, blueprint, process}) do
+    state = %__MODULE__{id: id, options: options, blueprint: blueprint, process: process}
     state = initialize(state)
     {:ok, state}
   end
@@ -153,7 +154,7 @@ defmodule BPXE.Engine.InclusiveGateway do
 
           if build_graph(g, state.id, state) == :found do
             fork_id = GU.topsort(g) |> List.first()
-            fork = FlowNode.whereis(state.instance.pid, fork_id)
+            fork = FlowNode.whereis(state.blueprint.pid, fork_id)
             gw_id = {:synthesized_sensor_gateway, fork_id}
             {:ok, gw} = Process.add_sensor_gateway(process, gw_id, %{"id" => gw_id})
             outgoing = FlowNode.get_outgoing(fork)
@@ -165,7 +166,7 @@ defmodule BPXE.Engine.InclusiveGateway do
 
             for sequence_flow <- outgoing do
               {_, options} = Enum.find(sequence_flows, fn {k, _} -> k == sequence_flow end)
-              successor = FlowNode.whereis(state.instance.pid, options["targetRef"])
+              successor = FlowNode.whereis(state.blueprint.pid, options["targetRef"])
               in_flow_id = {:synthesized_sequence_flow, {:in, sequence_flow}}
               FlowNode.remove_incoming(successor, sequence_flow)
               FlowNode.add_outgoing(fork, in_flow_id)
@@ -222,11 +223,11 @@ defmodule BPXE.Engine.InclusiveGateway do
   defp incoming(current, %__MODULE__{incoming: incoming, id: current}),
     do: incoming
 
-  defp incoming(current, %__MODULE__{instance: instance}),
-    do: FlowNode.whereis(instance.pid, current) |> FlowNode.get_incoming()
+  defp incoming(current, %__MODULE__{blueprint: blueprint}),
+    do: FlowNode.whereis(blueprint.pid, current) |> FlowNode.get_incoming()
 
-  defp find_predecessor(sequence_flow, %__MODULE__{instance: instance}) do
-    :syn.get_members({instance.pid, :flow_sequence, sequence_flow})
+  defp find_predecessor(sequence_flow, %__MODULE__{blueprint: blueprint}) do
+    :syn.get_members({blueprint.pid, :flow_sequence, sequence_flow})
     |> Enum.map(fn node -> {node, Base.module(node)} end)
     |> List.first()
   end
