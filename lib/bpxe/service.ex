@@ -27,12 +27,14 @@ defmodule BPXE.Service do
             ) ::
               {:reply, term(), term()} | {:noreply, term(), term()}
 
+  @optional_callbacks handle_request: 4
+
   defmacro __using__(options \\ [state: []]) do
     quote do
       @behaviour BPXE.Service
       use GenServer
 
-      @state [{:options, nil} | unquote(options)[:state]]
+      @state [{:options, nil}, {:__monitor__, nil} | unquote(options)[:state] || []]
       defstruct @state
 
       def init(options) do
@@ -40,12 +42,16 @@ defmodule BPXE.Service do
       end
 
       def handle_call({:registered, blueprint, _name}, _from, state) do
-        Process.link(blueprint)
-        {:reply, :ok, state}
+        monitor = Process.monitor(blueprint)
+        {:reply, :ok, %{state | __monitor__: monitor}}
       end
 
       def handle_call({%BPXE.Service.Request{} = request, blueprint}, from, state) do
         handle_request(request, blueprint, from, state)
+      end
+
+      def handle_info({:DOWN, monitor, :process, _, _}, %__MODULE__{__monitor__: monitor} = state) do
+        {:stop, :normal, state}
       end
 
       defoverridable init: 1
