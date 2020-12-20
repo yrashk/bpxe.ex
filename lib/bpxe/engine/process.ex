@@ -164,8 +164,11 @@ defmodule BPXE.Engine.Process do
   end
 
   def new_activation(pid) do
-    PT.get({__MODULE__, pid, :activation})
-    |> Atomics.add_get(1, 1)
+    {
+      BPXE.Engine.Base.id(pid),
+      PT.get({__MODULE__, pid, :activation})
+      |> Atomics.add_get(1, 1)
+    }
   end
 
   defstruct id: nil,

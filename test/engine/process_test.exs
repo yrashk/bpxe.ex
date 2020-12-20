@@ -43,4 +43,16 @@ defmodule BPXETest.Engine.Process do
     flow_nodes_count_2 = Process.flow_nodes(proc1) |> length()
     assert flow_nodes_count_2 == flow_nodes_count_1
   end
+
+  test "process activations in different processes should differ" do
+    # ...otherwise they will collide in flow handlers
+    {:ok, pid} = Blueprint.start_link()
+    {:ok, _} = Blueprint.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
+    {:ok, _} = Blueprint.add_process(pid, "proc2", %{"id" => "proc2", "name" => "Proc 2"})
+
+    {:ok, proc1} = Blueprint.instantiate_process(pid, "proc1")
+    {:ok, proc2} = Blueprint.instantiate_process(pid, "proc2")
+
+    assert Process.new_activation(proc1) != Process.new_activation(proc2)
+  end
 end
