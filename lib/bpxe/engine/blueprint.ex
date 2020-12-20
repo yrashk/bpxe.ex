@@ -8,9 +8,6 @@ defmodule BPXE.Engine.Blueprint do
         add_parallel_gateway add_condition_expression add_incoming add_outgoing add_task add_script
       )a
 
-  alias :persistent_term, as: PT
-  alias :atomics, as: Atomics
-
   defmodule Config do
     defstruct flow_handler: nil, pid: nil, init_fn: nil, id: nil
     use ExConstructor
@@ -54,11 +51,6 @@ defmodule BPXE.Engine.Blueprint do
 
   def processes(pid) do
     call(pid, :processes)
-  end
-
-  def new_activation(pid) do
-    PT.get({__MODULE__, pid, :activation})
-    |> Atomics.add_get(1, 1)
   end
 
   def instantiate_processes(pid) do
@@ -184,7 +176,6 @@ defmodule BPXE.Engine.Blueprint do
   defstruct config: %{}, notify_when_initialized: nil, blueprint: %{}
 
   def init(config) do
-    PT.put({__MODULE__, self(), :activation}, Atomics.new(1, signed: false))
     {:ok, %__MODULE__{config: %{config | pid: self()}}, {:continue, :init_fn}}
   end
 

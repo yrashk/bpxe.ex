@@ -3,7 +3,9 @@ defmodule BPXE.Engine.Process do
   use BPXE.Engine.Blueprint.Recordable
   use BPXE.Engine.Base
   use BPXE.Engine.Recoverable
-  alias BPXE.Engine.{Blueprint, FlowNode}
+  alias BPXE.Engine.FlowNode
+  alias :persistent_term, as: PT
+  alias :atomics, as: Atomics
 
   def start_link(id, options, blueprint) do
     start_link([{id, options, blueprint}])
@@ -144,7 +146,7 @@ defmodule BPXE.Engine.Process do
     synthesize(pid)
     blueprint = GenServer.call(pid, :blueprint)
     event = :syn.whereis({blueprint.pid, :event, :startEvent, id})
-    msg = BPXE.Message.new(activation: Blueprint.new_activation(blueprint.pid))
+    msg = BPXE.Message.new(activation: new_activation(pid))
     send(event, {msg, nil})
     :ok
   end
@@ -161,6 +163,11 @@ defmodule BPXE.Engine.Process do
     GenServer.call(pid, :id)
   end
 
+  def new_activation(pid) do
+    PT.get({__MODULE__, pid, :activation})
+    |> Atomics.add_get(1, 1)
+  end
+
   defstruct id: nil,
             options: %{},
             blueprint: nil,
@@ -170,6 +177,7 @@ defmodule BPXE.Engine.Process do
             intermediate_catch_events: %{}
 
   def init({id, options, blueprint}) do
+    PT.put({__MODULE__, self(), :activation}, Atomics.new(1, signed: false))
     :syn.register({blueprint.pid, :process, id}, self())
 
     state = %__MODULE__{
