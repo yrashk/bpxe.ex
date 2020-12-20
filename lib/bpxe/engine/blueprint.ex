@@ -6,6 +6,7 @@ defmodule BPXE.Engine.Blueprint do
       ~w(add_process add_event add_sequence_flow add_event_based_gateway add_exclusive_gateway
         add_inclusive_gateway add_precedence_gateway add_sensor_gateway add_signal_event_definition
         add_parallel_gateway add_condition_expression add_incoming add_outgoing add_task add_script
+        add_extension_elements add_json
       )a
 
   defmodule Config do
@@ -101,6 +102,29 @@ defmodule BPXE.Engine.Blueprint do
 
   def config(pid) do
     GenServer.call(pid, :config)
+  end
+
+  def blueprint(pid) do
+    GenServer.call(pid, :blueprint)
+  end
+
+  def register_service(pid, name, service) do
+    :syn.register({BPXE.Service, pid, name}, service)
+    BPXE.Service.registered(service, pid, name)
+  end
+
+  def call_service(pid, name, request) do
+    case find_service(pid, name) do
+      nil -> nil
+      service -> BPXE.Service.call(service, request, pid)
+    end
+  end
+
+  def find_service(pid, name) do
+    case :syn.whereis({BPXE.Service, pid, name}) do
+      :undefined -> nil
+      pid when is_pid(pid) -> pid
+    end
   end
 
   def save_state(%Config{flow_handler: nil}, _generation, _id, _pid, _state) do
@@ -219,6 +243,11 @@ defmodule BPXE.Engine.Blueprint do
 
   def handle_call(:config, _from, state) do
     {:reply, state.config, state}
+  end
+
+  def handle_call(:blueprint, _from, state) do
+    {:reply, state.blueprint |> Enum.map(fn {k, v} -> {k, Enum.reverse(v)} end) |> Map.new(),
+     state}
   end
 
   def handle_call({:instantiate_process, id}, _from, state) do

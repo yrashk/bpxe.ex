@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" id="Definitions_00ai7u6" targetNamespace="http://bpmn.io/schema/bpmn" xmlns:j="http://www.w3.org/2013/XSL/json">
+  <bpmn:process id="process" isExecutable="true">
+    <bpmn:serviceTask id="task">
+      <bpmn:extensionElements>
+       <j:map>
+        <j:map key="test"><j:number>123</j:number></j:map>
+        <j:map key="world"><j:string>hello</j:string></j:map>
+        <j:map key="again">
+          <j:map>
+            <j:map key="yes"><j:number>321</j:number></j:map>
+          </j:map>
+        </j:map>
+      </j:map>
+      <j:array>
+        <j:string>123</j:string>
+        <j:number>123</j:number>
+      </j:array>
+
+      <j:number>123</j:number>
+      <j:number>123.123</j:number>
+      <j:boolean>true</j:boolean>
+      <j:null/>
+      </bpmn:extensionElements>
+    </bpmn:serviceTask>
+  </bpmn:process>
+ </bpmn:definitions>

@@ -59,12 +59,12 @@ defmodule BPXE.Engine.Blueprint.Recordable do
                 from,
                 state
               )
-              when is_tuple(payload) and elem(payload, 0) == @call do
+              when (is_tuple(payload) and elem(payload, 0) == @call) or payload == @call do
             handle_recordable_call(payload, reference, from, state)
           end
 
           def handle_call(payload, from, state)
-              when is_tuple(payload) and elem(payload, 0) == @call do
+              when (is_tuple(payload) and elem(payload, 0) == @call) or payload == @call do
             handle_recordable_call(payload, nil, from, state)
           end
         end

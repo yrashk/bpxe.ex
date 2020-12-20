@@ -83,4 +83,60 @@ defmodule BPXETest.Engine.Task do
       {Log, %Log.FlowNodeActivated{id: "end", token: %BPXE.Token{payload: %{"a" => 1.0}}}}
     )
   end
+
+  describe "serviceTask" do
+    defmodule Service do
+      use BPXE.Service, state: [called: false]
+
+      def handle_request(%BPXE.Service.Request{} = req, _blueprint, _from, state) do
+        {:reply, %BPXE.Service.Response{payload: true}, %{state | called: req}}
+      end
+
+      def handle_call(:state, _from, state) do
+        {:reply, state, state}
+      end
+    end
+
+    test "invokes registered services" do
+      {:ok, pid} = Blueprint.start_link()
+      {:ok, service} = BPXE.Service.start_link(Service)
+      Blueprint.register_service(pid, "service", service)
+
+      {:ok, proc1} = Blueprint.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
+
+      {:ok, start} = Process.add_event(proc1, "start", :startEvent, %{"id" => "start"})
+      {:ok, the_end} = Process.add_event(proc1, "end", :endEvent, %{"id" => "end"})
+
+      {:ok, task} =
+        Process.add_task(proc1, "task", :serviceTask, %{
+          "id" => "task",
+          {BPXE.BPMN.ext_spec(), "name"} => "service",
+          {BPXE.BPMN.ext_spec(), "resultVariable"} => "result"
+        })
+
+      {:ok, ext} = BPXE.Engine.FlowNode.add_extension_elements(task)
+      BPXE.Engine.FlowNode.add_json(ext, %{"hello" => "world"})
+      BPXE.Engine.FlowNode.add_json(ext, %{"world" => "goodbye"})
+
+      {:ok, _} = Process.establish_sequence_flow(proc1, "s1", start, task)
+      {:ok, _} = Process.establish_sequence_flow(proc1, "s2", task, the_end)
+
+      {:ok, proc1} = Blueprint.instantiate_process(pid, "proc1")
+      :ok = Process.subscribe_log(proc1)
+
+      assert [{"proc1", [{"start", :ok}]}] |> List.keysort(0) ==
+               Blueprint.start(pid) |> List.keysort(0)
+
+      assert_receive({Log, %Log.TaskCompleted{id: "task"}})
+
+      state = GenServer.call(service, :state)
+
+      assert %BPXE.Service.Request{payload: [%{"hello" => "world"}, %{"world" => "goodbye"}]} =
+               state.called
+
+      assert_receive(
+        {Log, %Log.FlowNodeActivated{id: "end", token: %BPXE.Token{payload: %{"result" => true}}}}
+      )
+    end
+  end
 end

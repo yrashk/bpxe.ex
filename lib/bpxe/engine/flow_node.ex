@@ -104,6 +104,14 @@ defmodule BPXE.Engine.FlowNode do
         end
       end
 
+      def handle_call(:add_extension_elements, _from, state) do
+        {:reply, {:ok, self()}, state}
+      end
+
+      def handle_call({:add_json, nil, json}, _from, state) do
+        {:reply, {:ok, nil}, %{state | extensions: [{:json, json} | state.extensions]}}
+      end
+
       def handle_info({BPXE.Token.Ack, token_id, id}, state) do
         case Map.get(state.buffer, {token_id, id}) do
           %BPXE.Token{__generation__: generation} ->
@@ -395,6 +403,14 @@ defmodule BPXE.Engine.FlowNode do
     call(ref, {:add_condition_expression, options, body})
   end
 
+  def add_extension_elements(pid) do
+    call(pid, :add_extension_elements)
+  end
+
+  def add_json(pid, json) do
+    call(pid, {:add_json, nil, json})
+  end
+
   def synthesize(pid) do
     call(pid, :synthesize)
   end
@@ -427,7 +443,8 @@ defmodule BPXE.Engine.FlowNode do
         sequence_flows: Macro.escape(%{}),
         sequence_flow_order: [],
         buffer: Macro.escape(%{}),
-        variables: Macro.escape(%{})
+        variables: Macro.escape(%{}),
+        extensions: []
       })
       |> Map.to_list()
 

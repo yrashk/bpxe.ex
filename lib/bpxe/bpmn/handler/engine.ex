@@ -72,6 +72,16 @@ defmodule BPXE.BPMN.Handler.Engine do
   end
 
   @impl BPMNHandler
+  def add_extension_elements(node) do
+    Engine.FlowNode.add_extension_elements(node)
+  end
+
+  @impl BPMNHandler
+  def add_json(node, json) do
+    Engine.FlowNode.add_json(node, json)
+  end
+
+  @impl BPMNHandler
   def complete(blueprint) do
     {:ok, blueprint}
   end

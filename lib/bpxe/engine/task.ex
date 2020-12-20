@@ -5,7 +5,8 @@ defmodule BPXE.Engine.Task do
   alias BPXE.Engine.Process.Log
   use BPXE.Engine.Blueprint.Recordable
 
-  defstate([id: nil, type: nil, options: %{}, blueprint: nil, process: nil, script: ""],
+  defstate(
+    [id: nil, type: nil, options: %{}, blueprint: nil, process: nil, script: ""],
     persist: []
   )
 
@@ -29,6 +30,10 @@ defmodule BPXE.Engine.Task do
     state = initialize(state)
     init_ack()
     enter_loop(state)
+  end
+
+  def handle_call({:add_script, script}, _from, state) do
+    {:reply, {:ok, script}, %{state | script: script}}
   end
 
   def handle_token({token, _id}, %__MODULE__{type: :scriptTask} = state) do
@@ -61,6 +66,48 @@ defmodule BPXE.Engine.Task do
     {:send, token, state}
   end
 
+  @bpxe_spec BPXE.BPMN.ext_spec()
+
+  def handle_token(
+        {token, _id},
+        %__MODULE__{type: :serviceTask, options: %{{@bpxe_spec, "name"} => service}} = state
+      ) do
+    Process.log(state.process, %Log.TaskActivated{
+      pid: self(),
+      id: state.id,
+      token_id: token.token_id
+    })
+
+    payload =
+      state.extensions
+      |> Enum.filter(fn
+        {:json, _} -> true
+        _ -> false
+      end)
+      |> Enum.map(fn {:json, json} -> json end)
+      |> Enum.reverse()
+
+    response =
+      BPXE.Engine.Blueprint.call_service(state.blueprint.pid, service, %BPXE.Service.Request{
+        payload: payload
+      })
+
+    token =
+      if result_var = state.options[{@bpxe_spec, "resultVariable"}] do
+        %{token | payload: Map.put(token.payload, result_var, response.payload)}
+      else
+        token
+      end
+
+    Process.log(state.process, %Log.TaskCompleted{
+      pid: self(),
+      id: state.id,
+      token_id: token.token_id
+    })
+
+    {:send, token, state}
+  end
+
   def handle_token({token, _id}, state) do
     Process.log(state.process, %Log.TaskActivated{
       pid: self(),
@@ -75,9 +122,5 @@ defmodule BPXE.Engine.Task do
     })
 
     {:send, token, state}
-  end
-
-  def handle_call({:add_script, script}, _from, state) do
-    {:reply, {:ok, script}, %{state | script: script}}
   end
 end

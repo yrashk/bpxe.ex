@@ -12,6 +12,8 @@ defmodule BPXE.BPMN.Handler do
   @callback add_parallel_gateway(term, Map.t()) :: {:ok, term} | {:error, term}
   @callback add_inclusive_gateway(term, Map.t()) :: {:ok, term} | {:error, term}
   @callback add_event_based_gateway(term, Map.t()) :: {:ok, term} | {:error, term}
+  @callback add_extension_elements(term) :: {:ok, term} | {:error, term}
+  @callback add_json(term, term) :: {:ok, term} | {:error, term}
   @callback complete(term) :: {:ok, term} | {:error, term}
 
   @behaviour Saxy.Handler
@@ -20,9 +22,13 @@ defmodule BPXE.BPMN.Handler do
             handler: BPXE.BPMN.Handler.Engine,
             current: [],
             characters: nil,
-            args: nil
+            args: nil,
+            extension: nil,
+            extension_top: false
 
   @bpmn_spec "http://www.omg.org/spec/BPMN/20100524/MODEL"
+  @json_spec "http://www.w3.org/2013/XSL/json"
+  @bpxe_spec BPXE.BPMN.ext_spec()
 
   # Splits by namespace
   @spec split_ns(binary, Map.t()) :: binary() | {binary(), binary()}
@@ -246,15 +252,6 @@ defmodule BPXE.BPMN.Handler do
   end
 
   def handle_event(
-        :characters,
-        chars,
-        %__MODULE__{characters: characters} = state
-      )
-      when not is_nil(characters) do
-    {:ok, %{state | characters: characters <> chars}}
-  end
-
-  def handle_event(
         :end_element,
         {bpmn, "outgoing"},
         %__MODULE__{
@@ -320,6 +317,145 @@ defmodule BPXE.BPMN.Handler do
       ) do
     handler.add_outgoing(flow, args, body)
     |> Result.map(fn _ -> %{state | characters: nil, args: nil} end)
+  end
+
+  def handle_event(
+        :start_element,
+        {{bpmn, "extensionElements"}, _args},
+        %__MODULE__{
+          ns: %{@bpmn_spec => bpmn},
+          handler: handler,
+          current: [node | current],
+          extension: nil
+        } = state
+      ) do
+    handler.add_extension_elements(node)
+    |> Result.map(fn result ->
+      %{state | extension: true, current: [result | current], extension_top: 0}
+    end)
+  end
+
+  def handle_event(
+        :start_element,
+        {{bpxe, "json"}, _},
+        %__MODULE__{
+          ns: %{@bpxe_spec => bpxe},
+          extension: true
+        } = state
+      ) do
+    {:ok, %{state | characters: ""}}
+  end
+
+  def handle_event(
+        :end_element,
+        {bpxe, "json"},
+        %__MODULE__{
+          ns: %{@bpxe_spec => bpxe},
+          handler: handler,
+          current: [node | _],
+          extension: true,
+          characters: characters
+        } = state
+      ) do
+    Jason.decode(characters)
+    |> Result.and_then(fn json ->
+      handler.add_json(node, json)
+    end)
+    |> Result.map(fn _ ->
+      %{state | characters: nil}
+    end)
+  end
+
+  def handle_event(
+        :start_element,
+        {{json, _}, _} = element,
+        %__MODULE__{
+          ns: %{@json_spec => json},
+          extension: true,
+          extension_top: extension_top
+        } = state
+      ) do
+    BPXE.BPMN.JSON.handle_event(:start_element, element, BPXE.BPMN.JSON.new([]))
+    |> Result.map(fn result ->
+      %{state | extension: result, extension_top: extension_top + 1}
+    end)
+  end
+
+  def handle_event(
+        :start_element,
+        {{json, _}, _} = element,
+        %__MODULE__{
+          ns: %{@json_spec => json},
+          extension: %BPXE.BPMN.JSON{} = extension,
+          extension_top: extension_top
+        } = state
+      )
+      when not is_nil(extension) do
+    BPXE.BPMN.JSON.handle_event(:start_element, element, extension)
+    |> Result.map(fn result ->
+      %{state | extension: result, extension_top: extension_top + 1}
+    end)
+  end
+
+  def handle_event(
+        :end_element,
+        {json, _} = element,
+        %__MODULE__{
+          ns: %{@json_spec => json},
+          extension: extension,
+          extension_top: extension_top,
+          current: [node | _],
+          handler: handler
+        } = state
+      )
+      when not is_nil(extension) do
+    BPXE.BPMN.JSON.handle_event(:end_element, element, state.extension)
+    |> Result.map(fn result ->
+      if extension_top == 1 do
+        handler.add_json(node, result.value)
+        true
+      else
+        result
+      end
+    end)
+    |> Result.map(fn result ->
+      %{state | extension: result, extension_top: extension_top - 1}
+    end)
+  end
+
+  def handle_event(
+        :end_element,
+        {bpmn, "extensionElements"},
+        %__MODULE__{ns: %{@bpmn_spec => bpmn}, current: [_ | rest]} = state
+      ) do
+    {:ok, %{state | extension: nil, extension_top: nil, current: rest}}
+  end
+
+  def handle_event(
+        :characters,
+        chars,
+        %__MODULE__{extension: %BPXE.BPMN.JSON{} = json} = state
+      )
+      when not is_nil(chars) do
+    BPXE.BPMN.JSON.handle_event(:characters, chars, json)
+    |> Result.map(fn result -> %{state | extension: result} end)
+  end
+
+  def handle_event(
+        :characters,
+        chars,
+        %__MODULE__{characters: characters} = state
+      )
+      when not is_nil(characters) do
+    {:ok, %{state | characters: characters <> chars}}
+  end
+
+  def handle_event(
+        :characters,
+        _chars,
+        state
+      ) do
+    {:ok, state}
   end
 
   def handle_event(:end_document, _, %__MODULE__{current: [blueprint], handler: handler}) do

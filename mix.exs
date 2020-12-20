@@ -53,7 +53,8 @@ defmodule BPXE.MixProject do
       {:ex2ms, "~> 1.6.0"},
       {:xcuid, "~> 0.1.1"},
       {:versioce, "~> 0.2.1", only: [:dev, :test]},
-      {:deep_merge, "~> 1.0.0"}
+      {:deep_merge, "~> 1.0.0"},
+      {:jason, "~> 1.2.2"}
     ]
   end
 end
