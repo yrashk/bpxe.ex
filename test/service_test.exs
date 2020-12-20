@@ -5,10 +5,6 @@ defmodule BPXETest.Service do
 
   defmodule Service do
     use BPXE.Service
-
-    def handle_request(%BPXE.Service.Request{} = req, _blueprint, _from, state) do
-      {:reply, %BPXE.Service.Response{payload: true}, %{state | called: req}}
-    end
   end
 
   test "service should go down if blueprint is going down" do

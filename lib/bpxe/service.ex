@@ -54,7 +54,11 @@ defmodule BPXE.Service do
         {:stop, :normal, state}
       end
 
-      defoverridable init: 1
+      def handle_request(_request, _blueprint, _from, state) do
+        {:reply, %BPXE.Service.Response{}, state}
+      end
+
+      defoverridable init: 1, handle_request: 4
     end
   end
 end
