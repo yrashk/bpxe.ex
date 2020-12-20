@@ -1,7 +1,7 @@
 defmodule BPXETest.Engine.InclusiveGateway do
   use ExUnit.Case
   alias BPXE.Engine.Blueprint
-  alias BPXE.Engine.{Process, FlowNode, Event}
+  alias BPXE.Engine.{Process, FlowNode, Event, Task}
   alias BPXE.Engine.Process.Log
   doctest BPXE.Engine.InclusiveGateway
 
@@ -16,8 +16,8 @@ defmodule BPXETest.Engine.InclusiveGateway do
 
     {:ok, _} = Process.establish_sequence_flow(proc1, "s1", start, fork)
 
-    {:ok, t1} = Process.add_task(proc1, "t1", :task, %{"id" => "t1"})
-    {:ok, t2} = Process.add_task(proc1, "t2", :task, %{"id" => "t2"})
+    {:ok, t1} = Process.add_task(proc1, "t1", :scriptTask, %{"id" => "t1"})
+    {:ok, t2} = Process.add_task(proc1, "t2", :scriptTask, %{"id" => "t2"})
 
     {:ok, f1} = Process.establish_sequence_flow(proc1, "fork_1", fork, t1)
     {:ok, f2} = Process.establish_sequence_flow(proc1, "fork_2", fork, t2)
@@ -54,9 +54,17 @@ defmodule BPXETest.Engine.InclusiveGateway do
 
     {:ok, _} = Process.establish_sequence_flow(proc1, "s1", start, fork)
 
-    {:ok, t1} = Process.add_task(proc1, "t1", :task, %{"id" => "t1"})
-    {:ok, t2} = Process.add_task(proc1, "t2", :task, %{"id" => "t2"})
-    {:ok, t3} = Process.add_task(proc1, "t3", :task, %{"id" => "t3"})
+    {:ok, t1} = Process.add_task(proc1, "t1", :scriptTask, %{"id" => "t1"})
+    {:ok, t2} = Process.add_task(proc1, "t2", :scriptTask, %{"id" => "t2"})
+    {:ok, t3} = Process.add_task(proc1, "t3", :scriptTask, %{"id" => "t3"})
+
+    {:ok, _} = Task.add_script(t1, ~s|
+      token.t1 = true
+      |)
+
+    {:ok, _} = Task.add_script(t2, ~s|
+      token.t2 = true
+      |)
 
     {:ok, _} = Process.establish_sequence_flow(proc1, "fork_1", fork, t1)
     {:ok, _} = Process.establish_sequence_flow(proc1, "fork_2", fork, t2)
@@ -85,7 +93,11 @@ defmodule BPXETest.Engine.InclusiveGateway do
 
     # We should receive a collection of two tokens (third condition was falsy)
     assert_receive(
-      {Log, %Log.FlowNodeActivated{id: "t4", token: %BPXE.Token{payload: [nil, nil]}}}
+      {Log,
+       %Log.FlowNodeActivated{
+         id: "t4",
+         token: %BPXE.Token{payload: %{"t1" => true, "t2" => true}}
+       }}
     )
   end
 

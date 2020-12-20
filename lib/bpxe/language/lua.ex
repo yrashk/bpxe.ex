@@ -23,6 +23,16 @@ defimpl BPXE.Language, for: BPXE.Language.Lua do
 
   def get(%BPXE.Language.Lua{vm: vm}, name) do
     {result, _} = :luerl.get_table([name], vm)
-    result
+    result |> ensure_maps()
   end
+
+  defp ensure_maps([{key, value}]) do
+    %{key => ensure_maps(value)}
+  end
+
+  defp ensure_maps([{key, value} | rest]) do
+    Map.merge(ensure_maps(rest), %{key => ensure_maps(value)})
+  end
+
+  defp ensure_maps(v), do: v
 end

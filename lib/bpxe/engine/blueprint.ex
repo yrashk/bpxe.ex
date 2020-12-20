@@ -136,7 +136,11 @@ defmodule BPXE.Engine.Blueprint do
     :ok
   end
 
-  def commit_state(%Config{flow_handler: handler, pid: blueprint, id: blueprint_id}, generation, id)
+  def commit_state(
+        %Config{flow_handler: handler, pid: blueprint, id: blueprint_id},
+        generation,
+        id
+      )
       when is_atom(handler) do
     handler.commit_state(blueprint, blueprint_id, generation, id, nil)
   end

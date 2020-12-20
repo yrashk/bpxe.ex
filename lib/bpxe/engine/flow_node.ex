@@ -279,6 +279,7 @@ defmodule BPXE.Engine.FlowNode do
               vm = BPXE.Language.set(vm, "process", process_vars)
               {:reply, flow_node_vars, state1} = handle_call(:variables, :ignored, state)
               vm = BPXE.Language.set(vm, "flow_node", flow_node_vars)
+              vm = BPXE.Language.set(vm, "token", token.payload)
               # TODO: handle errors
               {:ok, {result, _vm}} = BPXE.Language.eval(vm, body)
 

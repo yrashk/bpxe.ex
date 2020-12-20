@@ -43,10 +43,12 @@ defmodule BPXE.Engine.Task do
     vm = BPXE.Language.set(vm, "process", process_vars)
     {:reply, flow_node_vars, state} = handle_call(:variables, :ignored, state)
     vm = BPXE.Language.set(vm, "flow_node", flow_node_vars)
+    vm = BPXE.Language.set(vm, "token", token.payload)
     # TODO: handle errors
     {:ok, {_result, vm}} = BPXE.Language.eval(vm, state.script)
-    process_vars = BPXE.Language.get(vm, "process") |> ensure_maps()
-    flow_node_vars = BPXE.Language.get(vm, "flow_node") |> ensure_maps()
+    process_vars = BPXE.Language.get(vm, "process")
+    flow_node_vars = BPXE.Language.get(vm, "flow_node")
+    token = %{token | payload: BPXE.Language.get(vm, "token")}
     Base.merge_variables(state.process, process_vars, token)
     {:reply, _, state} = handle_call({:merge_variables, flow_node_vars, token}, :ignored, state)
 
@@ -78,14 +80,4 @@ defmodule BPXE.Engine.Task do
   def handle_call({:add_script, script}, _from, state) do
     {:reply, {:ok, script}, %{state | script: script}}
   end
-
-  def ensure_maps([{key, value}]) do
-    %{key => ensure_maps(value)}
-  end
-
-  def ensure_maps([{key, value} | rest]) do
-    Map.merge(ensure_maps(rest), %{key => ensure_maps(value)})
-  end
-
-  def ensure_maps(v), do: v
 end

@@ -111,17 +111,14 @@ defmodule BPXE.Engine.InclusiveGateway do
           token.token_id == fired_token.payload.token_id
         end)
 
-      payload =
-        Enum.reduce(incoming_tokens, [], fn {token, _}, acc ->
+      out_token =
+        Enum.reduce(incoming_tokens, %{out_token | payload: %{}}, fn {token, _}, acc ->
           if token.token_id == out_token.token_id do
-            [token.payload | acc]
+            BPXE.Token.merge(acc, token)
           else
             acc
           end
         end)
-        |> Enum.reverse()
-
-      out_token = %{out_token | payload: payload}
 
       {:send, out_token, %{state | fired: nil, incoming_tokens: []}}
     else

@@ -56,4 +56,31 @@ defmodule BPXETest.Engine.Task do
     assert_receive({Log, %Log.TaskCompleted{id: "task"}})
     assert Base.variables(proc1) == %{}
   end
+
+  test "executes a script that modifies token's payload" do
+    {:ok, pid} = Blueprint.start_link()
+    {:ok, proc1} = Blueprint.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
+
+    {:ok, start} = Process.add_event(proc1, "start", :startEvent, %{"id" => "start"})
+    {:ok, the_end} = Process.add_event(proc1, "end", :endEvent, %{"id" => "end"})
+    {:ok, task} = Process.add_task(proc1, "task", :scriptTask, %{"id" => "task"})
+    {:ok, _} = Task.add_script(task, ~s|
+      token.a = 1
+      |)
+
+    {:ok, _} = Process.establish_sequence_flow(proc1, "s1", start, task)
+    {:ok, _} = Process.establish_sequence_flow(proc1, "s2", task, the_end)
+
+    {:ok, proc1} = Blueprint.instantiate_process(pid, "proc1")
+    :ok = Process.subscribe_log(proc1)
+
+    assert [{"proc1", [{"start", :ok}]}] |> List.keysort(0) ==
+             Blueprint.start(pid) |> List.keysort(0)
+
+    assert_receive({Log, %Log.TaskCompleted{id: "task"}})
+
+    assert_receive(
+      {Log, %Log.FlowNodeActivated{id: "end", token: %BPXE.Token{payload: %{"a" => 1.0}}}}
+    )
+  end
 end

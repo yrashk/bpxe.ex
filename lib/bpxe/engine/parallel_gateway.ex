@@ -81,7 +81,7 @@ defmodule BPXE.Engine.ParallelGateway do
           if length(tokens) == join_threshold do
             token_ids = Map.delete(token_ids, token.token_id)
 
-            token = %{hd(tokens) | payload: Enum.map(tokens, fn m -> m.payload end)}
+            token = Enum.reduce(tl(tokens), token, &BPXE.Token.merge/2)
 
             Process.log(state.process, %Log.ParallelGatewayCompleted{
               pid: self(),

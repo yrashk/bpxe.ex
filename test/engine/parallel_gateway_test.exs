@@ -1,7 +1,6 @@
 defmodule BPXETest.Engine.ParallelGateway do
   use ExUnit.Case
-  alias BPXE.Engine.Blueprint
-  alias BPXE.Engine.Process
+  alias BPXE.Engine.{Blueprint, Process, Task}
   alias BPXE.Engine.Process.Log
   doctest BPXE.Engine.ParallelGateway
 
@@ -40,8 +39,16 @@ defmodule BPXETest.Engine.ParallelGateway do
 
     {:ok, _} = Process.establish_sequence_flow(proc1, "s1", start, fork)
 
-    {:ok, t1} = Process.add_task(proc1, "t1", :task, %{"id" => "t1"})
-    {:ok, t2} = Process.add_task(proc1, "t2", :task, %{"id" => "t2"})
+    {:ok, t1} = Process.add_task(proc1, "t1", :scriptTask, %{"id" => "t1"})
+    {:ok, t2} = Process.add_task(proc1, "t2", :scriptTask, %{"id" => "t2"})
+
+    {:ok, _} = Task.add_script(t1, ~s|
+      token.t1 = true
+      |)
+
+    {:ok, _} = Task.add_script(t2, ~s|
+      token.t2 = true
+      |)
 
     {:ok, _} = Process.establish_sequence_flow(proc1, "fork_1", fork, t1)
     {:ok, _} = Process.establish_sequence_flow(proc1, "fork_2", fork, t2)
@@ -61,7 +68,11 @@ defmodule BPXETest.Engine.ParallelGateway do
              Blueprint.start(pid) |> List.keysort(0)
 
     assert_receive(
-      {Log, %Log.FlowNodeActivated{id: "t3", token: %BPXE.Token{payload: [nil, nil]}}}
+      {Log,
+       %Log.FlowNodeActivated{
+         id: "t3",
+         token: %BPXE.Token{payload: %{"t1" => true, "t2" => true}}
+       }}
     )
   end
 
@@ -74,8 +85,16 @@ defmodule BPXETest.Engine.ParallelGateway do
 
     {:ok, _} = Process.establish_sequence_flow(proc1, "s1", start, fork)
 
-    {:ok, t1} = Process.add_task(proc1, "t1", :task, %{"id" => "t1"})
-    {:ok, t2} = Process.add_task(proc1, "t2", :task, %{"id" => "t2"})
+    {:ok, t1} = Process.add_task(proc1, "t1", :scriptTask, %{"id" => "t1"})
+    {:ok, t2} = Process.add_task(proc1, "t2", :scriptTask, %{"id" => "t2"})
+
+    {:ok, _} = Task.add_script(t1, ~s|
+      token.t1 = true
+      |)
+
+    {:ok, _} = Task.add_script(t2, ~s|
+      token.t2 = true
+      |)
 
     {:ok, _} = Process.establish_sequence_flow(proc1, "fork_1", fork, t1)
     {:ok, _} = Process.establish_sequence_flow(proc1, "fork_2", fork, t2)
@@ -98,6 +117,15 @@ defmodule BPXETest.Engine.ParallelGateway do
     assert [{"proc1", [{"start", :ok}]}] |> List.keysort(0) ==
              Blueprint.start(pid) |> List.keysort(0)
 
-    assert_receive({Log, %Log.FlowNodeActivated{id: "t3", token: %BPXE.Token{payload: [nil]}}})
+    assert_receive(
+      {Log,
+       %Log.FlowNodeActivated{
+         id: "t3",
+         token: %BPXE.Token{payload: payload}
+       }}
+    )
+
+    # we should receive either t1's or t2's result
+    assert payload["t1"] || payload["t2"]
   end
 end
