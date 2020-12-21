@@ -2,6 +2,7 @@ defmodule BPXETest.BPMN.JSON do
   use ExUnit.Case
   doctest BPXE.BPMN.JSON
   alias BPXE.Engine.{Blueprint, Blueprints}
+  import BPXETest.Utils
 
   @json [
     %{"test" => 123, "world" => "hello", "again" => %{"yes" => 321}},
@@ -38,34 +39,7 @@ defmodule BPXETest.BPMN.JSON do
     alias BPXE.Engine.Blueprint.Recordable.Ref
     blueprint = Blueprint.blueprint(pid)
 
-    process =
-      Enum.find_value(blueprint, fn {nil, records} ->
-        Enum.find_value(records, fn
-          %Ref{payload: {:add_process, "process", _}} = ref ->
-            ref
-
-          _ ->
-            false
-        end)
-      end)
-
-    task =
-      Enum.find_value(blueprint[process], fn
-        %Ref{payload: {:add_task, "task", _, _}} = ref ->
-          ref
-
-        _ ->
-          false
-      end)
-
-    extension_elements =
-      Enum.find_value(blueprint[task], fn
-        %Ref{payload: :add_extension_elements} = ref ->
-          ref
-
-        _ ->
-          false
-      end)
+    extension_elements = find_blueprint(blueprint, ["process", "task", :add_extension_elements])
 
     Enum.filter(blueprint[extension_elements], fn
       %Ref{payload: {:add_json, nil, _}} = ref ->

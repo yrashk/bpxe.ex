@@ -357,7 +357,21 @@ defmodule BPXE.BPMN.Handler do
           characters: characters
         } = state
       ) do
-    Jason.decode(characters)
+    string = BPXE.BPMN.Interpolation.interpolate(characters)
+
+    case string do
+      string when is_binary(string) ->
+        Jason.decode(characters)
+
+      f when is_function(f) ->
+        {:ok,
+         fn cb ->
+           f.(fn v -> {cb.(v), &Jason.encode/1} end) |> Jason.decode()
+         end}
+
+      other ->
+        {:error, {:unexpected_interpolation, other}}
+    end
     |> Result.and_then(fn json ->
       handler.add_json(node, json)
     end)
@@ -412,7 +426,7 @@ defmodule BPXE.BPMN.Handler do
     BPXE.BPMN.JSON.handle_event(:end_element, element, state.extension)
     |> Result.map(fn result ->
       if extension_top == 1 do
-        handler.add_json(node, result.value)
+        handler.add_json(node, BPXE.BPMN.JSON.prepare(result))
         true
       else
         result

@@ -84,7 +84,27 @@ defmodule BPXE.Engine.Task do
         {:json, _} -> true
         _ -> false
       end)
-      |> Enum.map(fn {:json, json} -> json end)
+      |> Enum.map(fn {:json, json} ->
+        case json do
+          json when is_function(json, 1) ->
+            cb = fn expr ->
+              {:ok, vm} = BPXE.Language.Lua.new()
+              process_vars = Base.variables(state.process)
+              vm = BPXE.Language.set(vm, "process", process_vars)
+              {:reply, flow_node_vars, _state} = handle_call(:variables, :ignored, state)
+              vm = BPXE.Language.set(vm, "flow_node", flow_node_vars)
+              vm = BPXE.Language.set(vm, "token", token.payload)
+              # TODO: handle errors
+              {:ok, {[result | _], _vm}} = BPXE.Language.eval(vm, expr)
+              {result, &Jason.encode/1}
+            end
+
+            json.(cb)
+
+          _ ->
+            json
+        end
+      end)
       |> Enum.reverse()
 
     response =

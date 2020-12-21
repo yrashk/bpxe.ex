@@ -1,6 +1,29 @@
 defmodule BPXE.BPMN.JSON do
-  defstruct value: nil, current: nil, characters: nil, keyed: false
+  import BPXE.BPMN.Interpolation
+  defstruct value: nil, current: nil, characters: nil, keyed: false, interpolate: false
   use ExConstructor
+
+  def prepare(%__MODULE__{interpolate: false, value: value}), do: value
+
+  def prepare(%__MODULE__{value: value}) do
+    fn cb ->
+      interpolate(value, cb)
+    end
+  end
+
+  def interpolate(value, cb) when is_function(value, 1) do
+    value.(cb)
+  end
+
+  def interpolate(value, cb) when is_list(value) do
+    value |> Enum.map(fn v -> interpolate(v, cb) end)
+  end
+
+  def interpolate(value, cb) when is_map(value) do
+    value |> Enum.map(fn {k, v} -> {k, interpolate(v, cb)} end) |> Map.new()
+  end
+
+  def interpolate(value, _cb), do: value
 
   def handle_event(
         :start_element,
@@ -83,29 +106,35 @@ defmodule BPXE.BPMN.JSON do
         {_, "number"},
         %__MODULE__{value: value, current: path, characters: characters} = state
       ) do
-    number =
-      case Integer.parse(characters) do
-        {int, ""} ->
-          int
+    case interpolate(characters) do
+      characters when is_binary(characters) ->
+        number =
+          case Integer.parse(characters) do
+            {int, ""} ->
+              int
 
-        {_, "." <> _} ->
-          case Float.parse(characters) do
-            {float, _} -> float
+            {_, "." <> _} ->
+              case Float.parse(characters) do
+                {float, _} -> float
+              end
+
+            {int, _} ->
+              int
+
+            :error ->
+              :error
           end
 
-        {int, _} ->
-          int
+        case number do
+          :error ->
+            {:error, {:invalid_number, characters}}
 
-        :error ->
-          :error
-      end
+          _ ->
+            {:ok, %{state | characters: nil, value: update(value, path, number)}}
+        end
 
-    case number do
-      :error ->
-        {:error, :invalid_number, characters}
-
-      _ ->
-        {:ok, %{state | characters: nil, value: update(value, path, number)}}
+      f when is_function(f, 1) ->
+        {:ok, %{state | characters: nil, value: update(value, path, f), interpolate: true}}
     end
   end
 
@@ -122,7 +151,19 @@ defmodule BPXE.BPMN.JSON do
         {_, "string"},
         %__MODULE__{value: value, current: path, characters: characters} = state
       ) do
-    {:ok, %{state | characters: nil, value: update(value, path, characters)}}
+    case interpolate(characters) do
+      characters when is_binary(characters) ->
+        {:ok, %{state | characters: nil, value: update(value, path, characters)}}
+
+      f when is_function(f, 1) ->
+        {:ok,
+         %{
+           state
+           | characters: nil,
+             value: update(value, path, fn cb -> f.(cb) |> to_string() end),
+             interpolate: true
+         }}
+    end
   end
 
   def handle_event(
@@ -138,13 +179,19 @@ defmodule BPXE.BPMN.JSON do
         {_, "boolean"},
         %__MODULE__{value: value, current: path, characters: characters} = state
       ) do
-    bool =
-      case characters |> String.trim() do
-        "true" -> true
-        "false" -> false
-      end
+    case interpolate(characters) do
+      characters when is_binary(characters) ->
+        bool =
+          case characters |> String.trim() do
+            "true" -> true
+            "false" -> false
+          end
 
-    {:ok, %{state | characters: nil, value: update(value, path, bool)}}
+        {:ok, %{state | characters: nil, value: update(value, path, bool)}}
+
+      f when is_function(f, 1) ->
+        {:ok, %{state | characters: nil, value: update(value, path, f), interpolate: true}}
+    end
   end
 
   def handle_event(
