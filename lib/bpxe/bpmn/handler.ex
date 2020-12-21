@@ -299,9 +299,9 @@ defmodule BPXE.BPMN.Handler do
   def handle_event(
         :start_element,
         {{bpmn, "conditionExpression"}, args},
-        %__MODULE__{ns: %{@bpmn_spec => bpmn}, characters: nil, args: args} = state
+        %__MODULE__{ns: %{@bpmn_spec => bpmn}, characters: nil} = state
       ) do
-    {:ok, %{state | characters: ""}}
+    {:ok, %{state | characters: "", args: args}}
   end
 
   def handle_event(
@@ -315,7 +315,7 @@ defmodule BPXE.BPMN.Handler do
           args: args
         } = state
       ) do
-    handler.add_outgoing(flow, args, body)
+    handler.add_condition_expression(flow, args, body)
     |> Result.map(fn _ -> %{state | characters: nil, args: nil} end)
   end
 
