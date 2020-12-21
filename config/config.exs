@@ -1,7 +1,6 @@
 import Config
 
 config :versioce,
-  global: true,
   post_hooks: [Versioce.PostHooks.Git.Release]
 
 config :versioce, :git,
