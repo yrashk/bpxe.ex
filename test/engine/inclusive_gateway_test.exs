@@ -25,13 +25,13 @@ defmodule BPXETest.Engine.InclusiveGateway do
     FlowNode.add_condition_expression(
       f1,
       %{{@xsi, "type"} => "tFormalExpression"},
-      "return true"
+      "`true`"
     )
 
     FlowNode.add_condition_expression(
       f2,
       %{{@xsi, "type"} => "tFormalExpression"},
-      "return false"
+      "`false`"
     )
 
     {:ok, proc1} = Blueprint.instantiate_process(pid, "proc1")
@@ -73,7 +73,7 @@ defmodule BPXETest.Engine.InclusiveGateway do
     FlowNode.add_condition_expression(
       f3,
       %{{@xsi, "type"} => "tFormalExpression"},
-      "return false"
+      "`false`"
     )
 
     {:ok, join} = Process.add_inclusive_gateway(proc1, "join", %{"id" => "join"})
@@ -121,7 +121,7 @@ defmodule BPXETest.Engine.InclusiveGateway do
     FlowNode.add_condition_expression(
       f3,
       %{{@xsi, "type"} => "tFormalExpression"},
-      "return false"
+      "`false`"
     )
 
     {:ok, join} = Process.add_inclusive_gateway(proc1, "join", %{"id" => "join"})
@@ -162,7 +162,7 @@ defmodule BPXETest.Engine.InclusiveGateway do
     FlowNode.add_condition_expression(
       f3,
       %{{@xsi, "type"} => "tFormalExpression"},
-      "return false"
+      "`false`"
     )
 
     {:ok, join} = Process.add_inclusive_gateway(proc1, "join", %{"id" => "join"})

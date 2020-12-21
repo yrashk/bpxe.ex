@@ -25,13 +25,13 @@ defmodule BPXETest.Engine.ExclusiveGateway do
     FlowNode.add_condition_expression(
       sf_true,
       %{{@xsi, "type"} => "tFormalExpression"},
-      "return true"
+      "`true`"
     )
 
     FlowNode.add_condition_expression(
       sf_true2,
       %{{@xsi, "type"} => "tFormalExpression"},
-      "return true"
+      "`true`"
     )
 
     {:ok, proc1} = Blueprint.instantiate_process(pid, "proc1")
@@ -66,13 +66,13 @@ defmodule BPXETest.Engine.ExclusiveGateway do
     FlowNode.add_condition_expression(
       sf_false,
       %{{@xsi, "type"} => "tFormalExpression"},
-      "return false"
+      "`false`"
     )
 
     FlowNode.add_condition_expression(
       sf_false2,
       %{{@xsi, "type"} => "tFormalExpression"},
-      "return false"
+      "`false`"
     )
 
     {:ok, proc1} = Blueprint.instantiate_process(pid, "proc1")
@@ -107,13 +107,13 @@ defmodule BPXETest.Engine.ExclusiveGateway do
     FlowNode.add_condition_expression(
       sf_false,
       %{{@xsi, "type"} => "tFormalExpression"},
-      "return false"
+      "`false`"
     )
 
     FlowNode.add_condition_expression(
       sf_true,
       %{{@xsi, "type"} => "tFormalExpression"},
-      "return true"
+      "`true`"
     )
 
     {:ok, proc1} = Blueprint.instantiate_process(pid, "proc1")

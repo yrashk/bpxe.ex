@@ -55,7 +55,8 @@ defmodule BPXE.MixProject do
       {:xcuid, "~> 0.1.1"},
       {:versioce, "~> 0.2.1", only: [:dev, :test]},
       {:deep_merge, "~> 1.0.0"},
-      {:jason, "~> 1.2.2"}
+      {:jason, "~> 1.2.2"},
+      {:jmes, "~> 0.4.1"}
     ]
   end
 end

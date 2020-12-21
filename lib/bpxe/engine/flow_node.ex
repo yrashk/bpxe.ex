@@ -282,19 +282,19 @@ defmodule BPXE.Engine.FlowNode do
           case state.sequence_flows[sequence_flow][:conditionExpression] do
             {%{{@xsi, "type"} => formal_expr}, body}
             when formal_expr == "bpmn:tFormalExpression" or formal_expr == "tFormalExpression" ->
-              {:ok, vm} = BPXE.Language.Lua.new()
               process_vars = Base.variables(state.process)
-              vm = BPXE.Language.set(vm, "process", process_vars)
-              {:reply, flow_node_vars, state1} = handle_call(:variables, :ignored, state)
-              vm = BPXE.Language.set(vm, "flow_node", flow_node_vars)
-              vm = BPXE.Language.set(vm, "token", token.payload)
-              # TODO: handle errors
-              {:ok, {result, _vm}} = BPXE.Language.eval(vm, body)
+              {:reply, flow_node_vars, _} = handle_call(:variables, :ignored, state)
 
-              case result do
-                [true | _] -> true
-                _ -> false
-              end
+              vars = %{
+                "process" => process_vars,
+                "token" => token.payload,
+                "flow_node" => flow_node_vars
+              }
+
+              # TODO: handle errors
+              {:ok, result} = JMES.search(body, vars)
+
+              result
 
             _ ->
               true

@@ -24,19 +24,19 @@ defmodule BPXETest.Engine.SensorGateway do
     FlowNode.add_condition_expression(
       t1sf,
       %{{@xsi, "type"} => "tFormalExpression"},
-      "return true"
+      "`true`"
     )
 
     FlowNode.add_condition_expression(
       t2sf,
       %{{@xsi, "type"} => "tFormalExpression"},
-      "return true"
+      "`true`"
     )
 
     FlowNode.add_condition_expression(
       t3sf,
       %{{@xsi, "type"} => "tFormalExpression"},
-      "return false"
+      "`false`"
     )
 
     {:ok, join} = Process.add_parallel_gateway(proc1, "join", %{"id" => "join"})

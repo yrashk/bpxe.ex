@@ -35,7 +35,7 @@ defmodule BPXETest.Engine.FlowNode do
 
     {:ok, sf} = Process.establish_sequence_flow(proc1, "s1", start, the_end)
 
-    FlowNode.add_condition_expression(sf, %{{@xsi, "type"} => "tFormalExpression"}, "return true")
+    FlowNode.add_condition_expression(sf, %{{@xsi, "type"} => "tFormalExpression"}, "`true`")
 
     {:ok, proc1} = Blueprint.instantiate_process(pid, "proc1")
     :ok = Process.subscribe_log(proc1)
@@ -59,7 +59,7 @@ defmodule BPXETest.Engine.FlowNode do
     FlowNode.add_condition_expression(
       sf,
       %{{@xsi, "type"} => "tFormalExpression"},
-      "return false"
+      "`false`"
     )
 
     {:ok, proc1} = Blueprint.instantiate_process(pid, "proc1")
@@ -94,7 +94,7 @@ defmodule BPXETest.Engine.FlowNode do
     FlowNode.add_condition_expression(
       sf,
       %{{@xsi, "type"} => "tFormalExpression"},
-      ~s|return process.proceed and flow_node.test == "task"|
+      ~s|process.proceed && flow_node.test == `"task"`|
     )
 
     {:ok, proc1} = Blueprint.instantiate_process(pid, "proc1")
