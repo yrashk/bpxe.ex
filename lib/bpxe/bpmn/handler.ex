@@ -325,7 +325,7 @@ defmodule BPXE.BPMN.Handler do
         %__MODULE__{
           ns: %{@bpmn_spec => bpmn},
           handler: handler,
-          current: [node | current],
+          current: [node | _] = current,
           extension: nil
         } = state
       ) do
