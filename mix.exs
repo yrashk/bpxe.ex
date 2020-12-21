@@ -15,7 +15,8 @@ defmodule BPXE.MixProject do
       package: [
         licenses: ["Apache-2.0"],
         source_url: "https://github.com/bpxe/bpxe",
-        links: %{"GitHub" => "https://github.com/bpxe/bpxe"}
+        links: %{"GitHub" => "https://github.com/bpxe/bpxe"},
+        exclude_patterns: ~w(\.swp)
       ]
     ]
   end
