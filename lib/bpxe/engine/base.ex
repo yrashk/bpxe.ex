@@ -9,6 +9,10 @@ defmodule BPXE.Engine.Base do
         {:reply, state.id, state}
       end
 
+      def handle_call(:instance, _from, state) do
+        {:reply, state.instance, state}
+      end
+
       def handle_call(:module, _from, state) do
         {:reply, __MODULE__, state}
       end
@@ -75,6 +79,10 @@ defmodule BPXE.Engine.Base do
 
   def id(pid) do
     call(pid, :id)
+  end
+
+  def instance(pid) do
+    GenServer.call(pid, :instance)
   end
 
   def module(pid) do

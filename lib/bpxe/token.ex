@@ -1,10 +1,10 @@
 defmodule BPXE.Token do
   defstruct token_id: nil,
             payload: %{},
-            __generation__: 0,
-            __generation_atomic__: nil
+            __generation__: 0
 
   use ExConstructor
+  alias BPXE.Engine.Process.Activation
 
   def new(options \\ []) do
     result = super(options)
@@ -12,24 +12,30 @@ defmodule BPXE.Token do
     %{
       result
       | __generation__: {options[:activation] || 0, 0},
-        token_id: result.token_id || generate_id(),
-        __generation_atomic__: :atomics.new(2, [])
+        token_id: result.token_id || generate_id()
     }
   end
 
   def next_generation(%__MODULE__{
-        __generation_atomic__: gen,
-        __generation__: {activation, generation}
+        __generation__: {activation, _}
       }) do
-    {activation,
-     case :atomics.add_get(gen, 1, 1) do
-       n when n < generation ->
-         :atomics.add_get(gen, 2, 1) + 18_446_744_073_709_551_615
-
-       n ->
-         n
-     end}
+    {activation, Activation.next_token_generation(activation)}
   end
+
+  @doc """
+  Distance between generations of two tokens. Returns `nil` if they are not
+  in the same activation (comparing them is useless), otherwise it's a number
+  of single incremenets from the first token to the second one (positive means
+  the second message is younger, negative is older, zero is it's the same generation)
+  """
+  def distance(
+        %__MODULE__{__generation__: {a, g1}} = _first,
+        %__MODULE__{__generation__: {a, g2}} = _second
+      ) do
+    g2 - g1
+  end
+
+  def later_than(_, _), do: nil
 
   defp generate_id() do
     {m, f, a} = Application.get_env(:bpxe, :token_id_generator)

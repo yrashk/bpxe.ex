@@ -4,8 +4,7 @@ defmodule BPXE.Engine.Process do
   use BPXE.Engine.Base
   use BPXE.Engine.Recoverable
   alias BPXE.Engine.FlowNode
-  alias :persistent_term, as: PT
-  alias :atomics, as: Atomics
+  alias BPXE.Engine.Process.Log
 
   def start_link(id, options, blueprint) do
     start_link([{id, options, blueprint}])
@@ -164,11 +163,11 @@ defmodule BPXE.Engine.Process do
   end
 
   def new_activation(pid) do
-    {
-      BPXE.Engine.Base.id(pid),
-      PT.get({__MODULE__, pid, :activation})
-      |> Atomics.add_get(1, 1)
-    }
+    GenServer.call(pid, :new_activation)
+  end
+
+  def activations(pid) do
+    GenServer.call(pid, :activations)
   end
 
   defstruct id: nil,
@@ -177,10 +176,10 @@ defmodule BPXE.Engine.Process do
             start_events: %{},
             variables: %{},
             pending_sequence_flows: %{},
-            intermediate_catch_events: %{}
+            intermediate_catch_events: %{},
+            activations: []
 
   def init({id, options, blueprint}) do
-    PT.put({__MODULE__, self(), :activation}, Atomics.new(1, signed: false))
     :syn.register({blueprint.pid, :process, id}, self())
 
     state = %__MODULE__{
@@ -239,6 +238,22 @@ defmodule BPXE.Engine.Process do
 
   def handle_call(:flow_nodes, _from, state) do
     {:reply, flow_nodes(), state}
+  end
+
+  def handle_call(:new_activation, _from, state) do
+    activation =
+      BPXE.Engine.Process.Activation.new(
+        blueprint_id: state.blueprint.id,
+        process_id: state.id
+      )
+
+    log(self(), %Log.NewProcessActivation{id: state.id, pid: self(), activation: activation})
+
+    {:reply, activation, %{state | activations: [activation | state.activations]}}
+  end
+
+  def handle_call(:activations, _from, state) do
+    {:reply, state.activations, state}
   end
 
   def handle_call(operation, from, state) do

@@ -3,7 +3,8 @@ defmodule BPXETest.Token do
   doctest BPXE.Token
 
   test "generating new generation ID always generates non-duplicate, monotonic IDs" do
-    token = BPXE.Token.new()
+    activation = BPXE.Engine.Process.Activation.new()
+    token = BPXE.Token.new(activation: activation)
 
     pid = self()
 
@@ -18,17 +19,8 @@ defmodule BPXETest.Token do
 
     assert length(tokens) == 1000
     assert 1..1000 |> Enum.to_list() == tokens
-  end
 
-  test "generating more than 2^64 IDs still works (even though this is unlikely)" do
-    token = BPXE.Token.new()
-    :atomics.add(token.__generation_atomic__, 1, 18_446_744_073_709_551_615)
-
-    assert BPXE.Token.next_generation(%{
-             token
-             | __generation__: {0, 18_446_744_073_709_551_615}
-           }) ==
-             {0, 18_446_744_073_709_551_616}
+    BPXE.Engine.Process.Activation.discard(activation)
   end
 
   defp receive_all(0), do: []

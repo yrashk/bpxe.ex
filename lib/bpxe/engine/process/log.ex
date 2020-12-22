@@ -1,4 +1,8 @@
 defmodule BPXE.Engine.Process.Log do
+  defmodule NewProcessActivation do
+    defstruct pid: nil, id: nil, activation: nil
+  end
+
   defmodule FlowNodeActivated do
     defstruct pid: nil, id: nil, token_id: nil, token: nil
   end

@@ -62,12 +62,16 @@ defmodule BPXETest.Engine.Blueprint do
 
     BPXE.Engine.Blueprint.start(pid)
 
+    assert_receive({Log, %Log.NewProcessActivation{activation: activation}})
+
+    assert_receive({Log, %Log.FlowNodeActivated{id: "ev1", token: last_token}})
     assert_receive({Log, %Log.EventActivated{id: "ev1"}})
     # at this point, ev1 is ready to get a signal
 
     flush_tokens()
 
-    # but we crash the blueprint
+    # but we crash the blueprint (and ensure activation is discarded to simulate the VM restart)
+    BPXE.Engine.Process.Activation.discard(activation)
     :erlang.exit(pid, :kill)
 
     # wait until it restarts
@@ -81,6 +85,9 @@ defmodule BPXETest.Engine.Blueprint do
     signal(pid, "signal1")
 
     # and if it did listen, it should further activate t1
+    assert_receive({Log, %Log.FlowNodeActivated{id: "t1", token: next_token}})
+    # and the token is only one step away further
+    assert BPXE.Token.distance(last_token, next_token) == 1
     assert_receive({Log, %Log.TaskActivated{id: "t1"}})
 
     # shutdown
@@ -114,11 +121,11 @@ defmodule BPXETest.Engine.Blueprint do
     BPXE.Engine.Blueprint.start(pid)
 
     assert_receive({Log, %Log.EventActivated{id: "ev1"}})
-    # at this point, ev1 is ready to get a signal
+    # at this point, ev1 is ready to get a signal...
 
     flush_tokens()
 
-    # but we crash the blueprint
+    # but we crash the blueprint (and ensure activation is discarded to simulate the VM restart)
     :erlang.exit(pid, :kill)
 
     # wait until it restarts
@@ -157,6 +164,7 @@ defmodule BPXETest.Engine.Blueprint do
     {:ok, proc1} = Blueprint.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
 
     {:ok, start} = Process.add_event(proc1, "start", :startEvent, %{"id" => "start"})
+    {:ok, the_end} = Process.add_event(proc1, "end", :endEvent, %{"id" => "end"})
 
     {:ok, event_gate} =
       Process.add_event_based_gateway(proc1, "event_gate", %{"id" => "event_gate"})
@@ -177,6 +185,9 @@ defmodule BPXETest.Engine.Blueprint do
 
     {:ok, _} = Process.establish_sequence_flow(proc1, "ev1_t", ev1, t1)
     {:ok, _} = Process.establish_sequence_flow(proc1, "ev2_t", ev2, t2)
+
+    {:ok, _} = Process.establish_sequence_flow(proc1, "t1_", t1, the_end)
+    {:ok, _} = Process.establish_sequence_flow(proc1, "t2_", t2, the_end)
 
     {:ok, proc1} = Blueprint.instantiate_process(pid, "proc1")
     BPXE.Engine.Blueprint.synthesize(pid)

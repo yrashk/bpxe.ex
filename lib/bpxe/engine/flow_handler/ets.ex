@@ -77,7 +77,7 @@ defmodule BPXE.Engine.FlowHandler.ETS do
         {:ok, results} ->
           for {id, saving_state} <- results do
             Set.delete(staging, {generation, blueprint_id, id})
-            Set.put(table, {{blueprint_id, id}, saving_state})
+            Set.put(table, {{blueprint_id, id}, {saving_state, {activation, generation_ctr}}})
           end
 
           last_commit = Map.put(last_commit, {blueprint_id, activation}, generation_ctr)
@@ -107,7 +107,20 @@ defmodule BPXE.Engine.FlowHandler.ETS do
       ) do
     Set.delete_all(staging)
 
-    for {{^blueprint_id, id}, saved_state} <- Set.to_list!(table) do
+    for {activation, ctr} <-
+          Set.to_list!(table)
+          |> Enum.map(fn {_, {_, {activation, ctr}}} -> {activation, ctr} end)
+          # order by activation and counter
+          |> Enum.sort()
+          # descending
+          |> Enum.reverse()
+          # only the highest ctr
+          |> Enum.dedup_by(fn {activation, _} -> activation end) do
+      BPXE.Engine.Process.Activation.reset_token_generation(activation)
+      BPXE.Engine.Process.Activation.set_token_generation(activation, ctr)
+    end
+
+    for {{^blueprint_id, id}, {saved_state, _}} <- Set.to_list!(table) do
       # FIXME: infinite timeout is not great, but a short timeout isn't great either, need to figure
       # the best way to handle it
       {_replies, _bad_pids} =
