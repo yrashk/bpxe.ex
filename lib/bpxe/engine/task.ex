@@ -49,21 +49,35 @@ defmodule BPXE.Engine.Task do
     {:reply, flow_node_vars, state} = handle_call(:variables, :ignored, state)
     vm = BPXE.Language.set(vm, "flow_node", flow_node_vars)
     vm = BPXE.Language.set(vm, "token", token.payload)
-    # TODO: handle errors
-    {:ok, {_result, vm}} = BPXE.Language.eval(vm, state.script)
-    process_vars = BPXE.Language.get(vm, "process")
-    flow_node_vars = BPXE.Language.get(vm, "flow_node")
-    token = %{token | payload: BPXE.Language.get(vm, "token")}
-    Base.merge_variables(state.process, process_vars, token)
-    {:reply, _, state} = handle_call({:merge_variables, flow_node_vars, token}, :ignored, state)
 
-    Process.log(state.process, %Log.TaskCompleted{
-      pid: self(),
-      id: state.id,
-      token_id: token.token_id
-    })
+    case BPXE.Language.eval(vm, state.script) do
+      {:ok, {_result, vm}} ->
+        process_vars = BPXE.Language.get(vm, "process")
+        flow_node_vars = BPXE.Language.get(vm, "flow_node")
+        token = %{token | payload: BPXE.Language.get(vm, "token")}
+        Base.merge_variables(state.process, process_vars, token)
 
-    {:send, token, state}
+        {:reply, _, state} =
+          handle_call({:merge_variables, flow_node_vars, token}, :ignored, state)
+
+        Process.log(state.process, %Log.TaskCompleted{
+          pid: self(),
+          id: state.id,
+          token_id: token.token_id
+        })
+
+        {:send, token, state}
+
+      {:error, err} ->
+        Process.log(state.process, %Log.ScriptTaskErrorOccurred{
+          pid: self(),
+          id: state.id,
+          token_id: token.token_id,
+          error: err
+        })
+
+        {:dontsend, state}
+    end
   end
 
   @bpxe_spec BPXE.BPMN.ext_spec()

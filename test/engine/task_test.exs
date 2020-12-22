@@ -203,4 +203,27 @@ defmodule BPXETest.Engine.Task do
       )
     end
   end
+
+  test "should log an error in script if it happens" do
+    {:ok, pid} = Blueprint.start_link()
+    {:ok, proc1} = Blueprint.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
+
+    {:ok, start} = Process.add_event(proc1, "start", :startEvent, %{"id" => "start"})
+    {:ok, the_end} = Process.add_event(proc1, "end", :endEvent, %{"id" => "end"})
+    {:ok, task} = Process.add_task(proc1, "task", :scriptTask, %{"id" => "task"})
+    {:ok, _} = Task.add_script(task, ~s|
+      this is not a script
+      |)
+
+    {:ok, _} = Process.establish_sequence_flow(proc1, "s1", start, task)
+    {:ok, _} = Process.establish_sequence_flow(proc1, "s2", task, the_end)
+
+    {:ok, proc1} = Blueprint.instantiate_process(pid, "proc1")
+    :ok = Process.subscribe_log(proc1)
+
+    assert [{"proc1", [{"start", :ok}]}] |> List.keysort(0) ==
+             Blueprint.start(pid) |> List.keysort(0)
+
+    assert_receive({Log, %Log.ScriptTaskErrorOccurred{id: "task"}})
+  end
 end

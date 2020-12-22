@@ -82,4 +82,8 @@ defmodule BPXE.Engine.Process.Log do
   defmodule TaskCompleted do
     defstruct pid: nil, id: nil, token_id: nil
   end
+
+  defmodule ScriptTaskErrorOccurred do
+    defstruct pid: nil, id: nil, token_id: nil, error: nil
+  end
 end
