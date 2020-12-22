@@ -80,6 +80,20 @@ defmodule BPXE.Engine.Task do
     end
   end
 
+  defmodule ExpressionError do
+    defexception error: nil, expression: nil
+
+    @impl true
+    def exception({expression, error}) do
+      %ExpressionError{expression: expression, error: error}
+    end
+
+    @impl true
+    def message(%__MODULE__{expression: expression, error: error}) do
+      "Expression '#{expression}` failed to evaluate with: #{inspect(error)}"
+    end
+  end
+
   @bpxe_spec BPXE.BPMN.ext_spec()
 
   def handle_token(
@@ -92,58 +106,85 @@ defmodule BPXE.Engine.Task do
       token_id: token.token_id
     })
 
-    payload =
-      state.extensions
-      |> Enum.filter(fn
-        {:json, _} -> true
-        _ -> false
-      end)
-      |> Enum.map(fn {:json, json} ->
-        case json do
-          json when is_function(json, 1) ->
-            cb = fn expr ->
-              process_vars = Base.variables(state.process)
-              {:reply, flow_node_vars, _state} = handle_call(:variables, :ignored, state)
+    try do
+      payload =
+        state.extensions
+        |> Enum.filter(fn
+          {:json, _} -> true
+          _ -> false
+        end)
+        |> Enum.map(fn {:json, json} ->
+          case json do
+            json when is_function(json, 1) ->
+              cb = fn expr ->
+                process_vars = Base.variables(state.process)
+                {:reply, flow_node_vars, _state} = handle_call(:variables, :ignored, state)
 
-              vars = %{
-                "process" => process_vars,
-                "token" => token.payload,
-                "flow_node" => flow_node_vars
-              }
+                vars = %{
+                  "process" => process_vars,
+                  "token" => token.payload,
+                  "flow_node" => flow_node_vars
+                }
 
-              # TODO: handle errors
-              {:ok, result} = JMES.search(expr, vars)
+                result =
+                  case JMES.search(expr, vars) do
+                    {:ok, result} ->
+                      result
 
-              {result, &Jason.encode/1}
-            end
+                    {:error, error} ->
+                      Process.log(state.process, %Log.ExpressionErrorOccurred{
+                        pid: self(),
+                        id: state.id,
+                        token_id: token.token_id,
+                        expression: expr,
+                        error: error
+                      })
 
-            json.(cb)
+                      raise ExpressionError, {expr, error}
+                  end
 
-          _ ->
-            json
+                {result, &Jason.encode/1}
+              end
+
+              json.(cb)
+
+            _ ->
+              json
+          end
+        end)
+        |> Enum.reverse()
+
+      response =
+        BPXE.Engine.Blueprint.call_service(state.blueprint.pid, service, %BPXE.Service.Request{
+          payload: payload
+        })
+
+      token =
+        if result_var = state.options[{@bpxe_spec, "resultVariable"}] do
+          %{token | payload: Map.put(token.payload, result_var, response.payload)}
+        else
+          token
         end
-      end)
-      |> Enum.reverse()
 
-    response =
-      BPXE.Engine.Blueprint.call_service(state.blueprint.pid, service, %BPXE.Service.Request{
-        payload: payload
+      Process.log(state.process, %Log.TaskCompleted{
+        pid: self(),
+        id: state.id,
+        token_id: token.token_id
       })
 
-    token =
-      if result_var = state.options[{@bpxe_spec, "resultVariable"}] do
-        %{token | payload: Map.put(token.payload, result_var, response.payload)}
-      else
-        token
-      end
+      {:send, token, state}
+    catch
+      %ExpressionError{expression: expression, error: error} ->
+        Process.log(state.process, %Log.ExpressionErrorOccurred{
+          pid: self(),
+          id: state.id,
+          token_id: token.token_id,
+          expression: expression,
+          error: error
+        })
 
-    Process.log(state.process, %Log.TaskCompleted{
-      pid: self(),
-      id: state.id,
-      token_id: token.token_id
-    })
-
-    {:send, token, state}
+        {:dontsend, state}
+    end
   end
 
   def handle_token({token, _id}, state) do

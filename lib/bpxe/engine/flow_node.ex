@@ -6,6 +6,7 @@ defmodule BPXE.Engine.FlowNode do
       use BPXE.Engine.Base
       use BPXE.Engine.Recoverable
       alias BPXE.Engine.Base
+      alias BPXE.Engine.Process.Log
 
       import BPXE.Engine.FlowNode,
         only: [defstate: 1, defstate: 2]
@@ -132,7 +133,6 @@ defmodule BPXE.Engine.FlowNode do
 
       def handle_info({%BPXE.Token{__generation__: generation} = token, id}, state) do
         alias BPXE.Engine.Process
-        alias BPXE.Engine.Process.Log
 
         Process.log(state.process, %Log.FlowNodeActivated{
           pid: self(),
@@ -278,6 +278,8 @@ defmodule BPXE.Engine.FlowNode do
 
       @xsi "http://www.w3.org/2001/XMLSchema-blueprint"
       def send_token(sequence_flow, token, state) do
+        alias BPXE.Engine.Process
+
         proceed =
           case state.sequence_flows[sequence_flow][:conditionExpression] do
             {%{{@xsi, "type"} => formal_expr}, body}
@@ -291,10 +293,21 @@ defmodule BPXE.Engine.FlowNode do
                 "flow_node" => flow_node_vars
               }
 
-              # TODO: handle errors
-              {:ok, result} = JMES.search(body, vars)
+              case JMES.search(body, vars) do
+                {:ok, result} ->
+                  result
 
-              result
+                {:error, error} ->
+                  Process.log(state.process, %Log.ExpressionErrorOccurred{
+                    pid: self(),
+                    id: sequence_flow,
+                    token_id: token.token_id,
+                    expression: body,
+                    error: error
+                  })
+
+                  false
+              end
 
             _ ->
               true

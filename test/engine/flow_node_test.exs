@@ -107,4 +107,34 @@ defmodule BPXETest.Engine.FlowNode do
     assert_receive({Log, %Log.TaskActivated{id: "task"}})
     assert_receive({Log, %Log.EventActivated{id: "end"}})
   end
+
+  test "sequence flow conditions error will result in a log entry" do
+    {:ok, pid} = Blueprint.start_link()
+    {:ok, proc1} = Blueprint.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
+
+    {:ok, start} = Process.add_event(proc1, "start", :startEvent, %{"id" => "start"})
+    {:ok, the_end} = Process.add_event(proc1, "end", :endEvent, %{"id" => "end"})
+
+    {:ok, sf} = Process.establish_sequence_flow(proc1, "s1", start, the_end)
+
+    FlowNode.add_condition_expression(
+      sf,
+      %{{@xsi, "type"} => "tFormalExpression"},
+      ~s|this is an invalid expression|
+    )
+
+    {:ok, proc1} = Blueprint.instantiate_process(pid, "proc1")
+    :ok = Process.subscribe_log(proc1)
+
+    assert [{"proc1", [{"start", :ok}]}] |> List.keysort(0) ==
+             Blueprint.start(pid) |> List.keysort(0)
+
+    assert_receive {Log,
+                    %Log.ExpressionErrorOccurred{
+                      id: "s1",
+                      expression: "this is an invalid expression"
+                    }}
+
+    refute_receive({Log, %Log.FlowNodeActivated{id: "end"}})
+  end
 end

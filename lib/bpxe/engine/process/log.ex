@@ -7,6 +7,10 @@ defmodule BPXE.Engine.Process.Log do
     defstruct pid: nil, id: nil, token_id: nil, to: []
   end
 
+  defmodule ExpressionErrorOccurred do
+    defstruct pid: nil, id: nil, token_id: nil, expression: nil, error: nil
+  end
+
   defmodule ExclusiveGatewayActivated do
     defstruct pid: nil, id: nil, token_id: nil
   end
