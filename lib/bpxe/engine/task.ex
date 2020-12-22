@@ -102,14 +102,18 @@ defmodule BPXE.Engine.Task do
         case json do
           json when is_function(json, 1) ->
             cb = fn expr ->
-              {:ok, vm} = BPXE.Language.Lua.new()
               process_vars = Base.variables(state.process)
-              vm = BPXE.Language.set(vm, "process", process_vars)
               {:reply, flow_node_vars, _state} = handle_call(:variables, :ignored, state)
-              vm = BPXE.Language.set(vm, "flow_node", flow_node_vars)
-              vm = BPXE.Language.set(vm, "token", token.payload)
+
+              vars = %{
+                "process" => process_vars,
+                "token" => token.payload,
+                "flow_node" => flow_node_vars
+              }
+
               # TODO: handle errors
-              {:ok, {[result | _], _vm}} = BPXE.Language.eval(vm, expr)
+              {:ok, result} = JMES.search(expr, vars)
+
               {result, &Jason.encode/1}
             end
 

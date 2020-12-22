@@ -167,11 +167,11 @@ defmodule BPXETest.Engine.Task do
       # NB: we use elem(0) below to accommodate for the fact that `Task` DOES supply an encoder so that
       # BPMN interpolation can encode the value as needed if the input is not just one interpolated expression
       BPXE.Engine.FlowNode.add_json(ext, fn cb ->
-        %{"hello" => cb.("return process.hello") |> elem(0)}
+        %{"hello" => cb.("process.hello") |> elem(0)}
       end)
 
       BPXE.Engine.FlowNode.add_json(ext, fn cb ->
-        %{"world" => cb.("return process.world") |> elem(0)}
+        %{"world" => cb.("process.world") |> elem(0)}
       end)
 
       {:ok, _} = Process.establish_sequence_flow(proc1, "s1", start, task)
