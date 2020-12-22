@@ -5,33 +5,32 @@ defmodule BPXE.Engine.ExclusiveGateway do
   alias BPXE.Engine.Process
   alias BPXE.Engine.Process.Log
 
-  defstate(
-    [
-      id: nil,
-      options: %{},
-      blueprint: nil,
-      process: nil,
-      token_ids: %{},
-      drop_tokens: %{},
-      decision_made: false
-    ],
-    persist: ~w(token_ids drop_tokens)a
-  )
+  defstate token_ids: %{},
+           drop_tokens: %{},
+           decision_made: false
+
+  @persist_state :token_ids
+  @persist_state :drop_tokens
 
   def start_link(id, options, blueprint, process) do
     GenServer.start_link(__MODULE__, {id, options, blueprint, process})
   end
 
   def init({id, options, blueprint, process}) do
-    state = %__MODULE__{id: id, options: options, blueprint: blueprint, process: process}
+    state =
+      %__MODULE__{}
+      |> put_state(Base, %{id: id, options: options, blueprint: blueprint, process: process})
+
     state = initialize(state)
     {:ok, state}
   end
 
   def handle_token({%BPXE.Token{} = token, _id}, state) do
-    Process.log(state.process, %Log.ExclusiveGatewayActivated{
+    base_state = get_state(state, BPXE.Engine.Base)
+
+    Process.log(base_state.process, %Log.ExclusiveGatewayActivated{
       pid: self(),
-      id: state.id,
+      id: base_state.id,
       token_id: token.token_id
     })
 
@@ -40,8 +39,9 @@ defmodule BPXE.Engine.ExclusiveGateway do
 
   def send_token(sequence_flow, token, %__MODULE__{decision_made: false} = state) do
     state1 = super(sequence_flow, token, state)
+    flow_node_state = state1 |> get_state(FlowNode)
 
-    if Enum.any?(state1.buffer, fn {{token_id, _}, _} -> token_id == token.token_id end) do
+    if Enum.any?(flow_node_state.buffer, fn {{token_id, _}, _} -> token_id == token.token_id end) do
       %{state1 | decision_made: true}
     else
       state1

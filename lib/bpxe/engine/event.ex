@@ -5,9 +5,8 @@ defmodule BPXE.Engine.Event do
   alias BPXE.Engine.Process
   alias BPXE.Engine.Process.Log
 
-  defstate([id: nil, type: nil, options: %{}, blueprint: nil, process: nil, activated: nil],
-    persist: ~w(activated)a
-  )
+  defstate type: nil, activated: nil
+  @persist_state :activated
 
   def start_link(id, type, options, blueprint, process) do
     start_link([{id, type, options, blueprint, process}])
@@ -20,13 +19,14 @@ defmodule BPXE.Engine.Event do
   def init({id, type, options, blueprint, process}) do
     :syn.register({blueprint.pid, :event, type, id}, self())
 
-    state = %__MODULE__{
-      id: id,
-      type: type,
-      options: options,
-      blueprint: blueprint,
-      process: process
-    }
+    state =
+      %__MODULE__{type: type}
+      |> put_state(Base, %{
+        id: id,
+        options: options,
+        blueprint: blueprint,
+        process: process
+      })
 
     state = initialize(state)
     # Done initializing
@@ -35,16 +35,19 @@ defmodule BPXE.Engine.Event do
   end
 
   def handle_call({:add_signal_event_definition, options}, _from, state) do
+    base_state = get_state(state, BPXE.Engine.Base)
     # Camunda Modeler creates signalEventDefinitions without `signalRef`, just `id`,
     # so if `signalRef` is not used, fall back to `id`.
-    :syn.join({state.blueprint.pid, :signal, options["signalRef"] || options["id"]}, self())
+    :syn.join({base_state.blueprint.pid, :signal, options["signalRef"] || options["id"]}, self())
     {:reply, {:ok, options}, state}
   end
 
   def handle_token({%BPXE.Token{} = token, _id}, %__MODULE__{type: :startEvent} = state) do
-    Process.log(state.process, %Log.EventActivated{
+    base_state = get_state(state, BPXE.Engine.Base)
+
+    Process.log(base_state.process, %Log.EventActivated{
       pid: self(),
-      id: state.id,
+      id: base_state.id,
       token_id: token.token_id
     })
 
@@ -52,9 +55,11 @@ defmodule BPXE.Engine.Event do
   end
 
   def handle_token({%BPXE.Token{} = token, _id}, %__MODULE__{type: :endEvent} = state) do
-    Process.log(state.process, %Log.EventActivated{
+    base_state = get_state(state, BPXE.Engine.Base)
+
+    Process.log(base_state.process, %Log.EventActivated{
       pid: self(),
-      id: state.id,
+      id: base_state.id,
       token_id: token.token_id
     })
 
@@ -63,9 +68,11 @@ defmodule BPXE.Engine.Event do
 
   # Hold the tokens until event is trigerred
   def handle_token({%BPXE.Token{} = token, _id}, %__MODULE__{activated: nil} = state) do
-    Process.log(state.process, %Log.EventActivated{
+    base_state = get_state(state, BPXE.Engine.Base)
+
+    Process.log(base_state.process, %Log.EventActivated{
       pid: self(),
-      id: state.id,
+      id: base_state.id,
       token_id: token.token_id
     })
 
@@ -79,9 +86,11 @@ defmodule BPXE.Engine.Event do
         %__MODULE__{activated: %BPXE.Token{token_id: token_id1}} = state
       )
       when token_id != token_id1 do
-    Process.log(state.process, %Log.EventActivated{
+    base_state = get_state(state, BPXE.Engine.Base)
+
+    Process.log(base_state.process, %Log.EventActivated{
       pid: self(),
-      id: state.id,
+      id: base_state.id,
       token_id: token.token_id
     })
 
@@ -91,27 +100,35 @@ defmodule BPXE.Engine.Event do
   # When event is triggered, send the token
   def handle_info(
         {BPXE.Signal, _id},
-        %__MODULE__{type: :intermediateCatchEvent, activated: activated, incoming: [_]} = state
+        %__MODULE__{
+          type: :intermediateCatchEvent,
+          activated: activated,
+          __layers__: %{FlowNode => %{incoming: [_]}}
+        } = state
       )
       when not is_nil(activated) do
-    Process.log(state.process, %Log.EventTrigerred{
+    base_state = get_state(state, BPXE.Engine.Base)
+
+    Process.log(base_state.process, %Log.EventTrigerred{
       pid: self(),
-      id: state.id,
+      id: base_state.id,
       token_id: activated.token_id
     })
 
     generation = next_generation(activated)
     activated = %{activated | __generation__: generation}
 
-    Process.log(state.process, %Log.FlowNodeForward{
+    flow_node_state = get_state(state, BPXE.Engine.FlowNode)
+
+    Process.log(base_state.process, %Log.FlowNodeForward{
       pid: self(),
-      id: state.id,
+      id: base_state.id,
       token_id: activated.token_id,
-      to: state.outgoing
+      to: flow_node_state.outgoing
     })
 
     state =
-      Enum.reduce(state.outgoing, state, fn sequence_flow, state ->
+      Enum.reduce(flow_node_state.outgoing, state, fn sequence_flow, state ->
         send_token(sequence_flow, activated, state)
       end)
 

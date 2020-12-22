@@ -5,46 +5,53 @@ defmodule BPXE.Engine.ParallelGateway do
   alias BPXE.Engine.Process
   alias BPXE.Engine.Process.Log
 
-  defstate(
-    [id: nil, options: %{}, blueprint: nil, process: nil, token_ids: %{}, drop_tokens: %{}],
-    persist: ~w(token_ids drop_tokens)a
-  )
+  defstate token_ids: %{}, drop_tokens: %{}
+
+  @persist_state :token_ids
+  @persist_state :drop_tokens
 
   def start_link(id, options, blueprint, process) do
     GenServer.start_link(__MODULE__, {id, options, blueprint, process})
   end
 
   def init({id, options, blueprint, process}) do
-    state = %__MODULE__{id: id, options: options, blueprint: blueprint, process: process}
+    state =
+      %__MODULE__{}
+      |> put_state(Base, %{id: id, options: options, blueprint: blueprint, process: process})
+
     state = initialize(state)
     {:ok, state}
   end
 
   def handle_token({%BPXE.Token{} = token, id}, state) do
-    Process.log(state.process, %Log.ParallelGatewayReceived{
+    base_state = get_state(state, BPXE.Engine.Base)
+
+    Process.log(base_state.process, %Log.ParallelGatewayReceived{
       pid: self(),
-      id: state.id,
+      id: base_state.id,
       token_id: token.token_id,
       from: id
     })
 
-    case state.incoming do
+    flow_node_state = get_state(state, BPXE.Engine.FlowNode)
+
+    case flow_node_state.incoming do
       [_] ->
         # only one incoming, we're done
-        Process.log(state.process, %Log.ParallelGatewayCompleted{
+        Process.log(base_state.process, %Log.ParallelGatewayCompleted{
           pid: self(),
-          id: state.id,
+          id: base_state.id,
           token_id: token.token_id,
-          to: state.outgoing
+          to: flow_node_state.outgoing
         })
 
         {:send, token, state}
 
       [] ->
         # there's a token but it couldn't come from anywhere. What gives?
-        Process.log(state.process, %Log.ParallelGatewayCompleted{
+        Process.log(base_state.process, %Log.ParallelGatewayCompleted{
           pid: self(),
-          id: state.id,
+          id: base_state.id,
           token_id: token.token_id,
           to: []
         })
@@ -75,7 +82,8 @@ defmodule BPXE.Engine.ParallelGateway do
           tokens = token_ids[token.token_id]
 
           join_threshold =
-            (state.options[{BPXE.BPMN.ext_spec(), "joinThreshold"}] || "#{length(state.incoming)}")
+            (base_state.options[{BPXE.BPMN.ext_spec(), "joinThreshold"}] ||
+               "#{length(flow_node_state.incoming)}")
             |> String.to_integer()
 
           if length(tokens) == join_threshold do
@@ -83,11 +91,11 @@ defmodule BPXE.Engine.ParallelGateway do
 
             token = Enum.reduce(tl(tokens), token, &BPXE.Token.merge/2)
 
-            Process.log(state.process, %Log.ParallelGatewayCompleted{
+            Process.log(base_state.process, %Log.ParallelGatewayCompleted{
               pid: self(),
-              id: state.id,
+              id: base_state.id,
               token_id: token.token_id,
-              to: state.outgoing
+              to: flow_node_state.outgoing
             })
 
             {:send, token,
@@ -98,7 +106,7 @@ defmodule BPXE.Engine.ParallelGateway do
                    Map.put(
                      state.drop_tokens,
                      token.token_id,
-                     length(state.incoming) - join_threshold
+                     length(flow_node_state.incoming) - join_threshold
                    )
              }}
           else

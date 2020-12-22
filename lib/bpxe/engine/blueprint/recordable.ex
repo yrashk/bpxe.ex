@@ -6,7 +6,7 @@ defmodule BPXE.Engine.Blueprint.Recordable do
   """
 
   defmacro __using__(options \\ []) do
-    quote bind_quoted: [options: options] do
+    quote bind_quoted: [options: options], location: :keep do
       import BPXE.Engine.Blueprint.Recordable, only: [call: 2]
       alias BPXE.Engine.Blueprint.Recordable.Ref
 

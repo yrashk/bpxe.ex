@@ -15,32 +15,37 @@ defmodule BPXE.Engine.PrecedenceGateway do
   alias BPXE.Engine.Process
   alias BPXE.Engine.Process.Log
 
-  defstate([id: nil, options: %{}, blueprint: nil, process: nil, precedence: %{}],
-    persist: ~w(precedence)a
-  )
+  defstate precedence: %{}
+
+  @persist_state :precedence
 
   def start_link(id, options, blueprint, process) do
     GenServer.start_link(__MODULE__, {id, options, blueprint, process})
   end
 
   def init({id, options, blueprint, process}) do
-    state = %__MODULE__{id: id, options: options, blueprint: blueprint, process: process}
+    state =
+      %__MODULE__{}
+      |> put_state(Base, %{id: id, options: options, blueprint: blueprint, process: process})
+
     state = initialize(state)
     {:ok, state}
   end
 
   def handle_token({%BPXE.Token{} = token, id}, state) do
-    Process.log(state.process, %Log.PrecedenceGatewayActivated{
+    base_state = get_state(state, BPXE.Engine.Base)
+
+    Process.log(base_state.process, %Log.PrecedenceGatewayActivated{
       pid: self(),
-      id: state.id,
+      id: base_state.id,
       token_id: token.token_id
     })
 
     case state.precedence[token.token_id] do
       nil ->
-        Process.log(state.process, %Log.PrecedenceGatewayPrecedenceEstablished{
+        Process.log(base_state.process, %Log.PrecedenceGatewayPrecedenceEstablished{
           pid: self(),
-          id: state.id,
+          id: base_state.id,
           token_id: token.token_id
         })
 
@@ -58,15 +63,18 @@ defmodule BPXE.Engine.PrecedenceGateway do
         end
 
       precedence ->
-        Process.log(state.process, %Log.PrecedenceGatewayTokenDiscarded{
+        Process.log(base_state.process, %Log.PrecedenceGatewayTokenDiscarded{
           pid: self(),
-          id: state.id,
+          id: base_state.id,
           token_id: token.token_id
         })
 
         new_precedence = [id | precedence]
 
-        if length(new_precedence) == length(state.incoming) == length(state.outgoing) do
+        flow_node_state = get_state(state, BPXE.Engine.FlowNode)
+
+        if length(new_precedence) == length(flow_node_state.incoming) ==
+             length(flow_node_state.outgoing) do
           # We've received them all, drop it from the state
           {:dontsend, %{state | precedence: Map.delete(state.precedence, token.token_id)}}
         else
@@ -78,7 +86,8 @@ defmodule BPXE.Engine.PrecedenceGateway do
   end
 
   defp corresponds_to(id, state) do
-    index = Enum.find_index(state.incoming, fn x -> x == id end)
-    Enum.at(state.outgoing, index)
+    flow_node_state = get_state(state, BPXE.Engine.FlowNode)
+    index = Enum.find_index(flow_node_state.incoming, fn x -> x == id end)
+    Enum.at(flow_node_state.outgoing, index)
   end
 end

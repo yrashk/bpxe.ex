@@ -5,43 +5,44 @@ defmodule BPXE.Engine.InclusiveGateway do
   use GenServer
   use FlowNode
 
-  defstate(
-    [
-      id: nil,
-      options: %{},
-      blueprint: nil,
-      process: nil,
-      fired: nil,
-      incoming_tokens: [],
-      synthesized: false
-    ],
-    persist: ~w(fired incoming_tokens)a
-  )
+  defstate fired: nil,
+           incoming_tokens: [],
+           synthesized: false
+
+  @persist_state :fired
+  @persist_state :incoming_tokens
 
   def start_link(id, options, blueprint, process) do
     GenServer.start_link(__MODULE__, {id, options, blueprint, process})
   end
 
   def init({id, options, blueprint, process}) do
-    state = %__MODULE__{id: id, options: options, blueprint: blueprint, process: process}
+    state =
+      %__MODULE__{}
+      |> put_state(Base, %{id: id, options: options, blueprint: blueprint, process: process})
+
     state = initialize(state)
     {:ok, state}
   end
 
   def handle_token({%BPXE.Token{} = token, id}, state) do
-    Process.log(state.process, %Log.InclusiveGatewayReceived{
+    base_state = get_state(state, BPXE.Engine.Base)
+
+    Process.log(base_state.process, %Log.InclusiveGatewayReceived{
       pid: self(),
-      id: state.id,
+      id: base_state.id,
       token_id: token.token_id,
       from: id
     })
 
-    case state.incoming do
+    flow_node_state = get_state(state, BPXE.Engine.FlowNode)
+
+    case flow_node_state.incoming do
       [_] ->
         # only one incoming, we're done (fork)
-        Process.log(state.process, %Log.InclusiveGatewayCompleted{
+        Process.log(base_state.process, %Log.InclusiveGatewayCompleted{
           pid: self(),
-          id: state.id,
+          id: base_state.id,
           token_id: token.token_id
         })
 
@@ -49,9 +50,9 @@ defmodule BPXE.Engine.InclusiveGateway do
 
       [] ->
         # there's a token but it couldn't come from anywhere. What gives?
-        Process.log(state.process, %Log.InclusiveGatewayCompleted{
+        Process.log(base_state.process, %Log.InclusiveGatewayCompleted{
           pid: self(),
-          id: state.id,
+          id: base_state.id,
           token_id: nil
         })
 
@@ -60,7 +61,7 @@ defmodule BPXE.Engine.InclusiveGateway do
       _ ->
         # Join
 
-        index = Enum.find_index(state.incoming, fn x -> x == id end)
+        index = Enum.find_index(flow_node_state.incoming, fn x -> x == id end)
 
         if index == 0 do
           # completion token
@@ -81,9 +82,12 @@ defmodule BPXE.Engine.InclusiveGateway do
            fired: fired_token,
            incoming_tokens: incoming_tokens,
            # don't include sensor wire
-           incoming: [_ | incoming]
+           __layers__: %{FlowNode => %{incoming: [_ | incoming]}}
          } = state
        ) do
+    base_state = get_state(state, BPXE.Engine.Base)
+    flow_node_state = get_state(state, BPXE.Engine.FlowNode)
+
     incoming = incoming |> Enum.reverse()
 
     all_fired? =
@@ -96,13 +100,13 @@ defmodule BPXE.Engine.InclusiveGateway do
       end)
 
     if all_fired? do
-      Process.log(state.process, %Log.InclusiveGatewayCompleted{
+      Process.log(base_state.process, %Log.InclusiveGatewayCompleted{
         pid: self(),
-        id: state.id,
+        id: base_state.id,
         token_id: fired_token.payload.token_id,
         fired:
           fired_token.payload.fired
-          |> Enum.zip(state.incoming |> tl() |> Enum.reverse())
+          |> Enum.zip(flow_node_state.incoming |> tl() |> Enum.reverse())
           |> Enum.map(fn {_index, seq_flow} -> seq_flow end)
       })
 
@@ -133,11 +137,16 @@ defmodule BPXE.Engine.InclusiveGateway do
     super(state)
   end
 
-  def synthesize(%__MODULE__{process: process, synthesized: false} = state) do
+  def synthesize(%__MODULE__{synthesized: false} = state) do
     super(state)
     |> Result.map(fn state ->
+      base_state = get_state(state, BPXE.Engine.Base)
+      process = base_state.process
+
+      flow_node_state = get_state(state, BPXE.Engine.FlowNode)
+
       # Here we need to find if there was a shared fork earlier in the flow
-      case state.incoming do
+      case flow_node_state.incoming do
         [] ->
           # nothing incoming, no shared fork
           {:ok, state}
@@ -147,11 +156,11 @@ defmodule BPXE.Engine.InclusiveGateway do
           # it's one -- a fork-condition-<something>-join, still should skip it
           # if the condition was not satisfied)
           g = G.new()
-          G.add_vertex(g, state.id)
+          G.add_vertex(g, base_state.id)
 
-          if build_graph(g, state.id, state) == :found do
+          if build_graph(g, base_state.id, state) == :found do
             fork_id = GU.topsort(g) |> List.first()
-            fork = FlowNode.whereis(state.blueprint.pid, fork_id)
+            fork = FlowNode.whereis(base_state.blueprint.pid, fork_id)
             gw_id = {:synthesized_sensor_gateway, fork_id}
             {:ok, gw} = Process.add_sensor_gateway(process, gw_id, %{"id" => gw_id})
             outgoing = FlowNode.get_outgoing(fork)
@@ -163,7 +172,7 @@ defmodule BPXE.Engine.InclusiveGateway do
 
             for sequence_flow <- outgoing do
               {_, options} = Enum.find(sequence_flows, fn {k, _} -> k == sequence_flow end)
-              successor = FlowNode.whereis(state.blueprint.pid, options["targetRef"])
+              successor = FlowNode.whereis(base_state.blueprint.pid, options["targetRef"])
               in_flow_id = {:synthesized_sequence_flow, {:in, sequence_flow}}
               FlowNode.remove_incoming(successor, sequence_flow)
               FlowNode.add_outgoing(fork, in_flow_id)
@@ -206,10 +215,16 @@ defmodule BPXE.Engine.InclusiveGateway do
             FlowNode.add_sequence_flow(gw, sensor_to_gateway_id, %{
               "id" => sensor_to_gateway_id,
               "sourceRef" => gw_id,
-              "targetRef" => state.id
+              "targetRef" => base_state.id
             })
 
-            %{state | incoming: [sensor_to_gateway_id | state.incoming], synthesized: true}
+            state =
+              put_state(state, BPXE.Engine.FlowNode, %{
+                flow_node_state
+                | incoming: [sensor_to_gateway_id | flow_node_state.incoming]
+              })
+
+            %{state | synthesized: true}
           else
             state
           end
@@ -217,13 +232,15 @@ defmodule BPXE.Engine.InclusiveGateway do
     end)
   end
 
-  defp incoming(current, %__MODULE__{incoming: incoming, id: current}),
-    do: incoming
+  defp incoming(current, %__MODULE__{
+         __layers__: %{FlowNode => %{incoming: incoming}, Base => %{id: current}}
+       }),
+       do: incoming
 
-  defp incoming(current, %__MODULE__{blueprint: blueprint}),
+  defp incoming(current, %__MODULE__{__layers__: %{Base => %{blueprint: blueprint}}}),
     do: FlowNode.whereis(blueprint.pid, current) |> FlowNode.get_incoming()
 
-  defp find_predecessor(sequence_flow, %__MODULE__{blueprint: blueprint}) do
+  defp find_predecessor(sequence_flow, %__MODULE__{__layers__: %{Base => %{blueprint: blueprint}}}) do
     :syn.get_members({blueprint.pid, :flow_sequence, sequence_flow})
     |> Enum.map(fn node -> {node, Base.module(node)} end)
     |> List.first()

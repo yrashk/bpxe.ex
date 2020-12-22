@@ -170,25 +170,19 @@ defmodule BPXE.Engine.Process do
     GenServer.call(pid, :activations)
   end
 
-  defstruct id: nil,
-            options: %{},
-            blueprint: nil,
-            start_events: %{},
-            variables: %{},
-            pending_sequence_flows: %{},
-            intermediate_catch_events: %{},
-            activations: []
+  defstate start_events: %{},
+           pending_sequence_flows: %{},
+           intermediate_catch_events: %{},
+           activations: []
 
   def init({id, options, blueprint}) do
     :syn.register({blueprint.pid, :process, id}, self())
 
-    state = %__MODULE__{
-      id: id,
-      options: options,
-      blueprint: blueprint
-    }
+    state =
+      %__MODULE__{}
+      |> put_state(BPXE.Engine.Base, %{id: id, options: options, blueprint: blueprint})
+      |> initialize()
 
-    state = initialize(state)
     # Done initializing
     init_ack()
     enter_loop(state)
@@ -218,10 +212,6 @@ defmodule BPXE.Engine.Process do
     {:reply, Map.keys(state.start_events), state}
   end
 
-  def handle_call(:blueprint, _from, state) do
-    {:reply, state.blueprint, state}
-  end
-
   def handle_call(:synthesize, from, state) do
     nodes = flow_nodes()
 
@@ -241,13 +231,15 @@ defmodule BPXE.Engine.Process do
   end
 
   def handle_call(:new_activation, _from, state) do
+    base_state = get_state(state, BPXE.Engine.Base)
+
     activation =
       BPXE.Engine.Process.Activation.new(
-        blueprint_id: state.blueprint.id,
-        process_id: state.id
+        blueprint_id: base_state.blueprint.id,
+        process_id: base_state.id
       )
 
-    log(self(), %Log.NewProcessActivation{id: state.id, pid: self(), activation: activation})
+    log(self(), %Log.NewProcessActivation{id: base_state.id, pid: self(), activation: activation})
 
     {:reply, activation, %{state | activations: [activation | state.activations]}}
   end
@@ -261,11 +253,13 @@ defmodule BPXE.Engine.Process do
   end
 
   defp handle_call_internal({:add_event, id, type, options}, _from, state) do
+    base_state = get_state(state, BPXE.Engine.Base)
+
     case {type,
           start_flow_node(
             BPXE.Engine.Event,
             id,
-            [id, type, options, state.blueprint, self()],
+            [id, type, options, base_state.blueprint, self()],
             state
           )} do
       {:startEvent, {:reply, result, state}} ->
@@ -277,11 +271,20 @@ defmodule BPXE.Engine.Process do
   end
 
   defp handle_call_internal({:add_task, id, type, options}, _from, state) do
-    start_flow_node(BPXE.Engine.Task, id, [id, type, options, state.blueprint, self()], state)
+    base_state = get_state(state, BPXE.Engine.Base)
+
+    start_flow_node(
+      BPXE.Engine.Task,
+      id,
+      [id, type, options, base_state.blueprint, self()],
+      state
+    )
   end
 
   defp handle_call_internal({:add_sequence_flow, id, options}, _from, state) do
-    case :syn.whereis({state.blueprint.pid, :flow_node, options["sourceRef"]}) do
+    base_state = get_state(state, BPXE.Engine.Base)
+
+    case :syn.whereis({base_state.blueprint.pid, :flow_node, options["sourceRef"]}) do
       pid when is_pid(pid) ->
         {:reply, FlowNode.add_sequence_flow(pid, id, options), state}
 
@@ -296,55 +299,67 @@ defmodule BPXE.Engine.Process do
   end
 
   defp handle_call_internal({:add_exclusive_gateway, id, options}, _from, state) do
+    base_state = get_state(state, BPXE.Engine.Base)
+
     start_flow_node(
       BPXE.Engine.ExclusiveGateway,
       id,
-      [id, options, state.blueprint, self()],
+      [id, options, base_state.blueprint, self()],
       state
     )
   end
 
   defp handle_call_internal({:add_parallel_gateway, id, options}, _from, state) do
+    base_state = get_state(state, BPXE.Engine.Base)
+
     start_flow_node(
       BPXE.Engine.ParallelGateway,
       id,
-      [id, options, state.blueprint, self()],
+      [id, options, base_state.blueprint, self()],
       state
     )
   end
 
   defp handle_call_internal({:add_inclusive_gateway, id, options}, _from, state) do
+    base_state = get_state(state, BPXE.Engine.Base)
+
     start_flow_node(
       BPXE.Engine.InclusiveGateway,
       id,
-      [id, options, state.blueprint, self()],
+      [id, options, base_state.blueprint, self()],
       state
     )
   end
 
   defp handle_call_internal({:add_event_based_gateway, id, options}, _from, state) do
+    base_state = get_state(state, BPXE.Engine.Base)
+
     start_flow_node(
       BPXE.Engine.EventBasedGateway,
       id,
-      [id, options, state.blueprint, self()],
+      [id, options, base_state.blueprint, self()],
       state
     )
   end
 
   defp handle_call_internal({:add_precedence_gateway, id, options}, _from, state) do
+    base_state = get_state(state, BPXE.Engine.Base)
+
     start_flow_node(
       BPXE.Engine.PrecedenceGateway,
       id,
-      [id, options, state.blueprint, self()],
+      [id, options, base_state.blueprint, self()],
       state
     )
   end
 
   defp handle_call_internal({:add_sensor_gateway, id, options}, _from, state) do
+    base_state = get_state(state, BPXE.Engine.Base)
+
     start_flow_node(
       BPXE.Engine.SensorGateway,
       id,
-      [id, options, state.blueprint, self()],
+      [id, options, base_state.blueprint, self()],
       state
     )
   end
@@ -386,6 +401,8 @@ defmodule BPXE.Engine.Process do
         event_node
       end
 
+    base_state = get_state(state, BPXE.Engine.Base)
+
     Enum.reduce(events, state, fn event, acc ->
       event_id = BPXE.Engine.Base.id(event)
       [event_outgoing | _] = FlowNode.get_outgoing(event)
@@ -393,7 +410,7 @@ defmodule BPXE.Engine.Process do
       event_original_sequence_flow = FlowNode.remove_sequence_flow(event, event_outgoing)
 
       {acc, gateway} =
-        case FlowNode.whereis(state.blueprint.pid, precedence_gateway_id) do
+        case FlowNode.whereis(base_state.blueprint.pid, precedence_gateway_id) do
           nil ->
             {:reply, {:ok, gateway}, acc} =
               handle_call_internal(
@@ -427,7 +444,7 @@ defmodule BPXE.Engine.Process do
         "targetRef" => target_id
       })
 
-      target = FlowNode.whereis(state.blueprint.pid, target_id)
+      target = FlowNode.whereis(base_state.blueprint.pid, target_id)
       FlowNode.remove_incoming(target, event_outgoing)
 
       FlowNode.add_incoming(target, gateway_sequence_flow_id)

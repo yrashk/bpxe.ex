@@ -18,16 +18,18 @@ defmodule BPXE.Engine.SensorGateway do
   alias BPXE.Engine.Process
   alias BPXE.Engine.Process.Log
 
-  defstate([id: nil, options: %{}, blueprint: nil, process: nil, fired: []],
-    persist: ~w(fired)a
-  )
+  defstate fired: []
+  @persist_state :fired
 
   def start_link(id, options, blueprint, process) do
     GenServer.start_link(__MODULE__, {id, options, blueprint, process})
   end
 
   def init({id, options, blueprint, process}) do
-    state = %__MODULE__{id: id, options: options, blueprint: blueprint, process: process}
+    state =
+      %__MODULE__{}
+      |> put_state(Base, %{id: id, options: options, blueprint: blueprint, process: process})
+
     state = initialize(state)
     {:ok, state}
   end
@@ -38,19 +40,23 @@ defmodule BPXE.Engine.SensorGateway do
   end
 
   def handle_token({%BPXE.Token{} = token, id}, state) do
-    Process.log(state.process, %Log.SensorGatewayActivated{
+    base_state = get_state(state, BPXE.Engine.Base)
+
+    Process.log(base_state.process, %Log.SensorGatewayActivated{
       pid: self(),
-      id: state.id,
+      id: base_state.id,
       token_id: token.token_id
     })
 
-    index = Enum.find_index(state.incoming, fn id_ -> id_ == id end)
+    flow_node_state = get_state(state, BPXE.Engine.FlowNode)
+
+    index = Enum.find_index(flow_node_state.incoming, fn id_ -> id_ == id end)
 
     if index == 0 do
       # completion flow
-      Process.log(state.process, %Log.SensorGatewayCompleted{
+      Process.log(base_state.process, %Log.SensorGatewayCompleted{
         pid: self(),
-        id: state.id,
+        id: base_state.id,
         token_id: token.token_id
       })
 
@@ -58,11 +64,11 @@ defmodule BPXE.Engine.SensorGateway do
        BPXE.Token.new(
          activation: BPXE.Token.activation(token),
          payload: Token.new(fired: state.fired, token_id: token.token_id)
-       ), [state.outgoing |> List.first()], %{state | fired: []}}
+       ), [flow_node_state.outgoing |> List.first()], %{state | fired: []}}
     else
       # regular flow
-      {:send, token, [state.outgoing |> Enum.at(index)],
-       %{state | fired: [length(state.incoming) - index - 1 | state.fired]}}
+      {:send, token, [flow_node_state.outgoing |> Enum.at(index)],
+       %{state | fired: [length(flow_node_state.incoming) - index - 1 | state.fired]}}
     end
   end
 end

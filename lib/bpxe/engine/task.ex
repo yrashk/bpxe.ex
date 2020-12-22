@@ -5,10 +5,7 @@ defmodule BPXE.Engine.Task do
   alias BPXE.Engine.Process.Log
   use BPXE.Engine.Blueprint.Recordable
 
-  defstate(
-    [id: nil, type: nil, options: %{}, blueprint: nil, process: nil, script: ""],
-    persist: []
-  )
+  defstate type: nil, script: ""
 
   def start_link(id, type, options, blueprint, process) do
     start_link([{id, type, options, blueprint, process}])
@@ -19,13 +16,14 @@ defmodule BPXE.Engine.Task do
   end
 
   def init({id, type, options, blueprint, process}) do
-    state = %__MODULE__{
-      id: id,
-      type: type,
-      options: options,
-      blueprint: blueprint,
-      process: process
-    }
+    state =
+      %__MODULE__{type: type}
+      |> put_state(Base, %{
+        id: id,
+        options: options,
+        blueprint: blueprint,
+        process: process
+      })
 
     state = initialize(state)
     init_ack()
@@ -37,16 +35,18 @@ defmodule BPXE.Engine.Task do
   end
 
   def handle_token({token, _id}, %__MODULE__{type: :scriptTask} = state) do
-    Process.log(state.process, %Log.TaskActivated{
+    base_state = get_state(state, BPXE.Engine.Base)
+
+    Process.log(base_state.process, %Log.TaskActivated{
       pid: self(),
-      id: state.id,
+      id: base_state.id,
       token_id: token.token_id
     })
 
     {:ok, vm} = BPXE.Language.Lua.new()
-    process_vars = Base.variables(state.process)
+    process_vars = Base.variables(base_state.process)
     vm = BPXE.Language.set(vm, "process", process_vars)
-    {:reply, flow_node_vars, state} = handle_call(:variables, :ignored, state)
+    flow_node_vars = base_state.variables
     vm = BPXE.Language.set(vm, "flow_node", flow_node_vars)
     vm = BPXE.Language.set(vm, "token", token.payload)
 
@@ -55,23 +55,23 @@ defmodule BPXE.Engine.Task do
         process_vars = BPXE.Language.get(vm, "process")
         flow_node_vars = BPXE.Language.get(vm, "flow_node")
         token = %{token | payload: BPXE.Language.get(vm, "token")}
-        Base.merge_variables(state.process, process_vars, token)
+        Base.merge_variables(base_state.process, process_vars, token)
 
         {:reply, _, state} =
           handle_call({:merge_variables, flow_node_vars, token}, :ignored, state)
 
-        Process.log(state.process, %Log.TaskCompleted{
+        Process.log(base_state.process, %Log.TaskCompleted{
           pid: self(),
-          id: state.id,
+          id: base_state.id,
           token_id: token.token_id
         })
 
         {:send, token, state}
 
       {:error, err} ->
-        Process.log(state.process, %Log.ScriptTaskErrorOccurred{
+        Process.log(base_state.process, %Log.ScriptTaskErrorOccurred{
           pid: self(),
-          id: state.id,
+          id: base_state.id,
           token_id: token.token_id,
           error: err
         })
@@ -98,17 +98,22 @@ defmodule BPXE.Engine.Task do
 
   def handle_token(
         {token, _id},
-        %__MODULE__{type: :serviceTask, options: %{{@bpxe_spec, "name"} => service}} = state
+        %__MODULE__{
+          type: :serviceTask,
+          __layers__: %{Base => %{options: %{{@bpxe_spec, "name"} => service}}}
+        } = state
       ) do
-    Process.log(state.process, %Log.TaskActivated{
+    base_state = get_state(state, BPXE.Engine.Base)
+
+    Process.log(base_state.process, %Log.TaskActivated{
       pid: self(),
-      id: state.id,
+      id: base_state.id,
       token_id: token.token_id
     })
 
     try do
       payload =
-        state.extensions
+        base_state.extensions
         |> Enum.filter(fn
           {:json, _} -> true
           _ -> false
@@ -117,7 +122,7 @@ defmodule BPXE.Engine.Task do
           case json do
             json when is_function(json, 1) ->
               cb = fn expr ->
-                process_vars = Base.variables(state.process)
+                process_vars = Base.variables(base_state.process)
                 {:reply, flow_node_vars, _state} = handle_call(:variables, :ignored, state)
 
                 vars = %{
@@ -132,9 +137,9 @@ defmodule BPXE.Engine.Task do
                       result
 
                     {:error, error} ->
-                      Process.log(state.process, %Log.ExpressionErrorOccurred{
+                      Process.log(base_state.process, %Log.ExpressionErrorOccurred{
                         pid: self(),
-                        id: state.id,
+                        id: base_state.id,
                         token_id: token.token_id,
                         expression: expr,
                         error: error
@@ -155,29 +160,33 @@ defmodule BPXE.Engine.Task do
         |> Enum.reverse()
 
       response =
-        BPXE.Engine.Blueprint.call_service(state.blueprint.pid, service, %BPXE.Service.Request{
-          payload: payload
-        })
+        BPXE.Engine.Blueprint.call_service(
+          base_state.blueprint.pid,
+          service,
+          %BPXE.Service.Request{
+            payload: payload
+          }
+        )
 
       token =
-        if result_var = state.options[{@bpxe_spec, "resultVariable"}] do
+        if result_var = base_state.options[{@bpxe_spec, "resultVariable"}] do
           %{token | payload: Map.put(token.payload, result_var, response.payload)}
         else
           token
         end
 
-      Process.log(state.process, %Log.TaskCompleted{
+      Process.log(base_state.process, %Log.TaskCompleted{
         pid: self(),
-        id: state.id,
+        id: base_state.id,
         token_id: token.token_id
       })
 
       {:send, token, state}
     catch
       %ExpressionError{expression: expression, error: error} ->
-        Process.log(state.process, %Log.ExpressionErrorOccurred{
+        Process.log(base_state.process, %Log.ExpressionErrorOccurred{
           pid: self(),
-          id: state.id,
+          id: base_state.id,
           token_id: token.token_id,
           expression: expression,
           error: error
@@ -188,15 +197,17 @@ defmodule BPXE.Engine.Task do
   end
 
   def handle_token({token, _id}, state) do
-    Process.log(state.process, %Log.TaskActivated{
+    base_state = get_state(state, BPXE.Engine.Base)
+
+    Process.log(base_state.process, %Log.TaskActivated{
       pid: self(),
-      id: state.id,
+      id: base_state.id,
       token_id: token.token_id
     })
 
-    Process.log(state.process, %Log.TaskCompleted{
+    Process.log(base_state.process, %Log.TaskCompleted{
       pid: self(),
-      id: state.id,
+      id: base_state.id,
       token_id: token.token_id
     })
 

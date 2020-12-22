@@ -2,19 +2,39 @@ defmodule BPXE.Engine.Base do
   use BPXE.Engine.Blueprint.Recordable
 
   defmacro __using__(_ \\ []) do
-    quote do
+    quote location: :keep do
+      import BPXE.Engine.Base, only: [defstate: 1]
       Module.register_attribute(__MODULE__, :initializer, accumulate: true)
+      Module.register_attribute(__MODULE__, :persist_state, accumulate: true)
+
+      @persist_state {BPXE.Engine.Base, :variables}
 
       def handle_call(:id, _from, state) do
-        {:reply, state.id, state}
+        {:reply, get_state(state, BPXE.Engine.Base).id, state}
       end
 
-      def handle_call(:instance, _from, state) do
-        {:reply, state.instance, state}
+      def handle_call(:blueprint, _from, state) do
+        {:reply, get_state(state, BPXE.Engine.Base).blueprint, state}
       end
 
       def handle_call(:module, _from, state) do
         {:reply, __MODULE__, state}
+      end
+
+      def handle_call(:add_extension_elements, _from, state) do
+        {:reply, {:ok, self()}, state}
+      end
+
+      def handle_call({:add_json, nil, json}, _from, state) do
+        base_state = get_state(state, BPXE.Engine.Base)
+
+        state =
+          put_state(state, BPXE.Engine.Base, %{
+            base_state
+            | extensions: [{:json, json} | base_state.extensions]
+          })
+
+        {:reply, {:ok, nil}, state}
       end
 
       def initialize(state) do
@@ -22,7 +42,22 @@ defmodule BPXE.Engine.Base do
 
         __initializers__()
         |> Enum.uniq()
+        |> Enum.reverse()
         |> Enum.reduce(state, fn initializer, state -> apply(__MODULE__, initializer, [state]) end)
+      end
+
+      @initializer :initialize_base
+
+      def initialize_base(state) do
+        base_state = get_state(state, BPXE.Engine.Base)
+
+        put_state(
+          state,
+          BPXE.Engine.Base,
+          base_state
+          |> Map.put(:variables, %{"id" => base_state.id})
+          |> Map.put(:extensions, [])
+        )
       end
 
       defp start_link(args) do
@@ -38,39 +73,43 @@ defmodule BPXE.Engine.Base do
       end
 
       def handle_call(:variables, _from, state) do
-        if Map.has_key?(state, :variables) do
-          {:reply, state.variables, state}
-        else
-          {:reply, {:error, :not_supported}, state}
-        end
+        {:reply, get_state(state, BPXE.Engine.Base).variables, state}
       end
 
       def handle_call({:merge_variables, variables, token}, _from, state) do
-        if Map.has_key?(state, :variables) do
-          changes =
-            case MapDiff.diff(state.variables, variables) do
-              %{added: added} -> added |> Map.new()
-              _ -> %{}
-            end
+        base_state = get_state(state, BPXE.Engine.Base)
 
-          variables = Map.merge(state.variables, changes)
-
-          if variables != state.variables do
-            BPXE.Engine.Blueprint.save_state(
-              state.blueprint,
-              token.__generation__,
-              state.id,
-              self(),
-              %{
-                variables: variables
-              }
-            )
+        changes =
+          case MapDiff.diff(base_state.variables, variables) do
+            %{added: added} -> added |> Map.new()
+            _ -> %{}
           end
 
-          {:reply, :ok, %{state | variables: variables}}
-        else
-          {:reply, {:error, :not_supported}, state}
+        variables = Map.merge(base_state.variables, changes)
+
+        if variables != base_state.variables do
+          BPXE.Engine.Blueprint.save_state(
+            base_state.blueprint,
+            token.__generation__,
+            base_state.id,
+            self(),
+            %{
+              variables: variables
+            }
+          )
         end
+
+        state = put_state(state, BPXE.Engine.Base, %{base_state | variables: variables})
+
+        {:reply, :ok, state}
+      end
+
+      defp get_state(state, name) do
+        state.__layers__[name]
+      end
+
+      defp put_state(state, name, value) do
+        %{state | __layers__: Map.put(state.__layers__ || %{}, name, value)}
       end
 
       @before_compile BPXE.Engine.Base
@@ -81,8 +120,8 @@ defmodule BPXE.Engine.Base do
     call(pid, :id)
   end
 
-  def instance(pid) do
-    GenServer.call(pid, :instance)
+  def blueprint(pid) do
+    GenServer.call(pid, :blueprint)
   end
 
   def module(pid) do
@@ -97,11 +136,30 @@ defmodule BPXE.Engine.Base do
     GenServer.call(pid, {:merge_variables, variables, token})
   end
 
+  def add_extension_elements(pid) do
+    call(pid, :add_extension_elements)
+  end
+
+  def add_json(pid, json) do
+    call(pid, {:add_json, nil, json})
+  end
+
   defmacro __before_compile__(_) do
-    quote do
+    quote location: :keep do
       unless Module.defines?(__MODULE__, {:__initializers__, 0}) do
         defp __initializers__(), do: @initializer
       end
+
+      unless Module.defines?(__MODULE__, {:__persisted_state__, 0}) do
+        defp __persisted_state__(), do: @persist_state
+      end
+    end
+  end
+
+  defmacro defstate(fields) do
+    quote bind_quoted: [fields: fields], location: :keep do
+      @state [{:__layers__, %{}} | fields]
+      defstruct @state
     end
   end
 end

@@ -5,9 +5,8 @@ defmodule BPXE.Engine.EventBasedGateway do
   alias BPXE.Engine.Process
   alias BPXE.Engine.Process.Log
 
-  defstate([id: nil, options: %{}, blueprint: nil, process: nil, activated: nil],
-    persist: ~w(activated)a
-  )
+  defstate activated: nil
+  @persist_state :activated
 
   def start_link(id, options, blueprint, process) do
     start_link([{id, options, blueprint, process}])
@@ -15,7 +14,8 @@ defmodule BPXE.Engine.EventBasedGateway do
 
   def init({id, options, blueprint, process}) do
     state =
-      %__MODULE__{id: id, options: options, blueprint: blueprint, process: process}
+      %__MODULE__{}
+      |> put_state(Base, %{id: id, options: options, blueprint: blueprint, process: process})
       |> initialize()
 
     init_ack()
@@ -26,9 +26,11 @@ defmodule BPXE.Engine.EventBasedGateway do
         {%BPXE.Token{token_id: token_id} = token, _id},
         %__MODULE__{activated: nil} = state
       ) do
-    Process.log(state.process, %Log.EventBasedGatewayActivated{
+    base_state = get_state(state, BPXE.Engine.Base)
+
+    Process.log(base_state.process, %Log.EventBasedGatewayActivated{
       pid: self(),
-      id: state.id,
+      id: base_state.id,
       token_id: token.token_id
     })
 

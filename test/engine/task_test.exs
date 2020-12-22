@@ -28,12 +28,14 @@ defmodule BPXETest.Engine.Task do
     {:ok, proc1} = Blueprint.instantiate_process(pid, "proc1")
     :ok = Process.subscribe_log(proc1)
 
+    initial_vars = Base.variables(proc1)
+
     assert [{"proc1", [{"start", :ok}]}] |> List.keysort(0) ==
              Blueprint.start(pid) |> List.keysort(0)
 
     assert_receive({Log, %Log.TaskCompleted{id: "task"}})
     assert_receive({Log, %Log.TaskCompleted{id: "task2"}})
-    assert Base.variables(proc1) == %{"a" => %{"v" => 3}}
+    assert Base.variables(proc1) == Map.merge(initial_vars, %{"a" => %{"v" => 3}})
   end
 
   test "executes a script that modifies no state" do
@@ -50,11 +52,13 @@ defmodule BPXETest.Engine.Task do
     {:ok, proc1} = Blueprint.instantiate_process(pid, "proc1")
     :ok = Process.subscribe_log(proc1)
 
+    initial_vars = Base.variables(proc1)
+
     assert [{"proc1", [{"start", :ok}]}] |> List.keysort(0) ==
              Blueprint.start(pid) |> List.keysort(0)
 
     assert_receive({Log, %Log.TaskCompleted{id: "task"}})
-    assert Base.variables(proc1) == %{}
+    assert Base.variables(proc1) == initial_vars
   end
 
   test "executes a script that modifies token's payload" do
@@ -114,9 +118,9 @@ defmodule BPXETest.Engine.Task do
           {BPXE.BPMN.ext_spec(), "resultVariable"} => "result"
         })
 
-      {:ok, ext} = BPXE.Engine.FlowNode.add_extension_elements(task)
-      BPXE.Engine.FlowNode.add_json(ext, %{"hello" => "world"})
-      BPXE.Engine.FlowNode.add_json(ext, %{"world" => "goodbye"})
+      {:ok, ext} = BPXE.Engine.Base.add_extension_elements(task)
+      BPXE.Engine.Base.add_json(ext, %{"hello" => "world"})
+      BPXE.Engine.Base.add_json(ext, %{"world" => "goodbye"})
 
       {:ok, _} = Process.establish_sequence_flow(proc1, "s1", start, task)
       {:ok, _} = Process.establish_sequence_flow(proc1, "s2", task, the_end)
@@ -162,15 +166,15 @@ defmodule BPXETest.Engine.Task do
           {BPXE.BPMN.ext_spec(), "resultVariable"} => "result"
         })
 
-      {:ok, ext} = BPXE.Engine.FlowNode.add_extension_elements(task)
+      {:ok, ext} = BPXE.Engine.Base.add_extension_elements(task)
 
       # NB: we use elem(0) below to accommodate for the fact that `Task` DOES supply an encoder so that
       # BPMN interpolation can encode the value as needed if the input is not just one interpolated expression
-      BPXE.Engine.FlowNode.add_json(ext, fn cb ->
+      BPXE.Engine.Base.add_json(ext, fn cb ->
         %{"hello" => cb.("process.hello") |> elem(0)}
       end)
 
-      BPXE.Engine.FlowNode.add_json(ext, fn cb ->
+      BPXE.Engine.Base.add_json(ext, fn cb ->
         %{"world" => cb.("process.world") |> elem(0)}
       end)
 
@@ -220,11 +224,11 @@ defmodule BPXETest.Engine.Task do
           {BPXE.BPMN.ext_spec(), "resultVariable"} => "result"
         })
 
-      {:ok, ext} = BPXE.Engine.FlowNode.add_extension_elements(task)
+      {:ok, ext} = BPXE.Engine.Base.add_extension_elements(task)
 
       # NB: we use elem(0) below to accommodate for the fact that `Task` DOES supply an encoder so that
       # BPMN interpolation can encode the value as needed if the input is not just one interpolated expression
-      BPXE.Engine.FlowNode.add_json(ext, fn cb ->
+      BPXE.Engine.Base.add_json(ext, fn cb ->
         %{"hello" => cb.("this is not an expression") |> elem(0)}
       end)
 
