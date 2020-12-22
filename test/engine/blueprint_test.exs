@@ -68,7 +68,7 @@ defmodule BPXETest.Engine.Blueprint do
     assert_receive({Log, %Log.EventActivated{id: "ev1"}})
     # at this point, ev1 is ready to get a signal
 
-    flush_tokens()
+    flush_messages()
 
     # but we crash the blueprint (and ensure activation is discarded to simulate the VM restart)
     BPXE.Engine.Process.Activation.discard(activation)
@@ -123,7 +123,7 @@ defmodule BPXETest.Engine.Blueprint do
     assert_receive({Log, %Log.EventActivated{id: "ev1"}})
     # at this point, ev1 is ready to get a signal...
 
-    flush_tokens()
+    flush_messages()
 
     # but we crash the blueprint (and ensure activation is discarded to simulate the VM restart)
     :erlang.exit(pid, :kill)
@@ -150,10 +150,10 @@ defmodule BPXETest.Engine.Blueprint do
     :syn.publish({blueprint, :signal, id}, {BPXE.Signal, id})
   end
 
-  defp flush_tokens() do
+  defp flush_messages() do
     receive do
       _m ->
-        flush_tokens()
+        flush_messages()
     after
       1000 ->
         :ok
