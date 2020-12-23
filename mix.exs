@@ -12,6 +12,7 @@ defmodule BPXE.MixProject do
       docs: [
         main: "BPXE"
       ],
+      elixirc_options: [warnings_as_errors: true],
       package: [
         licenses: ["Apache-2.0"],
         source_url: "https://github.com/bpxe/bpxe",
