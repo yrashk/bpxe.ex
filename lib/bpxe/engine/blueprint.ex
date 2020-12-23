@@ -32,9 +32,8 @@ defmodule BPXE.Engine.Blueprint do
     # tokens get to wrong groups at a wrong time.
     #
     # FIXME: is this thinking sound or am I over-engineering here?
-    config =
-      Config.new(config)
-      |> Map.update(:id, generate_id(), &Function.identity/1)
+    config = Config.new(config)
+    config = %{config | id: config.id || generate_id()}
 
     case GenServer.start_link(__MODULE__, config) do
       {:ok, pid} ->

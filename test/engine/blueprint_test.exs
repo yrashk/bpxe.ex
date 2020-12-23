@@ -10,6 +10,11 @@ defmodule BPXETest.Engine.Blueprint do
     {:ok, _pid} = Blueprint.start_link()
   end
 
+  test "blueprint's auto-generated ID should not be nil" do
+    {:ok, pid} = Blueprint.start_link()
+    assert Blueprint.config(pid).id != nil
+  end
+
   test "adding processes and listing them" do
     {:ok, pid} = Blueprint.start_link()
     {:ok, _} = Blueprint.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
