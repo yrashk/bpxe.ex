@@ -1,5 +1,5 @@
 defmodule BPXETest.BPMN do
-  use ExUnit.Case
+  use ExUnit.Case, async: true
   alias BPXE.Engine.Blueprint
   alias BPXE.Engine.Blueprint.Recordable.Ref
   doctest BPXE.BPMN

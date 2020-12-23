@@ -1,5 +1,5 @@
 defmodule BPXETest.Engine.ParallelGateway do
-  use ExUnit.Case
+  use ExUnit.Case, async: true
   alias BPXE.Engine.{Blueprint, Process, Task}
   alias BPXE.Engine.Process.Log
   doctest BPXE.Engine.ParallelGateway

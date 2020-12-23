@@ -1,5 +1,5 @@
 defmodule BPXETest.BPMN.JSON do
-  use ExUnit.Case
+  use ExUnit.Case, async: true
   doctest BPXE.BPMN.JSON
   alias BPXE.Engine.{Blueprint, Blueprints}
   import BPXETest.Utils

@@ -1,5 +1,5 @@
 defmodule BPXETest.Engine.ExclusiveGateway do
-  use ExUnit.Case
+  use ExUnit.Case, async: true
   alias BPXE.Engine.{Blueprint, Process, FlowNode}
   alias Process.Log
   doctest BPXE.Engine.ExclusiveGateway

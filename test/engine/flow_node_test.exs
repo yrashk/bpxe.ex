@@ -1,5 +1,5 @@
 defmodule BPXETest.Engine.FlowNode do
-  use ExUnit.Case
+  use ExUnit.Case, async: true
   alias BPXE.Engine.{Blueprint, Process, FlowNode, Task}
   alias Process.Log
   doctest BPXE.Engine.FlowNode

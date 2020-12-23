@@ -1,5 +1,5 @@
 defmodule BPXETest.Service do
-  use ExUnit.Case
+  use ExUnit.Case, async: true
   doctest BPXE.Service
   alias BPXE.Engine.Blueprint
 

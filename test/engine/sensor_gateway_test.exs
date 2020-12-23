@@ -1,5 +1,5 @@
 defmodule BPXETest.Engine.SensorGateway do
-  use ExUnit.Case
+  use ExUnit.Case, async: true
   alias BPXE.Engine.{Blueprint, Process, FlowNode}
   alias BPXE.Engine.Process.Log
   doctest BPXE.Engine.SensorGateway

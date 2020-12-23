@@ -1,5 +1,5 @@
 defmodule BPXETest.Token do
-  use ExUnit.Case
+  use ExUnit.Case, async: true
   doctest BPXE.Token
 
   test "generating new generation ID always generates non-duplicate, monotonic IDs" do

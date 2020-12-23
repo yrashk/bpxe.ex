@@ -1,5 +1,5 @@
 defmodule BPXETest.Engine.Process do
-  use ExUnit.Case
+  use ExUnit.Case, async: true
   alias BPXE.Engine.Blueprint
   alias BPXE.Engine.Process
   alias BPXE.Engine.Event

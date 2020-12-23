@@ -1,5 +1,5 @@
 defmodule BPXETest.Engine.InclusiveGateway do
-  use ExUnit.Case
+  use ExUnit.Case, async: true
   alias BPXE.Engine.Blueprint
   alias BPXE.Engine.{Process, FlowNode, Event, Task}
   alias BPXE.Engine.Process.Log

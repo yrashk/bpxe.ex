@@ -18,7 +18,7 @@ defmodule BPXETest.Engine.Blueprint.Recordable.Test do
 end
 
 defmodule BPXETest.Engine.Blueprint.Recordable do
-  use ExUnit.Case
+  use ExUnit.Case, async: true
   import BPXE.Engine.Blueprint.Recordable, only: [call: 2]
   alias BPXETest.Engine.Blueprint.Recordable.Test
   alias BPXE.Engine.Base

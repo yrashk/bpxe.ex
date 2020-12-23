@@ -1,5 +1,5 @@
 defmodule BPXETest.BPMN.Interpolation do
-  use ExUnit.Case
+  use ExUnit.Case, async: true, async: true
   doctest BPXE.BPMN.Interpolation
 
   describe "should return function" do
