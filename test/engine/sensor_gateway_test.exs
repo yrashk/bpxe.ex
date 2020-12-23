@@ -70,7 +70,7 @@ defmodule BPXETest.Engine.SensorGateway do
     assert_receive({Log, %Log.ParallelGatewayReceived{id: "join", from: "join_1"}})
     assert_receive({Log, %Log.ParallelGatewayReceived{id: "join", from: "join_2"}})
     refute_receive({Log, %Log.ParallelGatewayReceived{id: "join", from: "join_3"}})
-    # refute_receive({Log, %Log.ParallelGatewayCompleted{id: "join"}})
+    refute_receive({Log, %Log.ParallelGatewayCompleted{id: "join"}})
 
     assert fired |> Enum.sort() == [0, 1]
   end
