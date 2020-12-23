@@ -34,7 +34,7 @@ defmodule BPXE.Engine.Blueprint do
     # FIXME: is this thinking sound or am I over-engineering here?
     config =
       Config.new(config)
-      |> Map.update(:id, make_ref(), &Function.identity/1)
+      |> Map.update(:id, generate_id(), &Function.identity/1)
 
     case GenServer.start_link(__MODULE__, config) do
       {:ok, pid} ->
@@ -313,5 +313,10 @@ defmodule BPXE.Engine.Blueprint do
             acc
         end
     end)
+  end
+
+  defp generate_id() do
+    {m, f, a} = Application.get_env(:bpxe, :spec_id_generator)
+    apply(m, f, a)
   end
 end
