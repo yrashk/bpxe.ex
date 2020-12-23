@@ -10,7 +10,7 @@ defmodule BPXE.Engine.Process.Activation do
   def new(options \\ []) do
     activation = super(options)
     activation = %{activation | id: activation.id || generate_id()}
-    PT.put({activation, :token_generation}, Atomics.new(2, signed: false))
+    PT.put({activation, :token_generation}, Atomics.new(1, signed: false))
     activation
   end
 
