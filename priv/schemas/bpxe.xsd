@@ -5,14 +5,22 @@
     xmlns:bpxe="http://bpxe.org/spec/current">
 
     <xsd:attributeGroup name="serviceTaskAttributes">
-        <xsd:attribute name="name" type="xsd:string" use="required" targetNamespace="http://bpxe.org/spec/current"/>
-        <xsd:attribute name="resultVariable" type="xsd:string" targetNamespace="http://bpxe.org/spec/current"/>
+        <xsd:attribute name="name" type="xsd:string" use="required" targetNamespace="http://bpxe.org/spec/current">
+            <xsd:annotation><xsd:documentation>Service name</xsd:documentation> </xsd:annotation>
+        </xsd:attribute>
+        <xsd:attribute name="resultVariable" type="xsd:string" targetNamespace="http://bpxe.org/spec/current">
+            <xsd:annotation><xsd:documentation>Result should be stored in a variable named in this attribute</xsd:documentation></xsd:annotation>
+        </xsd:attribute>
     </xsd:attributeGroup>
 
     <xsd:attributeGroup name="parallelGatewayAttributes">
         <xsd:attribute name="joinThreshold" type="xsd:positiveInteger"
-            targetNamespace="http://bpxe.org/spec/current"/>
+            targetNamespace="http://bpxe.org/spec/current">
+            <xsd:annotation><xsd:documentation>The gateway will join when this number of incoming flows will arrive, rest will be discarded</xsd:documentation></xsd:annotation>
+        </xsd:attribute>
     </xsd:attributeGroup>
 
-    <xsd:element name="json" type="xsd:string"/>
+    <xsd:element name="json" type="xsd:string">
+        <xsd:annotation><xsd:documentation>Plain JSON (can be used in extensionElements)</xsd:documentation></xsd:annotation>
+    </xsd:element>
 </xsd:schema>
