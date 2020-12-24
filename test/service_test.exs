@@ -1,16 +1,16 @@
 defmodule BPXETest.Service do
   use ExUnit.Case, async: true
   doctest BPXE.Service
-  alias BPXE.Engine.Blueprint
+  alias BPXE.Engine.Model
 
   defmodule Service do
     use BPXE.Service
   end
 
-  test "service should go down if blueprint is going down" do
-    {:ok, pid} = Blueprint.start_link()
+  test "service should go down if model is going down" do
+    {:ok, pid} = Model.start_link()
     {:ok, service} = BPXE.Service.start_link(Service)
-    Blueprint.register_service(pid, "service", service)
+    Model.register_service(pid, "service", service)
 
     Process.unlink(pid)
     Process.unlink(service)
@@ -24,10 +24,10 @@ defmodule BPXETest.Service do
     assert_receive {:DOWN, ^service_ref, :process, ^service, _}
   end
 
-  test "blueprint should not go down if service is going down" do
-    {:ok, pid} = Blueprint.start_link()
+  test "model should not go down if service is going down" do
+    {:ok, pid} = Model.start_link()
     {:ok, service} = BPXE.Service.start_link(Service)
-    Blueprint.register_service(pid, "service", service)
+    Model.register_service(pid, "service", service)
 
     Process.unlink(pid)
     Process.unlink(service)

@@ -1,16 +1,16 @@
-defmodule BPXE.Engine.Blueprint.Recordable do
+defmodule BPXE.Engine.Model.Recordable do
   @moduledoc """
   This module allows engine to call either an actual GenServer process
   or its substitute. Mainly designed to achieve calling transparency for
-  blueprints and its components.  
+  models and its components.  
   """
 
   defmacro __using__(options \\ []) do
     quote bind_quoted: [options: options], location: :keep do
-      import BPXE.Engine.Blueprint.Recordable, only: [call: 2]
-      alias BPXE.Engine.Blueprint.Recordable.Ref
+      import BPXE.Engine.Model.Recordable, only: [call: 2]
+      alias BPXE.Engine.Model.Recordable.Ref
 
-      @recordable_state_key options[:key] || :blueprint
+      @recordable_state_key options[:key] || :model
       @recordable_handle options[:handle]
 
       if is_list(@recordable_handle) do
@@ -20,10 +20,10 @@ defmodule BPXE.Engine.Blueprint.Recordable do
         defp handle_recordable_call(payload, reference, _from, state) do
           result = %Ref{pid: self(), reference: make_ref(), payload: payload}
 
-          blueprint = Map.get(state, @recordable_state_key, %{})
-          blueprint = Map.update(blueprint, reference, [result], fn rest -> [result | rest] end)
+          model = Map.get(state, @recordable_state_key, %{})
+          model = Map.update(model, reference, [result], fn rest -> [result | rest] end)
 
-          {:reply, {:ok, result}, Map.put(state, @recordable_state_key, blueprint)}
+          {:reply, {:ok, result}, Map.put(state, @recordable_state_key, model)}
         end
 
         def handle_call(
@@ -31,10 +31,10 @@ defmodule BPXE.Engine.Blueprint.Recordable do
               _from,
               state
             ) do
-          blueprint = Map.get(state, @recordable_state_key, %{})
+          model = Map.get(state, @recordable_state_key, %{})
 
           result =
-            Enum.reduce(blueprint, nil, fn {_ref, records}, acc ->
+            Enum.reduce(model, nil, fn {_ref, records}, acc ->
               result =
                 Enum.find(records, fn %Ref{payload: payload, reference: ref} ->
                   is_tuple(payload) and ref == reference.reference

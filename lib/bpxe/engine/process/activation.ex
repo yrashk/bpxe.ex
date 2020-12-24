@@ -1,6 +1,6 @@
 defmodule BPXE.Engine.Process.Activation do
   defstruct id: nil,
-            blueprint_id: nil,
+            model_id: nil,
             process_id: nil
 
   use ExConstructor

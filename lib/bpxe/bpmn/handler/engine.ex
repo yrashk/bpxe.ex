@@ -5,9 +5,9 @@ defmodule BPXE.BPMN.Handler.Engine do
   alias BPXE.Engine
 
   @impl BPMNHandler
-  def add_process(blueprint, %{"id" => id} = options) do
+  def add_process(model, %{"id" => id} = options) do
     id = id || generate_id()
-    Engine.Blueprint.add_process(blueprint, id, options)
+    Engine.Model.add_process(model, id, options)
   end
 
   @impl BPMNHandler
@@ -82,8 +82,8 @@ defmodule BPXE.BPMN.Handler.Engine do
   end
 
   @impl BPMNHandler
-  def complete(blueprint) do
-    {:ok, blueprint}
+  def complete(model) do
+    {:ok, model}
   end
 
   defp generate_id() do

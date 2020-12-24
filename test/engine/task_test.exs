@@ -1,13 +1,13 @@
 defmodule BPXETest.Engine.Task do
   use ExUnit.Case, async: true
-  alias BPXE.Engine.Blueprint
+  alias BPXE.Engine.Model
   alias BPXE.Engine.{Process, Task, Base}
   alias BPXE.Engine.Process.Log
   doctest Task
 
   test "executes a script, captures state and retrieves it in other scripts" do
-    {:ok, pid} = Blueprint.start_link()
-    {:ok, proc1} = Blueprint.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
+    {:ok, pid} = Model.start_link()
+    {:ok, proc1} = Model.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
 
     {:ok, start} = Process.add_event(proc1, "start", :startEvent, %{"id" => "start"})
     {:ok, task} = Process.add_task(proc1, "task", :scriptTask, %{"id" => "task"})
@@ -25,13 +25,13 @@ defmodule BPXETest.Engine.Task do
 
     {:ok, _} = Process.establish_sequence_flow(proc1, "s2", task, task2)
 
-    {:ok, proc1} = Blueprint.instantiate_process(pid, "proc1")
+    {:ok, proc1} = Model.provision_process(pid, "proc1")
     :ok = Process.subscribe_log(proc1)
 
     initial_vars = Base.variables(proc1)
 
     assert [{"proc1", [{"start", :ok}]}] |> List.keysort(0) ==
-             Blueprint.start(pid) |> List.keysort(0)
+             Model.start(pid) |> List.keysort(0)
 
     assert_receive({Log, %Log.TaskCompleted{id: "task"}})
     assert_receive({Log, %Log.TaskCompleted{id: "task2"}})
@@ -39,8 +39,8 @@ defmodule BPXETest.Engine.Task do
   end
 
   test "executes a script that modifies no state" do
-    {:ok, pid} = Blueprint.start_link()
-    {:ok, proc1} = Blueprint.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
+    {:ok, pid} = Model.start_link()
+    {:ok, proc1} = Model.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
 
     {:ok, start} = Process.add_event(proc1, "start", :startEvent, %{"id" => "start"})
     {:ok, task} = Process.add_task(proc1, "task", :scriptTask, %{"id" => "task"})
@@ -49,21 +49,21 @@ defmodule BPXETest.Engine.Task do
 
     {:ok, _} = Process.establish_sequence_flow(proc1, "s1", start, task)
 
-    {:ok, proc1} = Blueprint.instantiate_process(pid, "proc1")
+    {:ok, proc1} = Model.provision_process(pid, "proc1")
     :ok = Process.subscribe_log(proc1)
 
     initial_vars = Base.variables(proc1)
 
     assert [{"proc1", [{"start", :ok}]}] |> List.keysort(0) ==
-             Blueprint.start(pid) |> List.keysort(0)
+             Model.start(pid) |> List.keysort(0)
 
     assert_receive({Log, %Log.TaskCompleted{id: "task"}})
     assert Base.variables(proc1) == initial_vars
   end
 
   test "executes a script that modifies token's payload" do
-    {:ok, pid} = Blueprint.start_link()
-    {:ok, proc1} = Blueprint.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
+    {:ok, pid} = Model.start_link()
+    {:ok, proc1} = Model.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
 
     {:ok, start} = Process.add_event(proc1, "start", :startEvent, %{"id" => "start"})
     {:ok, the_end} = Process.add_event(proc1, "end", :endEvent, %{"id" => "end"})
@@ -75,11 +75,11 @@ defmodule BPXETest.Engine.Task do
     {:ok, _} = Process.establish_sequence_flow(proc1, "s1", start, task)
     {:ok, _} = Process.establish_sequence_flow(proc1, "s2", task, the_end)
 
-    {:ok, proc1} = Blueprint.instantiate_process(pid, "proc1")
+    {:ok, proc1} = Model.provision_process(pid, "proc1")
     :ok = Process.subscribe_log(proc1)
 
     assert [{"proc1", [{"start", :ok}]}] |> List.keysort(0) ==
-             Blueprint.start(pid) |> List.keysort(0)
+             Model.start(pid) |> List.keysort(0)
 
     assert_receive({Log, %Log.TaskCompleted{id: "task"}})
 
@@ -92,7 +92,7 @@ defmodule BPXETest.Engine.Task do
     defmodule Service do
       use BPXE.Service, state: [called: false]
 
-      def handle_request(%BPXE.Service.Request{payload: payload} = req, _blueprint, _from, state) do
+      def handle_request(%BPXE.Service.Request{payload: payload} = req, _model, _from, state) do
         {:reply, %BPXE.Service.Response{payload: payload}, %{state | called: req}}
       end
 
@@ -102,11 +102,11 @@ defmodule BPXETest.Engine.Task do
     end
 
     test "invokes registered services" do
-      {:ok, pid} = Blueprint.start_link()
+      {:ok, pid} = Model.start_link()
       {:ok, service} = BPXE.Service.start_link(Service)
-      Blueprint.register_service(pid, "service", service)
+      Model.register_service(pid, "service", service)
 
-      {:ok, proc1} = Blueprint.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
+      {:ok, proc1} = Model.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
 
       {:ok, start} = Process.add_event(proc1, "start", :startEvent, %{"id" => "start"})
       {:ok, the_end} = Process.add_event(proc1, "end", :endEvent, %{"id" => "end"})
@@ -125,11 +125,11 @@ defmodule BPXETest.Engine.Task do
       {:ok, _} = Process.establish_sequence_flow(proc1, "s1", start, task)
       {:ok, _} = Process.establish_sequence_flow(proc1, "s2", task, the_end)
 
-      {:ok, proc1} = Blueprint.instantiate_process(pid, "proc1")
+      {:ok, proc1} = Model.provision_process(pid, "proc1")
       :ok = Process.subscribe_log(proc1)
 
       assert [{"proc1", [{"start", :ok}]}] |> List.keysort(0) ==
-               Blueprint.start(pid) |> List.keysort(0)
+               Model.start(pid) |> List.keysort(0)
 
       assert_receive({Log, %Log.TaskCompleted{id: "task"}})
 
@@ -150,11 +150,11 @@ defmodule BPXETest.Engine.Task do
     end
 
     test "should be able to use functionally derived payload (used in interpolation)" do
-      {:ok, pid} = Blueprint.start_link()
+      {:ok, pid} = Model.start_link()
       {:ok, service} = BPXE.Service.start_link(Service)
-      Blueprint.register_service(pid, "service", service)
+      Model.register_service(pid, "service", service)
 
-      {:ok, proc1} = Blueprint.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
+      {:ok, proc1} = Model.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
 
       {:ok, start} = Process.add_event(proc1, "start", :startEvent, %{"id" => "start"})
       {:ok, the_end} = Process.add_event(proc1, "end", :endEvent, %{"id" => "end"})
@@ -181,13 +181,13 @@ defmodule BPXETest.Engine.Task do
       {:ok, _} = Process.establish_sequence_flow(proc1, "s1", start, task)
       {:ok, _} = Process.establish_sequence_flow(proc1, "s2", task, the_end)
 
-      {:ok, proc1} = Blueprint.instantiate_process(pid, "proc1")
+      {:ok, proc1} = Model.provision_process(pid, "proc1")
       Base.merge_variables(proc1, %{"hello" => "world", "world" => "goodbye"}, BPXE.Token.new())
 
       :ok = Process.subscribe_log(proc1)
 
       assert [{"proc1", [{"start", :ok}]}] |> List.keysort(0) ==
-               Blueprint.start(pid) |> List.keysort(0)
+               Model.start(pid) |> List.keysort(0)
 
       assert_receive({Log, %Log.TaskCompleted{id: "task"}})
 
@@ -208,11 +208,11 @@ defmodule BPXETest.Engine.Task do
     end
 
     test "should log an error should an error occur when using functionally derived payload (used in interpolation)" do
-      {:ok, pid} = Blueprint.start_link()
+      {:ok, pid} = Model.start_link()
       {:ok, service} = BPXE.Service.start_link(Service)
-      Blueprint.register_service(pid, "service", service)
+      Model.register_service(pid, "service", service)
 
-      {:ok, proc1} = Blueprint.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
+      {:ok, proc1} = Model.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
 
       {:ok, start} = Process.add_event(proc1, "start", :startEvent, %{"id" => "start"})
       {:ok, the_end} = Process.add_event(proc1, "end", :endEvent, %{"id" => "end"})
@@ -235,12 +235,12 @@ defmodule BPXETest.Engine.Task do
       {:ok, _} = Process.establish_sequence_flow(proc1, "s1", start, task)
       {:ok, _} = Process.establish_sequence_flow(proc1, "s2", task, the_end)
 
-      {:ok, proc1} = Blueprint.instantiate_process(pid, "proc1")
+      {:ok, proc1} = Model.provision_process(pid, "proc1")
 
       :ok = Process.subscribe_log(proc1)
 
       assert [{"proc1", [{"start", :ok}]}] |> List.keysort(0) ==
-               Blueprint.start(pid) |> List.keysort(0)
+               Model.start(pid) |> List.keysort(0)
 
       assert_receive(
         {Log,
@@ -253,8 +253,8 @@ defmodule BPXETest.Engine.Task do
   end
 
   test "should log an error in script if it happens" do
-    {:ok, pid} = Blueprint.start_link()
-    {:ok, proc1} = Blueprint.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
+    {:ok, pid} = Model.start_link()
+    {:ok, proc1} = Model.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
 
     {:ok, start} = Process.add_event(proc1, "start", :startEvent, %{"id" => "start"})
     {:ok, the_end} = Process.add_event(proc1, "end", :endEvent, %{"id" => "end"})
@@ -266,11 +266,11 @@ defmodule BPXETest.Engine.Task do
     {:ok, _} = Process.establish_sequence_flow(proc1, "s1", start, task)
     {:ok, _} = Process.establish_sequence_flow(proc1, "s2", task, the_end)
 
-    {:ok, proc1} = Blueprint.instantiate_process(pid, "proc1")
+    {:ok, proc1} = Model.provision_process(pid, "proc1")
     :ok = Process.subscribe_log(proc1)
 
     assert [{"proc1", [{"start", :ok}]}] |> List.keysort(0) ==
-             Blueprint.start(pid) |> List.keysort(0)
+             Model.start(pid) |> List.keysort(0)
 
     assert_receive({Log, %Log.ScriptTaskErrorOccurred{id: "task"}})
     refute_receive({Log, %Log.FlowNodeForward{id: "task"}})

@@ -1,5 +1,5 @@
 defmodule BPXE.Engine.FlowNode do
-  use BPXE.Engine.Blueprint.Recordable
+  use BPXE.Engine.Model.Recordable
 
   defmacro __using__(_options \\ []) do
     quote location: :keep do
@@ -13,7 +13,7 @@ defmodule BPXE.Engine.FlowNode do
       @persist_state {BPXE.Engine.FlowNode, :buffer}
 
       def handle_call({:add_incoming, id}, _from, state) do
-        :syn.join({get_state(state, BPXE.Engine.Base).blueprint.pid, :flow_out, id}, self())
+        :syn.join({get_state(state, BPXE.Engine.Base).model.pid, :flow_out, id}, self())
         flow_node_state = get_state(state, BPXE.Engine.FlowNode)
 
         state =
@@ -34,7 +34,7 @@ defmodule BPXE.Engine.FlowNode do
         base_state = get_state(state, BPXE.Engine.Base)
 
         for flow <- flow_node_state.incoming do
-          :syn.leave({base_state.blueprint.pid, :flow_out, flow}, self())
+          :syn.leave({base_state.model.pid, :flow_out, flow}, self())
         end
 
         state =
@@ -47,7 +47,7 @@ defmodule BPXE.Engine.FlowNode do
       end
 
       def handle_call({:remove_incoming, id}, _from, state) do
-        :syn.leave({get_state(state, BPXE.Engine.Base).blueprint.pid, :flow_out, id}, self())
+        :syn.leave({get_state(state, BPXE.Engine.Base).model.pid, :flow_out, id}, self())
         flow_node_state = get_state(state, BPXE.Engine.FlowNode)
 
         state =
@@ -101,7 +101,7 @@ defmodule BPXE.Engine.FlowNode do
       end
 
       def handle_call({:add_sequence_flow, id, options}, _from, state) do
-        :syn.join({get_state(state, BPXE.Engine.Base).blueprint.pid, :flow_sequence, id}, self())
+        :syn.join({get_state(state, BPXE.Engine.Base).model.pid, :flow_sequence, id}, self())
 
         flow_node_state = get_state(state, BPXE.Engine.FlowNode)
 
@@ -153,7 +153,7 @@ defmodule BPXE.Engine.FlowNode do
 
       def handle_call({:remove_sequence_flow, id}, _from, state) do
         flow_node_state = get_state(state, BPXE.Engine.FlowNode)
-        :syn.leave({get_state(state, BPXE.Engine.Base).blueprint.pid, :flow_sequence, id}, self())
+        :syn.leave({get_state(state, BPXE.Engine.Base).model.pid, :flow_sequence, id}, self())
 
         state =
           put_state(state, BPXE.Engine.FlowNode, %{
@@ -338,8 +338,8 @@ defmodule BPXE.Engine.FlowNode do
 
         base_state = get_state(state, BPXE.Engine.Base)
 
-        BPXE.Engine.Blueprint.save_state(
-          base_state.blueprint,
+        BPXE.Engine.Model.save_state(
+          base_state.model,
           generation,
           base_state.id,
           self(),
@@ -349,7 +349,7 @@ defmodule BPXE.Engine.FlowNode do
 
       defp commit_state(generation, state) do
         base_state = get_state(state, BPXE.Engine.Base)
-        BPXE.Engine.Blueprint.commit_state(base_state.blueprint, generation, base_state.id)
+        BPXE.Engine.Model.commit_state(base_state.model, generation, base_state.id)
       end
 
       defp ack(%BPXE.Token{__generation__: 0}, _id, state) do
@@ -360,7 +360,7 @@ defmodule BPXE.Engine.FlowNode do
         base_state = get_state(state, BPXE.Engine.Base)
 
         :syn.publish(
-          {base_state.blueprint.pid, :flow_sequence, id},
+          {base_state.model.pid, :flow_sequence, id},
           {BPXE.Token.Ack, token_id, id}
         )
       end
@@ -369,7 +369,7 @@ defmodule BPXE.Engine.FlowNode do
 
       def init_flow_node(state) do
         base_state = get_state(state, BPXE.Engine.Base)
-        :syn.register({base_state.blueprint.pid, :flow_node, base_state.id}, self())
+        :syn.register({base_state.model.pid, :flow_node, base_state.id}, self())
 
         layer = %{
           incoming: [],
@@ -444,7 +444,7 @@ defmodule BPXE.Engine.FlowNode do
 
         target = flow_node_state.sequence_flows[sequence_flow]["targetRef"]
 
-        case :syn.whereis({base_state.blueprint.pid, :flow_node, target}) do
+        case :syn.whereis({base_state.model.pid, :flow_node, target}) do
           pid when is_pid(pid) ->
             send(pid, {token, sequence_flow})
 
@@ -469,8 +469,8 @@ defmodule BPXE.Engine.FlowNode do
     end
   end
 
-  def whereis(blueprint_pid, id) do
-    case :syn.whereis({blueprint_pid, :flow_node, id}) do
+  def whereis(model_pid, id) do
+    case :syn.whereis({model_pid, :flow_node, id}) do
       :undefined -> nil
       pid when is_pid(pid) -> pid
     end
@@ -529,7 +529,7 @@ defmodule BPXE.Engine.FlowNode do
   end
 
   def add_condition_expression(
-        %BPXE.Engine.Blueprint.Recordable.Ref{} = ref,
+        %BPXE.Engine.Model.Recordable.Ref{} = ref,
         options,
         body
       ) do

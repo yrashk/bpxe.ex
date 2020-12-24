@@ -1,12 +1,12 @@
 defmodule BPXETest.Engine.ParallelGateway do
   use ExUnit.Case, async: true
-  alias BPXE.Engine.{Blueprint, Process, Task}
+  alias BPXE.Engine.{Model, Process, Task}
   alias BPXE.Engine.Process.Log
   doctest BPXE.Engine.ParallelGateway
 
   test "forking parallel gateway should send token to all forks" do
-    {:ok, pid} = Blueprint.start_link()
-    {:ok, proc1} = Blueprint.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
+    {:ok, pid} = Model.start_link()
+    {:ok, proc1} = Model.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
 
     {:ok, start} = Process.add_event(proc1, "start", :startEvent, %{"id" => "start"})
     {:ok, fork} = Process.add_parallel_gateway(proc1, "fork", %{"id" => "fork"})
@@ -19,11 +19,11 @@ defmodule BPXETest.Engine.ParallelGateway do
     {:ok, _} = Process.establish_sequence_flow(proc1, "fork_1", fork, t1)
     {:ok, _} = Process.establish_sequence_flow(proc1, "fork_2", fork, t2)
 
-    {:ok, proc1} = Blueprint.instantiate_process(pid, "proc1")
+    {:ok, proc1} = Model.provision_process(pid, "proc1")
     :ok = Process.subscribe_log(proc1)
 
     assert [{"proc1", [{"start", :ok}]}] |> List.keysort(0) ==
-             Blueprint.start(pid) |> List.keysort(0)
+             Model.start(pid) |> List.keysort(0)
 
     assert_receive({Log, %Log.ParallelGatewayReceived{id: "fork", from: "s1"}})
     assert_receive({Log, %Log.TaskActivated{id: "t1"}})
@@ -31,8 +31,8 @@ defmodule BPXETest.Engine.ParallelGateway do
   end
 
   test "joining parallel gateway should send a combined tokend forward" do
-    {:ok, pid} = Blueprint.start_link()
-    {:ok, proc1} = Blueprint.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
+    {:ok, pid} = Model.start_link()
+    {:ok, proc1} = Model.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
 
     {:ok, start} = Process.add_event(proc1, "start", :startEvent, %{"id" => "start"})
     {:ok, fork} = Process.add_parallel_gateway(proc1, "fork", %{"id" => "fork"})
@@ -61,11 +61,11 @@ defmodule BPXETest.Engine.ParallelGateway do
     {:ok, t3} = Process.add_task(proc1, "t3", :task, %{"id" => "t3"})
     {:ok, _} = Process.establish_sequence_flow(proc1, "s3", join, t3)
 
-    {:ok, proc1} = Blueprint.instantiate_process(pid, "proc1")
+    {:ok, proc1} = Model.provision_process(pid, "proc1")
     :ok = Process.subscribe_log(proc1)
 
     assert [{"proc1", [{"start", :ok}]}] |> List.keysort(0) ==
-             Blueprint.start(pid) |> List.keysort(0)
+             Model.start(pid) |> List.keysort(0)
 
     assert_receive(
       {Log,
@@ -77,8 +77,8 @@ defmodule BPXETest.Engine.ParallelGateway do
   end
 
   test "joining parallel gateway with a threshold" do
-    {:ok, pid} = Blueprint.start_link()
-    {:ok, proc1} = Blueprint.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
+    {:ok, pid} = Model.start_link()
+    {:ok, proc1} = Model.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
 
     {:ok, start} = Process.add_event(proc1, "start", :startEvent, %{"id" => "start"})
     {:ok, fork} = Process.add_parallel_gateway(proc1, "fork", %{"id" => "fork"})
@@ -111,11 +111,11 @@ defmodule BPXETest.Engine.ParallelGateway do
     {:ok, t3} = Process.add_task(proc1, "t3", :task, %{"id" => "t3"})
     {:ok, _} = Process.establish_sequence_flow(proc1, "s3", join, t3)
 
-    {:ok, proc1} = Blueprint.instantiate_process(pid, "proc1")
+    {:ok, proc1} = Model.provision_process(pid, "proc1")
     :ok = Process.subscribe_log(proc1)
 
     assert [{"proc1", [{"start", :ok}]}] |> List.keysort(0) ==
-             Blueprint.start(pid) |> List.keysort(0)
+             Model.start(pid) |> List.keysort(0)
 
     assert_receive(
       {Log,

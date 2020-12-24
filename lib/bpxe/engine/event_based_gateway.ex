@@ -1,6 +1,6 @@
 defmodule BPXE.Engine.EventBasedGateway do
   use GenServer
-  use BPXE.Engine.Blueprint.Recordable
+  use BPXE.Engine.Model.Recordable
   use BPXE.Engine.FlowNode
   alias BPXE.Engine.Process
   alias BPXE.Engine.Process.Log
@@ -8,14 +8,14 @@ defmodule BPXE.Engine.EventBasedGateway do
   defstate activated: nil
   @persist_state :activated
 
-  def start_link(id, options, blueprint, process) do
-    start_link([{id, options, blueprint, process}])
+  def start_link(id, options, model, process) do
+    start_link([{id, options, model, process}])
   end
 
-  def init({id, options, blueprint, process}) do
+  def init({id, options, model, process}) do
     state =
       %__MODULE__{}
-      |> put_state(Base, %{id: id, options: options, blueprint: blueprint, process: process})
+      |> put_state(Base, %{id: id, options: options, model: model, process: process})
       |> initialize()
 
     init_ack()

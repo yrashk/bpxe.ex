@@ -9,14 +9,14 @@ defmodule BPXETest.Engine.FlowNode.StateM do
 
     defstate master: nil
 
-    def start_link(master, id, blueprint, process) do
-      start_link([{master, id, blueprint, process}])
+    def start_link(master, id, model, process) do
+      start_link([{master, id, model, process}])
     end
 
-    def init({master, id, blueprint, process}) do
+    def init({master, id, model, process}) do
       state =
         %__MODULE__{master: master}
-        |> put_state(BPXE.Engine.Base, %{id: id, blueprint: blueprint, process: process})
+        |> put_state(BPXE.Engine.Base, %{id: id, model: model, process: process})
         |> initialize()
 
       init_ack()
@@ -27,13 +27,13 @@ defmodule BPXETest.Engine.FlowNode.StateM do
   property "bare flow node operates correctly" do
     forall cmds in commands(__MODULE__) do
       trap_exit do
-        alias BPXE.Engine.Blueprint
+        alias BPXE.Engine.Model
         alias BPXE.Engine.Process, as: P
 
-        # Setup blueprint & process
-        {:ok, blueprint} = Blueprint.start_link()
-        {:ok, _} = Blueprint.add_process(blueprint, "process", %{"id" => "process"})
-        {:ok, process} = Blueprint.instantiate_process(blueprint, "process")
+        # Setup model & process
+        {:ok, model} = Model.start_link()
+        {:ok, _} = Model.add_process(model, "process", %{"id" => "process"})
+        {:ok, process} = Model.provision_process(model, "process")
 
         # Configure the process instance manually
         {:ok, pid} = P.add_flow_node(process, "test", TestFlowNode, [self(), "test"])

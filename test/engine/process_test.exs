@@ -1,13 +1,13 @@
 defmodule BPXETest.Engine.Process do
   use ExUnit.Case, async: true
-  alias BPXE.Engine.Blueprint
+  alias BPXE.Engine.Model
   alias BPXE.Engine.Process
   alias BPXE.Engine.Event
   doctest Process
 
   test "re-synthesizing flow nodes doesn't do anything" do
-    {:ok, pid} = Blueprint.start_link()
-    {:ok, proc1} = Blueprint.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
+    {:ok, pid} = Model.start_link()
+    {:ok, proc1} = Model.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
 
     {:ok, start} = Process.add_event(proc1, "start", :startEvent, %{"id" => "start"})
 
@@ -31,7 +31,7 @@ defmodule BPXETest.Engine.Process do
     {:ok, _} = Process.establish_sequence_flow(proc1, "ev1_t", ev1, t1)
     {:ok, _} = Process.establish_sequence_flow(proc1, "ev2_t", ev2, t2)
 
-    {:ok, proc1} = Blueprint.instantiate_process(pid, "proc1")
+    {:ok, proc1} = Model.provision_process(pid, "proc1")
 
     flow_nodes_count = Process.flow_nodes(proc1) |> length()
 
@@ -46,12 +46,12 @@ defmodule BPXETest.Engine.Process do
 
   test "process activations in different processes should differ" do
     # ...otherwise they will collide in flow handlers
-    {:ok, pid} = Blueprint.start_link()
-    {:ok, _} = Blueprint.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
-    {:ok, _} = Blueprint.add_process(pid, "proc2", %{"id" => "proc2", "name" => "Proc 2"})
+    {:ok, pid} = Model.start_link()
+    {:ok, _} = Model.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
+    {:ok, _} = Model.add_process(pid, "proc2", %{"id" => "proc2", "name" => "Proc 2"})
 
-    {:ok, proc1} = Blueprint.instantiate_process(pid, "proc1")
-    {:ok, proc2} = Blueprint.instantiate_process(pid, "proc2")
+    {:ok, proc1} = Model.provision_process(pid, "proc1")
+    {:ok, proc2} = Model.provision_process(pid, "proc2")
 
     assert Process.new_activation(proc1) != Process.new_activation(proc2)
   end

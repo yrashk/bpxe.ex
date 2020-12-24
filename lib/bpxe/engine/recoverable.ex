@@ -26,7 +26,7 @@ defmodule BPXE.Engine.Recoverable do
 
       def init_recoverable(state) do
         base_state = get_state(state, BPXE.Engine.Base)
-        :syn.join({base_state.blueprint.pid, :state_recovery, base_state.id}, self())
+        :syn.join({base_state.model.pid, :state_recovery, base_state.id}, self())
         state
       end
 

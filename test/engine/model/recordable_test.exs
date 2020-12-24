@@ -1,26 +1,26 @@
-defmodule BPXETest.Engine.Blueprint.Recordable.Test do
+defmodule BPXETest.Engine.Model.Recordable.Test do
   use GenServer
-  use BPXE.Engine.Blueprint.Recordable, handle: ~w(add_one add_two)a
+  use BPXE.Engine.Model.Recordable, handle: ~w(add_one add_two)a
 
-  defstruct blueprint: %{}
+  defstruct model: %{}
 
   def init(_) do
     {:ok, %__MODULE__{}}
   end
 
-  def blueprint(pid) do
-    call(pid, :blueprint)
+  def model(pid) do
+    call(pid, :model)
   end
 
-  def handle_call(:blueprint, _from, state) do
-    {:reply, state.blueprint, state}
+  def handle_call(:model, _from, state) do
+    {:reply, state.model, state}
   end
 end
 
-defmodule BPXETest.Engine.Blueprint.Recordable do
+defmodule BPXETest.Engine.Model.Recordable do
   use ExUnit.Case, async: true
-  import BPXE.Engine.Blueprint.Recordable, only: [call: 2]
-  alias BPXETest.Engine.Blueprint.Recordable.Test
+  import BPXE.Engine.Model.Recordable, only: [call: 2]
+  alias BPXETest.Engine.Model.Recordable.Test
   alias BPXE.Engine.Base
 
   test "should handle recording calls" do
@@ -29,15 +29,15 @@ defmodule BPXETest.Engine.Blueprint.Recordable do
     {:ok, one_one} = call(pid, {:add_one, "1_1"})
     {:ok, two} = call(one, {:add_two, "2"})
     {:ok, three} = call(two, {:add_one, "3"})
-    blueprint = Test.blueprint(pid)
+    model = Test.model(pid)
 
     assert [
              ^one_one,
              ^one
-           ] = blueprint[nil]
+           ] = model[nil]
 
-    assert [^two] = blueprint[one]
-    assert [^three] = blueprint[two]
+    assert [^two] = model[one]
+    assert [^three] = model[two]
   end
 
   test "should handle returning identifiers" do

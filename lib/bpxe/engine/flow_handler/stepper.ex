@@ -15,17 +15,17 @@ defmodule BPXE.Engine.FlowHandler.Stepper do
   end
 
   @impl FlowHandler
-  def save_state(blueprint, generation, blueprint_id, id, pid, state, %__MODULE__{pid: stepper}) do
+  def save_state(model, generation, model_id, id, pid, state, %__MODULE__{pid: stepper}) do
     GenServer.call(
       stepper,
-      {:save_state, blueprint, generation, blueprint_id, id, pid, state},
+      {:save_state, model, generation, model_id, id, pid, state},
       :infinity
     )
   end
 
   @impl FlowHandler
-  def commit_state(blueprint, generation, blueprint_id, id, %__MODULE__{pid: stepper}) do
-    GenServer.call(stepper, {:commit_state, blueprint, generation, blueprint_id, id}, :infinity)
+  def commit_state(model, generation, model_id, id, %__MODULE__{pid: stepper}) do
+    GenServer.call(stepper, {:commit_state, model, generation, model_id, id}, :infinity)
   end
 
   def continue(%__MODULE__{pid: stepper}) do
@@ -47,14 +47,14 @@ defmodule BPXE.Engine.FlowHandler.Stepper do
 
   @impl GenServer
   def handle_call(
-        {:save_state, blueprint, generation, blueprint_id, id, pid, saving_state},
+        {:save_state, model, generation, model_id, id, pid, saving_state},
         _from,
         %State{} = state
       ) do
-    data = {{blueprint, id}, {id, pid, saving_state}}
+    data = {{model, id}, {id, pid, saving_state}}
 
     generations =
-      Map.update(state.generations, {blueprint_id, generation}, [data], fn generations ->
+      Map.update(state.generations, {model_id, generation}, [data], fn generations ->
         [data | generations] |> Enum.uniq_by(fn {k, _} -> k end)
       end)
 
@@ -63,26 +63,26 @@ defmodule BPXE.Engine.FlowHandler.Stepper do
 
   @impl GenServer
   def handle_call(
-        {:commit_state, blueprint, {activation, generation_ctr} = generation, blueprint_id, id},
+        {:commit_state, model, {activation, generation_ctr} = generation, model_id, id},
         from,
         %State{lock: lock, last_commit: last_commit} = state
       ) do
-    last = last_commit[{blueprint_id, activation}]
+    last = last_commit[{model_id, activation}]
 
-    if !lock[{blueprint_id, activation}] and (is_nil(last) or last == generation_ctr - 1) do
+    if !lock[{model_id, activation}] and (is_nil(last) or last == generation_ctr - 1) do
       # We can commit now
-      data = Map.get(state.generations, {blueprint_id, generation})
+      data = Map.get(state.generations, {model_id, generation})
       generations = Map.delete(state.generations, {activation, generation})
 
-      lock = Map.put(lock, {blueprint_id, activation}, true)
+      lock = Map.put(lock, {model_id, activation}, true)
 
       {:reply, :ok,
        %{
          state
          | lock: lock,
-           committed: Map.put(state.committed, {blueprint_id, activation}, data),
+           committed: Map.put(state.committed, {model_id, activation}, data),
            generations: generations,
-           last_commit: Map.put(state.last_commit, {blueprint_id, activation}, generation_ctr)
+           last_commit: Map.put(state.last_commit, {model_id, activation}, generation_ctr)
        }}
     else
       # We can't commit now
@@ -90,7 +90,7 @@ defmodule BPXE.Engine.FlowHandler.Stepper do
        %{
          state
          | pending_commits: [
-             {from, generation, blueprint, blueprint_id, id} | state.pending_commits
+             {from, generation, model, model_id, id} | state.pending_commits
            ]
        }}
     end
@@ -134,16 +134,16 @@ defmodule BPXE.Engine.FlowHandler.Stepper do
   defp next(
          %State{
            pending_commits: [
-             {from, {activation, generation_ctr} = generation, blueprint, blueprint_id, id} | rest
+             {from, {activation, generation_ctr} = generation, model, model_id, id} | rest
            ],
            last_commit: last_commit
          } = state
        ) do
-    last = last_commit[{blueprint_id, activation}]
+    last = last_commit[{model_id, activation}]
 
     if is_nil(last) or last == generation_ctr - 1 do
       # We can commit now
-      case handle_call({:commit_state, blueprint, generation, blueprint_id, id}, from, %{
+      case handle_call({:commit_state, model, generation, model_id, id}, from, %{
              state
              | pending_commits: rest
            }) do

@@ -1,5 +1,5 @@
 defmodule BPXE.Engine.Base do
-  use BPXE.Engine.Blueprint.Recordable
+  use BPXE.Engine.Model.Recordable
 
   defmacro __using__(_ \\ []) do
     quote location: :keep do
@@ -13,8 +13,8 @@ defmodule BPXE.Engine.Base do
         {:reply, get_state(state, BPXE.Engine.Base).id, state}
       end
 
-      def handle_call(:blueprint, _from, state) do
-        {:reply, get_state(state, BPXE.Engine.Base).blueprint, state}
+      def handle_call(:model, _from, state) do
+        {:reply, get_state(state, BPXE.Engine.Base).model, state}
       end
 
       def handle_call(:module, _from, state) do
@@ -88,8 +88,8 @@ defmodule BPXE.Engine.Base do
         variables = Map.merge(base_state.variables, changes)
 
         if variables != base_state.variables do
-          BPXE.Engine.Blueprint.save_state(
-            base_state.blueprint,
+          BPXE.Engine.Model.save_state(
+            base_state.model,
             token.__generation__,
             base_state.id,
             self(),
@@ -120,8 +120,8 @@ defmodule BPXE.Engine.Base do
     call(pid, :id)
   end
 
-  def blueprint(pid) do
-    GenServer.call(pid, :blueprint)
+  def model(pid) do
+    GenServer.call(pid, :model)
   end
 
   def module(pid) do

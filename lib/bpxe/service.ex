@@ -11,17 +11,17 @@ defmodule BPXE.Service do
     GenServer.start_link(module, options)
   end
 
-  def registered(pid, blueprint, name) do
-    GenServer.call(pid, {:registered, blueprint, name})
+  def registered(pid, model, name) do
+    GenServer.call(pid, {:registered, model, name})
   end
 
-  def call(pid, request, blueprint) do
-    GenServer.call(pid, {request, blueprint})
+  def call(pid, request, model) do
+    GenServer.call(pid, {request, model})
   end
 
   @callback handle_request(
               request :: %Request{},
-              blueprint :: pid(),
+              model :: pid(),
               from :: term(),
               state :: term()
             ) ::
@@ -41,20 +41,20 @@ defmodule BPXE.Service do
         {:ok, %__MODULE__{options: options}}
       end
 
-      def handle_call({:registered, blueprint, _name}, _from, state) do
-        monitor = Process.monitor(blueprint)
+      def handle_call({:registered, model, _name}, _from, state) do
+        monitor = Process.monitor(model)
         {:reply, :ok, %{state | __monitor__: monitor}}
       end
 
-      def handle_call({%BPXE.Service.Request{} = request, blueprint}, from, state) do
-        handle_request(request, blueprint, from, state)
+      def handle_call({%BPXE.Service.Request{} = request, model}, from, state) do
+        handle_request(request, model, from, state)
       end
 
       def handle_info({:DOWN, monitor, :process, _, _}, %__MODULE__{__monitor__: monitor} = state) do
         {:stop, :normal, state}
       end
 
-      def handle_request(_request, _blueprint, _from, state) do
+      def handle_request(_request, _model, _from, state) do
         {:reply, %BPXE.Service.Response{}, state}
       end
 

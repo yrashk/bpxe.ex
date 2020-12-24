@@ -3,25 +3,25 @@ defmodule BPXE.Engine.Task do
   use BPXE.Engine.FlowNode
   alias BPXE.Engine.{Process, Base}
   alias BPXE.Engine.Process.Log
-  use BPXE.Engine.Blueprint.Recordable
+  use BPXE.Engine.Model.Recordable
 
   defstate type: nil, script: ""
 
-  def start_link(id, type, options, blueprint, process) do
-    start_link([{id, type, options, blueprint, process}])
+  def start_link(id, type, options, model, process) do
+    start_link([{id, type, options, model, process}])
   end
 
   def add_script(pid, script) do
     call(pid, {:add_script, script})
   end
 
-  def init({id, type, options, blueprint, process}) do
+  def init({id, type, options, model, process}) do
     state =
       %__MODULE__{type: type}
       |> put_state(Base, %{
         id: id,
         options: options,
-        blueprint: blueprint,
+        model: model,
         process: process
       })
 
@@ -160,8 +160,8 @@ defmodule BPXE.Engine.Task do
         |> Enum.reverse()
 
       response =
-        BPXE.Engine.Blueprint.call_service(
-          base_state.blueprint.pid,
+        BPXE.Engine.Model.call_service(
+          base_state.model.pid,
           service,
           %BPXE.Service.Request{
             payload: payload

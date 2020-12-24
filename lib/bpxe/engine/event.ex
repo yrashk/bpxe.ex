@@ -1,30 +1,30 @@
 defmodule BPXE.Engine.Event do
   use GenServer
   use BPXE.Engine.FlowNode
-  use BPXE.Engine.Blueprint.Recordable
+  use BPXE.Engine.Model.Recordable
   alias BPXE.Engine.Process
   alias BPXE.Engine.Process.Log
 
   defstate type: nil, activated: nil
   @persist_state :activated
 
-  def start_link(id, type, options, blueprint, process) do
-    start_link([{id, type, options, blueprint, process}])
+  def start_link(id, type, options, model, process) do
+    start_link([{id, type, options, model, process}])
   end
 
   def add_signal_event_definition(pid, options) do
     call(pid, {:add_signal_event_definition, options})
   end
 
-  def init({id, type, options, blueprint, process}) do
-    :syn.register({blueprint.pid, :event, type, id}, self())
+  def init({id, type, options, model, process}) do
+    :syn.register({model.pid, :event, type, id}, self())
 
     state =
       %__MODULE__{type: type}
       |> put_state(Base, %{
         id: id,
         options: options,
-        blueprint: blueprint,
+        model: model,
         process: process
       })
 
@@ -38,7 +38,7 @@ defmodule BPXE.Engine.Event do
     base_state = get_state(state, BPXE.Engine.Base)
     # Camunda Modeler creates signalEventDefinitions without `signalRef`, just `id`,
     # so if `signalRef` is not used, fall back to `id`.
-    :syn.join({base_state.blueprint.pid, :signal, options["signalRef"] || options["id"]}, self())
+    :syn.join({base_state.model.pid, :signal, options["signalRef"] || options["id"]}, self())
     {:reply, {:ok, options}, state}
   end
 

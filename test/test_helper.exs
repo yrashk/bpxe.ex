@@ -1,15 +1,15 @@
 defmodule BPXETest.Utils do
-  alias BPXE.Engine.Blueprint.Recordable.Ref
+  alias BPXE.Engine.Model.Recordable.Ref
 
-  def find_blueprint(blueprint, path) do
-    find_blueprint(blueprint, nil, path)
+  def find_model(model, path) do
+    find_model(model, nil, path)
   end
 
-  def find_blueprint(_, result, []), do: result
+  def find_model(_, result, []), do: result
 
-  def find_blueprint(blueprint, key, [head | tail]) do
+  def find_model(model, key, [head | tail]) do
     key1 =
-      Enum.find_value(blueprint[key], fn
+      Enum.find_value(model[key], fn
         %Ref{payload: payload} = ref
         when is_tuple(payload) and tuple_size(payload) > 1 and is_tuple(head) and
                tuple_size(head) == 2 and elem(payload, 0) == elem(head, 0) and
@@ -31,7 +31,7 @@ defmodule BPXETest.Utils do
           false
       end)
 
-    find_blueprint(blueprint, key1, tail)
+    find_model(model, key1, tail)
   end
 end
 

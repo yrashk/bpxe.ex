@@ -1,31 +1,31 @@
 defmodule BPXETest.BPMN do
   use ExUnit.Case, async: true
-  alias BPXE.Engine.Blueprint
-  alias BPXE.Engine.Blueprint.Recordable.Ref
+  alias BPXE.Engine.Model
+  alias BPXE.Engine.Model.Recordable.Ref
   doctest BPXE.BPMN
   import BPXETest.Utils
 
   test "parsing sample" do
-    {:ok, pid} = BPXE.Engine.Blueprints.start_blueprint()
+    {:ok, pid} = BPXE.Engine.Models.start_model()
 
     {:ok, _} =
       BPXE.BPMN.parse_stream(File.stream!(Path.join(__DIR__, "/files/sample.bpmn")),
-        blueprint: pid
+        model: pid
       )
   end
 
   test "should interpolate expressions in bpxe:json and output results as JSON" do
-    {:ok, pid} = BPXE.Engine.Blueprints.start_blueprint()
+    {:ok, pid} = BPXE.Engine.Models.start_model()
 
     {:ok, _} =
       BPXE.BPMN.parse_stream(File.stream!(Path.join(__DIR__, "/files/interpolation.bpmn")),
-        blueprint: pid
+        model: pid
       )
 
-    blueprint = Blueprint.blueprint(pid)
+    model = Model.model(pid)
 
     %Ref{payload: {:add_json, _, expr}} =
-      find_blueprint(blueprint, ["sample", "start", :add_extension_elements, :add_json])
+      find_model(model, ["sample", "start", :add_extension_elements, :add_json])
 
     assert is_function(expr)
 
@@ -33,17 +33,17 @@ defmodule BPXETest.BPMN do
   end
 
   test "should interpolate expressions in XSL JSON and output results as strings (only primitive types allowed)" do
-    {:ok, pid} = BPXE.Engine.Blueprints.start_blueprint()
+    {:ok, pid} = BPXE.Engine.Models.start_model()
 
     {:ok, _} =
       BPXE.BPMN.parse_stream(File.stream!(Path.join(__DIR__, "/files/interpolation.bpmn")),
-        blueprint: pid
+        model: pid
       )
 
-    blueprint = Blueprint.blueprint(pid)
+    model = Model.model(pid)
 
     %Ref{payload: {:add_json, _, expr}} =
-      find_blueprint(blueprint, ["sample", "end", :add_extension_elements, :add_json])
+      find_model(model, ["sample", "end", :add_extension_elements, :add_json])
 
     assert is_function(expr)
 
