@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+    xmlns:vc="http://www.w3.org/2007/XMLSchema-versioning" elementFormDefault="qualified"
+    vc:minVersion="1.1" targetNamespace="http://bpxe.org/spec/current"
+    xmlns:bpxe="http://bpxe.org/spec/current">
+
+    <xsd:attributeGroup name="serviceTaskAttributes">
+        <xsd:attribute name="name" type="xsd:string" use="required" targetNamespace="http://bpxe.org/spec/current"/>
+        <xsd:attribute name="resultVariable" type="xsd:string" targetNamespace="http://bpxe.org/spec/current"/>
+    </xsd:attributeGroup>
+
+    <xsd:attributeGroup name="parallelGatewayAttributes">
+        <xsd:attribute name="joinThreshold" type="xsd:positiveInteger"
+            targetNamespace="http://bpxe.org/spec/current"/>
+    </xsd:attributeGroup>
+
+    <xsd:element name="json" type="xsd:string"/>
+</xsd:schema>

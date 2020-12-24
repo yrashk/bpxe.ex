@@ -1,27 +1,25 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema"
     xmlns:vc="http://www.w3.org/2007/XMLSchema-versioning" elementFormDefault="qualified"
-    vc:minVersion="1.1" targetNamespace="http://bpxe.org/spec/current"
-    xmlns="http://bpxe.org/spec/current">
-    <xs:override schemaLocation="http://www.omg.org/spec/BPMN/20100524/MODEL">
+    vc:minVersion="1.1" targetNamespace="http://www.omg.org/spec/BPMN/20100524/MODEL">
+    
+    <xsd:override schemaLocation="BPMN20.xsd">
         <xsd:complexType name="tServiceTask">
             <xsd:complexContent>
                 <xsd:extension base="tTask">
                     <xsd:attribute name="implementation" type="tImplementation"
                         default="##WebService"/>
                     <xsd:attribute name="operationRef" type="xsd:QName" use="optional"/>
-                    <xs:attribute name="name" type="xs:string" use="required"/>
-                    <xs:attribute name="resultVariable" type="xs:string" use="optional"/>
+                    <xsd:attributeGroup ref="bpxe:serviceTaskAttributes"></xsd:attributeGroup>
                 </xsd:extension>
             </xsd:complexContent>
         </xsd:complexType>
         <xsd:complexType name="tParallelGateway">
             <xsd:complexContent>
                 <xsd:extension base="tGateway">
-                    <xs:attribute name="joinThreshold" type="xs:positiveInteger"/>
+                    <xsd:attributeGroup ref="bpxe:parallelGatewayAttributes"></xsd:attributeGroup>
                 </xsd:extension>
             </xsd:complexContent>
         </xsd:complexType>
-    </xs:override>
-    <xs:element name="json" type="xs:string"/>
-</xs:schema>
+    </xsd:override>
+</xsd:schema>
