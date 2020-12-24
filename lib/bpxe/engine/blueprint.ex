@@ -7,7 +7,7 @@ defmodule BPXE.Engine.Blueprint do
         add_inclusive_gateway add_precedence_gateway add_sensor_gateway add_signal_event_definition
         add_parallel_gateway add_condition_expression add_incoming add_outgoing add_task add_script
         add_extension_elements add_json
-      )a
+      )a ++ if(Mix.env() == :test, do: [:add_flow_node], else: [])
 
   defmodule Config do
     defstruct flow_handler: nil, pid: nil, init_fn: nil, id: nil

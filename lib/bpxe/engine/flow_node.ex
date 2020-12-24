@@ -17,10 +17,14 @@ defmodule BPXE.Engine.FlowNode do
         flow_node_state = get_state(state, BPXE.Engine.FlowNode)
 
         state =
-          put_state(state, BPXE.Engine.FlowNode, %{
-            flow_node_state
-            | incoming: [id | flow_node_state.incoming]
-          })
+          if Enum.find(flow_node_state.incoming, &(&1 == id)) do
+            state
+          else
+            put_state(state, BPXE.Engine.FlowNode, %{
+              flow_node_state
+              | incoming: [id | flow_node_state.incoming]
+            })
+          end
 
         {:reply, {:ok, id}, state}
       end
@@ -59,10 +63,15 @@ defmodule BPXE.Engine.FlowNode do
         flow_node_state = get_state(state, BPXE.Engine.FlowNode)
 
         state =
-          put_state(state, BPXE.Engine.FlowNode, %{
-            flow_node_state
-            | outgoing: [id | flow_node_state.outgoing]
-          })
+          if Enum.find(flow_node_state.outgoing, &(&1 == id)) do
+            state
+          else
+            state =
+              put_state(state, BPXE.Engine.FlowNode, %{
+                flow_node_state
+                | outgoing: [id | flow_node_state.outgoing]
+              })
+          end
 
         {:reply, {:ok, id}, state}
       end

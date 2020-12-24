@@ -10,6 +10,12 @@ defmodule BPXE.Engine.Process do
     start_link([{id, options, blueprint}])
   end
 
+  if Mix.env() == :test do
+    def add_flow_node(pid, id, module, args) do
+      call(pid, {:add_flow_node, id, module, args})
+    end
+  end
+
   def add_event(pid, id, type, options) do
     call(pid, {:add_event, id, type, options})
   end
@@ -250,6 +256,19 @@ defmodule BPXE.Engine.Process do
 
   def handle_call(operation, from, state) do
     handle_call_internal(operation, from, state)
+  end
+
+  if Mix.env() == :test do
+    defp handle_call_internal({:add_flow_node, id, module, args}, _from, state) do
+      base_state = get_state(state, BPXE.Engine.Base)
+
+      start_flow_node(
+        module,
+        id,
+        args ++ [base_state.blueprint, self()],
+        state
+      )
+    end
   end
 
   defp handle_call_internal({:add_event, id, type, options}, _from, state) do
