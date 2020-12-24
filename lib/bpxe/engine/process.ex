@@ -179,7 +179,8 @@ defmodule BPXE.Engine.Process do
   defstate start_events: %{},
            pending_sequence_flows: %{},
            intermediate_catch_events: %{},
-           activations: []
+           activations: [],
+           flow_nodes: []
 
   def init({id, options, model}) do
     :syn.register({model.pid, :process, id}, self())
@@ -210,8 +211,18 @@ defmodule BPXE.Engine.Process do
         pid
       end)
 
-    {:reply, result,
-     %{state | pending_sequence_flows: Map.delete(state.pending_sequence_flows, id)}}
+    case result do
+      {:ok, pid} ->
+        {:reply, {:ok, pid},
+         %{
+           state
+           | flow_nodes: [{pid, module} | state.flow_nodes],
+             pending_sequence_flows: Map.delete(state.pending_sequence_flows, id)
+         }}
+
+      {:error, err} ->
+        {:reply, {:error, err}, state}
+    end
   end
 
   def handle_call(:start_events, _from, state) do
@@ -219,7 +230,7 @@ defmodule BPXE.Engine.Process do
   end
 
   def handle_call(:synthesize, from, state) do
-    nodes = flow_nodes()
+    nodes = state.flow_nodes
 
     spawn(fn ->
       for {node, _} <- nodes do
@@ -233,7 +244,7 @@ defmodule BPXE.Engine.Process do
   end
 
   def handle_call(:flow_nodes, _from, state) do
-    {:reply, flow_nodes(), state}
+    {:reply, state.flow_nodes, state}
   end
 
   def handle_call(:new_activation, _from, state) do
@@ -390,7 +401,7 @@ defmodule BPXE.Engine.Process do
 
   defp synthesize_event_based_gateways(state) do
     nodes =
-      for {node, BPXE.Engine.EventBasedGateway} <- flow_nodes() do
+      for {node, BPXE.Engine.EventBasedGateway} <- state.flow_nodes do
         node
       end
 
@@ -401,7 +412,7 @@ defmodule BPXE.Engine.Process do
     gateway_outgoing = FlowNode.get_outgoing(node)
     gateway_id = BPXE.Engine.Base.id(node)
 
-    all_nodes = flow_nodes()
+    all_nodes = state.flow_nodes
 
     precedence_gateway_id = {:synthesized_precedence_gateway, gateway_id}
 
@@ -419,6 +430,13 @@ defmodule BPXE.Engine.Process do
         # this way it's complete for synthesis
         event_node
       end
+      # We need to sort events by the order of outgoing sequence flows
+      # in theevent-based gateway as we later need to wire precedence gateway
+      # in the same order
+      |> Enum.sort_by(fn event ->
+        [incoming | _] = FlowNode.get_incoming(event)
+        Enum.find_index(gateway_outgoing, &(&1 == incoming))
+      end)
 
     base_state = get_state(state, BPXE.Engine.Base)
 
@@ -471,17 +489,5 @@ defmodule BPXE.Engine.Process do
 
       acc
     end)
-  end
-
-  defp flow_nodes() do
-    {:links, links} = Process.info(self(), :links)
-
-    for link <- links,
-        {:dictionary, dict} = Process.info(link, :dictionary),
-        module = dict[BPXE.Engine.Base],
-        not is_nil(module),
-        function_exported?(module, :flow_node?, 0) and apply(module, :flow_node?, []) do
-      {link, module}
-    end
   end
 end

@@ -382,10 +382,6 @@ defmodule BPXE.Engine.FlowNode do
         put_state(state, BPXE.Engine.FlowNode, layer)
       end
 
-      def flow_node?() do
-        true
-      end
-
       @xsi "http://www.w3.org/2001/XMLSchema-instance"
       def send_token(sequence_flow, token, state) do
         alias BPXE.Engine.Process

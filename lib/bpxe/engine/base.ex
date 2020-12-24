@@ -38,8 +38,6 @@ defmodule BPXE.Engine.Base do
       end
 
       def initialize(state) do
-        Process.put(BPXE.Engine.Base, __MODULE__)
-
         __initializers__()
         |> Enum.uniq()
         |> Enum.reverse()
