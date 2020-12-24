@@ -386,7 +386,7 @@ defmodule BPXE.Engine.FlowNode do
         true
       end
 
-      @xsi "http://www.w3.org/2001/XMLSchema-blueprint"
+      @xsi "http://www.w3.org/2001/XMLSchema-instance"
       def send_token(sequence_flow, token, state) do
         alias BPXE.Engine.Process
 

@@ -4,7 +4,7 @@ defmodule BPXETest.Engine.ExclusiveGateway do
   alias Process.Log
   doctest BPXE.Engine.ExclusiveGateway
 
-  @xsi "http://www.w3.org/2001/XMLSchema-blueprint"
+  @xsi "http://www.w3.org/2001/XMLSchema-instance"
   test "sequence flow with the first truthful condition proceeds" do
     {:ok, pid} = Blueprint.start_link()
     {:ok, proc1} = Blueprint.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})

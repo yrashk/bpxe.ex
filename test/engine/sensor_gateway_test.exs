@@ -4,7 +4,7 @@ defmodule BPXETest.Engine.SensorGateway do
   alias BPXE.Engine.Process.Log
   doctest BPXE.Engine.SensorGateway
 
-  @xsi "http://www.w3.org/2001/XMLSchema-blueprint"
+  @xsi "http://www.w3.org/2001/XMLSchema-instance"
   test "sends completion notification with fired sequence flows" do
     {:ok, pid} = Blueprint.start_link()
     {:ok, proc1} = Blueprint.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})

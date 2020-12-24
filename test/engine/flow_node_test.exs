@@ -4,7 +4,7 @@ defmodule BPXETest.Engine.FlowNode do
   alias Process.Log
   doctest BPXE.Engine.FlowNode
 
-  @xsi "http://www.w3.org/2001/XMLSchema-blueprint"
+  @xsi "http://www.w3.org/2001/XMLSchema-instance"
 
   test "sequence flow with no condition proceeds" do
     {:ok, pid} = Blueprint.start_link()

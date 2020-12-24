@@ -5,7 +5,7 @@ defmodule BPXETest.Engine.InclusiveGateway do
   alias BPXE.Engine.Process.Log
   doctest BPXE.Engine.InclusiveGateway
 
-  @xsi "http://www.w3.org/2001/XMLSchema-blueprint"
+  @xsi "http://www.w3.org/2001/XMLSchema-instance"
 
   test "forking inclusive gateway should send token to all forks that have truthful conditions" do
     {:ok, pid} = Blueprint.start_link()
