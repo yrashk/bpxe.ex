@@ -14,6 +14,8 @@ defmodule BPXE.BPMN.Handler do
   @callback add_event_based_gateway(term, Map.t()) :: {:ok, term} | {:error, term}
   @callback add_extension_elements(term) :: {:ok, term} | {:error, term}
   @callback add_json(term, term) :: {:ok, term} | {:error, term}
+  @callback add_standard_loop_characteristics(term, term, Map.t()) :: {:ok, term} | {:error, term}
+  @callback add_loop_condition(term, term, Map.t(), String.t()) :: {:ok, term} | {:error, term}
   @callback complete(term) :: {:ok, term} | {:error, term}
 
   @behaviour Saxy.Handler
@@ -233,6 +235,46 @@ defmodule BPXE.BPMN.Handler do
       ) do
     handler.add_script(current, characters)
     |> Result.map(fn _ -> %{state | characters: nil, current: state.current} end)
+  end
+
+  def handle_event(
+        :start_element,
+        {{bpmn, "standardLoopCharacteristics"}, args},
+        %__MODULE__{ns: %{@bpmn_spec => bpmn}, current: [node | _] = current, handler: handler} =
+          state
+      ) do
+    handler.add_standard_loop_characteristics(node, args["id"], args)
+    |> Result.map(fn loop -> %{state | current: [loop | current]} end)
+  end
+
+  def handle_event(
+        :start_element,
+        {{bpmn, "loopCondition"}, args},
+        %__MODULE__{ns: %{@bpmn_spec => bpmn}, characters: nil} = state
+      ) do
+    {:ok, %{state | characters: "", args: args}}
+  end
+
+  def handle_event(
+        :end_element,
+        {bpmn, "loopCondition"},
+        %__MODULE__{
+          ns: %{@bpmn_spec => bpmn},
+          handler: handler,
+          characters: characters,
+          current: [current | _]
+        } = state
+      ) do
+    handler.add_loop_condition(current, state.args["id"], state.args, characters)
+    |> Result.map(fn _ -> %{state | characters: nil, current: state.current, args: nil} end)
+  end
+
+  def handle_event(
+        :end_element,
+        {bpmn, "standardLoopCharacteristics"},
+        %__MODULE__{ns: %{@bpmn_spec => bpmn}, current: [_ | rest]} = state
+      ) do
+    %{state | current: rest}
   end
 
   def handle_event(

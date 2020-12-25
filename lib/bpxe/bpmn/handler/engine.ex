@@ -33,6 +33,16 @@ defmodule BPXE.BPMN.Handler.Engine do
   end
 
   @impl BPMNHandler
+  def add_standard_loop_characteristics(activity, id, options) do
+    Engine.Activity.add_standard_loop_characteristics(activity, id, options)
+  end
+
+  @impl BPMNHandler
+  def add_loop_condition(loop, id, options, body) do
+    Engine.Activity.add_loop_condition(loop, id, options, body)
+  end
+
+  @impl BPMNHandler
   def add_outgoing(node, name) do
     Engine.FlowNode.add_outgoing(node, name)
   end
