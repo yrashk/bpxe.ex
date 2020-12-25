@@ -1,0 +1,145 @@
+defmodule BPXETest.Engine.Activity do
+  use ExUnit.Case, async: true
+  alias BPXE.Engine.Model
+  alias BPXE.Engine.{Activity, Process, Task, Base}
+  alias BPXE.Engine.Process.Log
+  doctest Task
+
+  @xsi "http://www.w3.org/2001/XMLSchema-instance"
+
+  describe "standard loop" do
+    test "should run while condition satisfies with testBefore implied to be false" do
+      {:ok, pid} = Model.start_link()
+      {:ok, proc1} = Model.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
+
+      {:ok, start} = Process.add_event(proc1, "start", :startEvent, %{"id" => "start"})
+      {:ok, the_end} = Process.add_event(proc1, "end", :endEvent, %{"id" => "end"})
+      {:ok, task} = Process.add_task(proc1, "task", :scriptTask, %{"id" => "task"})
+      {:ok, _} = Task.add_script(task, ~s|
+        process.a = (process.a or 0) + 1
+        token.a = (token.a or 0) + 1
+      |)
+
+      {:ok, loop} = Activity.add_standard_loop_characteristics(task, "loop", %{})
+
+      {:ok, _} =
+        Activity.add_loop_condition(
+          loop,
+          "cond",
+          %{{@xsi, "type"} => "tFormalExpression"},
+          "loopCounter < `4`"
+        )
+
+      {:ok, _} = Process.establish_sequence_flow(proc1, "s1", start, task)
+      {:ok, _} = Process.establish_sequence_flow(proc1, "s2", task, the_end)
+
+      {:ok, proc1} = Model.provision_process(pid, "proc1")
+      :ok = Process.subscribe_log(proc1)
+
+      initial_vars = Base.variables(proc1)
+
+      assert [{"proc1", [{"start", :ok}]}] |> List.keysort(0) ==
+               Model.start(pid) |> List.keysort(0)
+
+      assert_receive({Log, %Log.FlowNodeForward{id: "task"}})
+      assert Base.variables(proc1) == Map.merge(initial_vars, %{"a" => 4})
+
+      assert_receive(
+        {Log, %Log.FlowNodeActivated{id: "end", token: %BPXE.Token{payload: %{"a" => var_a}}}}
+      )
+
+      assert var_a == 4
+    end
+
+    test "should run while condition satisfies with testBefore set to true" do
+      {:ok, pid} = Model.start_link()
+      {:ok, proc1} = Model.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
+
+      {:ok, start} = Process.add_event(proc1, "start", :startEvent, %{"id" => "start"})
+      {:ok, the_end} = Process.add_event(proc1, "end", :endEvent, %{"id" => "end"})
+      {:ok, task} = Process.add_task(proc1, "task", :scriptTask, %{"id" => "task"})
+      {:ok, _} = Task.add_script(task, ~s|
+        process.a = (process.a or 0) + 1
+        token.a = (token.a or 0) + 1
+      |)
+
+      {:ok, loop} =
+        Activity.add_standard_loop_characteristics(task, "loop", %{"testBefore" => "true"})
+
+      {:ok, _} =
+        Activity.add_loop_condition(
+          loop,
+          "cond",
+          %{{@xsi, "type"} => "tFormalExpression"},
+          "loopCounter < `4`"
+        )
+
+      {:ok, _} = Process.establish_sequence_flow(proc1, "s1", start, task)
+      {:ok, _} = Process.establish_sequence_flow(proc1, "s2", task, the_end)
+
+      {:ok, proc1} = Model.provision_process(pid, "proc1")
+      :ok = Process.subscribe_log(proc1)
+
+      initial_vars = Base.variables(proc1)
+
+      assert [{"proc1", [{"start", :ok}]}] |> List.keysort(0) ==
+               Model.start(pid) |> List.keysort(0)
+
+      assert_receive({Log, %Log.FlowNodeForward{id: "task"}})
+      assert Base.variables(proc1) == Map.merge(initial_vars, %{"a" => 3})
+
+      assert_receive(
+        {Log, %Log.FlowNodeActivated{id: "end", token: %BPXE.Token{payload: %{"a" => var_a}}}}
+      )
+
+      assert var_a == 3
+    end
+
+    test "should respect loop cap specified in loopMaximum" do
+      {:ok, pid} = Model.start_link()
+      {:ok, proc1} = Model.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
+
+      {:ok, start} = Process.add_event(proc1, "start", :startEvent, %{"id" => "start"})
+      {:ok, the_end} = Process.add_event(proc1, "end", :endEvent, %{"id" => "end"})
+      {:ok, task} = Process.add_task(proc1, "task", :scriptTask, %{"id" => "task"})
+      {:ok, _} = Task.add_script(task, ~s|
+        process.a = (process.a or 0) + 1
+        token.a = (token.a or 0) + 1
+      |)
+
+      {:ok, loop} =
+        Activity.add_standard_loop_characteristics(task, "loop", %{
+          "testBefore" => "true",
+          "loopMaximum" => "1"
+        })
+
+      {:ok, _} =
+        Activity.add_loop_condition(
+          loop,
+          "cond",
+          %{{@xsi, "type"} => "tFormalExpression"},
+          "loopCounter < `4`"
+        )
+
+      {:ok, _} = Process.establish_sequence_flow(proc1, "s1", start, task)
+      {:ok, _} = Process.establish_sequence_flow(proc1, "s2", task, the_end)
+
+      {:ok, proc1} = Model.provision_process(pid, "proc1")
+      :ok = Process.subscribe_log(proc1)
+
+      initial_vars = Base.variables(proc1)
+
+      assert [{"proc1", [{"start", :ok}]}] |> List.keysort(0) ==
+               Model.start(pid) |> List.keysort(0)
+
+      assert_receive({Log, %Log.FlowNodeForward{id: "task"}})
+      assert Base.variables(proc1) == Map.merge(initial_vars, %{"a" => 1})
+
+      assert_receive(
+        {Log, %Log.FlowNodeActivated{id: "end", token: %BPXE.Token{payload: %{"a" => var_a}}}}
+      )
+
+      assert var_a == 1
+    end
+  end
+end

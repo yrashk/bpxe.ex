@@ -6,7 +6,7 @@ defmodule BPXE.Engine.Model do
       ~w(add_process add_event add_sequence_flow add_event_based_gateway add_exclusive_gateway
         add_inclusive_gateway add_precedence_gateway add_sensor_gateway add_signal_event_definition
         add_parallel_gateway add_condition_expression add_incoming add_outgoing add_task add_script
-        add_extension_elements add_json
+        add_extension_elements add_json add_standard_loop_characteristics add_loop_condition
       )a ++ if(Mix.env() == :test, do: [:add_flow_node], else: [])
 
   defmodule Config do
@@ -245,8 +245,7 @@ defmodule BPXE.Engine.Model do
   end
 
   def handle_call(:model, _from, state) do
-    {:reply, state.model |> Enum.map(fn {k, v} -> {k, Enum.reverse(v)} end) |> Map.new(),
-     state}
+    {:reply, state.model |> Enum.map(fn {k, v} -> {k, Enum.reverse(v)} end) |> Map.new(), state}
   end
 
   def handle_call({:provision_process, id}, _from, state) do

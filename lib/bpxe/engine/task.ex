@@ -1,6 +1,7 @@
 defmodule BPXE.Engine.Task do
   use GenServer
   use BPXE.Engine.FlowNode
+  use BPXE.Engine.Activity
   alias BPXE.Engine.{Process, Base}
   alias BPXE.Engine.Process.Log
   use BPXE.Engine.Model.Recordable
