@@ -69,7 +69,7 @@ defmodule BPXETest.Engine.Task do
     {:ok, the_end} = Process.add_event(proc1, "end", :endEvent, %{"id" => "end"})
     {:ok, task} = Process.add_task(proc1, "task", :scriptTask, %{"id" => "task"})
     {:ok, _} = Task.add_script(task, ~s|
-      token.a = 1
+      flow.a = 1
       |)
 
     {:ok, _} = Process.establish_sequence_flow(proc1, "s1", start, task)

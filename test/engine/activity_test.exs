@@ -17,7 +17,7 @@ defmodule BPXETest.Engine.Activity do
       {:ok, task} = Process.add_task(proc1, "task", :scriptTask, %{"id" => "task"})
       {:ok, _} = Task.add_script(task, ~s|
         process.a = (process.a or 0) + 1
-        token.a = (token.a or 0) + 1
+        flow.a = (flow.a or 0) + 1
       |)
 
       {:ok, loop} = Activity.add_standard_loop_characteristics(task, "loop", %{})
@@ -60,7 +60,7 @@ defmodule BPXETest.Engine.Activity do
       {:ok, task} = Process.add_task(proc1, "task", :scriptTask, %{"id" => "task"})
       {:ok, _} = Task.add_script(task, ~s|
         process.a = (process.a or 0) + 1
-        token.a = (token.a or 0) + 1
+        flow.a = (flow.a or 0) + 1
       |)
 
       {:ok, loop} =
@@ -104,7 +104,7 @@ defmodule BPXETest.Engine.Activity do
       {:ok, task} = Process.add_task(proc1, "task", :scriptTask, %{"id" => "task"})
       {:ok, _} = Task.add_script(task, ~s|
         process.a = (process.a or 0) + 1
-        token.a = (token.a or 0) + 1
+        flow.a = (flow.a or 0) + 1
       |)
 
       {:ok, loop} =

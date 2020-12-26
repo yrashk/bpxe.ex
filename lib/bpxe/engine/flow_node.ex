@@ -398,7 +398,7 @@ defmodule BPXE.Engine.FlowNode do
 
               vars = %{
                 "process" => process_vars,
-                "token" => token.payload,
+                "flow" => token.payload,
                 "flow_node" => flow_node_vars
               }
 

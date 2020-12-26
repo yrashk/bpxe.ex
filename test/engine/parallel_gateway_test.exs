@@ -43,11 +43,11 @@ defmodule BPXETest.Engine.ParallelGateway do
     {:ok, t2} = Process.add_task(proc1, "t2", :scriptTask, %{"id" => "t2"})
 
     {:ok, _} = Task.add_script(t1, ~s|
-      token.t1 = true
+      flow.t1 = true
       |)
 
     {:ok, _} = Task.add_script(t2, ~s|
-      token.t2 = true
+      flow.t2 = true
       |)
 
     {:ok, _} = Process.establish_sequence_flow(proc1, "fork_1", fork, t1)
@@ -89,11 +89,11 @@ defmodule BPXETest.Engine.ParallelGateway do
     {:ok, t2} = Process.add_task(proc1, "t2", :scriptTask, %{"id" => "t2"})
 
     {:ok, _} = Task.add_script(t1, ~s|
-      token.t1 = true
+      flow.t1 = true
       |)
 
     {:ok, _} = Task.add_script(t2, ~s|
-      token.t2 = true
+      flow.t2 = true
       |)
 
     {:ok, _} = Process.establish_sequence_flow(proc1, "fork_1", fork, t1)

@@ -49,13 +49,13 @@ defmodule BPXE.Engine.Task do
     vm = BPXE.Language.set(vm, "process", process_vars)
     flow_node_vars = base_state.variables
     vm = BPXE.Language.set(vm, "flow_node", flow_node_vars)
-    vm = BPXE.Language.set(vm, "token", token.payload)
+    vm = BPXE.Language.set(vm, "flow", token.payload)
 
     case BPXE.Language.eval(vm, state.script) do
       {:ok, {_result, vm}} ->
         process_vars = BPXE.Language.get(vm, "process")
         flow_node_vars = BPXE.Language.get(vm, "flow_node")
-        token = %{token | payload: BPXE.Language.get(vm, "token")}
+        token = %{token | payload: BPXE.Language.get(vm, "flow")}
         Base.merge_variables(base_state.process, process_vars, token)
 
         {:reply, _, state} =
@@ -128,7 +128,7 @@ defmodule BPXE.Engine.Task do
 
                 vars = %{
                   "process" => process_vars,
-                  "token" => token.payload,
+                  "flow" => token.payload,
                   "flow_node" => flow_node_vars
                 }
 
