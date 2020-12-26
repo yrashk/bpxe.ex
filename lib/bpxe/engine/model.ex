@@ -45,8 +45,8 @@ defmodule BPXE.Engine.Model do
     end
   end
 
-  def add_process(pid, id, options) do
-    call(pid, {:add_process, id, options})
+  def add_process(pid, id, attrs) do
+    call(pid, {:add_process, id, attrs})
   end
 
   def processes(pid) do
@@ -232,10 +232,10 @@ defmodule BPXE.Engine.Model do
   def handle_call(:processes, _from, state) do
     processes =
       Enum.filter(state.model[nil] || [], fn
-        %Ref{payload: {:add_process, _, _options}} -> true
+        %Ref{payload: {:add_process, _, _attrs}} -> true
         _ -> false
       end)
-      |> Enum.map(fn %Ref{payload: {:add_process, id, _options}} -> id end)
+      |> Enum.map(fn %Ref{payload: {:add_process, id, _attrs}} -> id end)
 
     {:reply, processes, state}
   end
@@ -253,7 +253,7 @@ defmodule BPXE.Engine.Model do
 
     ref =
       Enum.find(state.model[nil], fn
-        %Ref{payload: {:add_process, ^id, _options}} ->
+        %Ref{payload: {:add_process, ^id, _attrs}} ->
           true
 
         _ ->
@@ -261,9 +261,9 @@ defmodule BPXE.Engine.Model do
       end)
 
     if ref do
-      %Ref{payload: {:add_process, ^id, options}} = ref
+      %Ref{payload: {:add_process, ^id, attrs}} = ref
 
-      case BPXE.Engine.Process.start_link(id, options, state.config) do
+      case BPXE.Engine.Process.start_link(id, attrs, state.config) do
         {:ok, pid} ->
           {:reply, execute_model(ref, {:ok, pid}, pid, state), state}
 

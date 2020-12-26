@@ -6,8 +6,8 @@ defmodule BPXE.Engine.Process do
   alias BPXE.Engine.FlowNode
   alias BPXE.Engine.Process.Log
 
-  def start_link(id, options, model) do
-    start_link([{id, options, model}])
+  def start_link(id, attrs, model) do
+    start_link([{id, attrs, model}])
   end
 
   if Mix.env() == :test do
@@ -16,16 +16,16 @@ defmodule BPXE.Engine.Process do
     end
   end
 
-  def add_event(pid, id, type, options) do
-    call(pid, {:add_event, id, type, options})
+  def add_event(pid, id, type, attrs) do
+    call(pid, {:add_event, id, type, attrs})
   end
 
-  def add_task(pid, id, type, options) do
-    call(pid, {:add_task, id, type, options})
+  def add_task(pid, id, type, attrs) do
+    call(pid, {:add_task, id, type, attrs})
   end
 
-  def add_sequence_flow(pid, id, options) do
-    call(pid, {:add_sequence_flow, id, options})
+  def add_sequence_flow(pid, id, attrs) do
+    call(pid, {:add_sequence_flow, id, attrs})
   end
 
   @doc """
@@ -39,7 +39,7 @@ defmodule BPXE.Engine.Process do
   easier to debug.
 
   """
-  def establish_sequence_flow(server, id, source, target, options \\ []) do
+  def establish_sequence_flow(server, id, source, target, attrs \\ []) do
     require OK
 
     OK.for do
@@ -55,7 +55,7 @@ defmodule BPXE.Engine.Process do
             "sourceRef" => source_ref,
             "targetRef" => target_ref
           }
-          |> Map.merge(options |> Map.new())
+          |> Map.merge(attrs |> Map.new())
         )
 
       _out <- FlowNode.add_outgoing(source, id)
@@ -65,34 +65,34 @@ defmodule BPXE.Engine.Process do
     end
   end
 
-  def add_exclusive_gateway(pid, id, options) do
-    call(pid, {:add_exclusive_gateway, id, options})
+  def add_exclusive_gateway(pid, id, attrs) do
+    call(pid, {:add_exclusive_gateway, id, attrs})
   end
 
-  def add_parallel_gateway(pid, id, options) do
-    call(pid, {:add_parallel_gateway, id, options})
+  def add_parallel_gateway(pid, id, attrs) do
+    call(pid, {:add_parallel_gateway, id, attrs})
   end
 
-  def add_inclusive_gateway(pid, id, options) do
-    call(pid, {:add_inclusive_gateway, id, options})
+  def add_inclusive_gateway(pid, id, attrs) do
+    call(pid, {:add_inclusive_gateway, id, attrs})
   end
 
-  def add_event_based_gateway(pid, id, options) do
-    call(pid, {:add_event_based_gateway, id, options})
+  def add_event_based_gateway(pid, id, attrs) do
+    call(pid, {:add_event_based_gateway, id, attrs})
   end
 
   @doc """
   Adds Precedence Gateway (`BPXE.Engine.PrecedenceGateway`). Please note that this is not a standard gateway.
   """
-  def add_precedence_gateway(pid, id, options) do
-    call(pid, {:add_precedence_gateway, id, options})
+  def add_precedence_gateway(pid, id, attrs) do
+    call(pid, {:add_precedence_gateway, id, attrs})
   end
 
   @doc """
   Adds Sensor Gateway (`BPXE.Engine.SensorGateway`). Please note that this is not a standard gateway.
   """
-  def add_sensor_gateway(pid, id, options) do
-    call(pid, {:add_sensor_gateway, id, options})
+  def add_sensor_gateway(pid, id, attrs) do
+    call(pid, {:add_sensor_gateway, id, attrs})
   end
 
   @doc """
@@ -182,12 +182,12 @@ defmodule BPXE.Engine.Process do
            activations: [],
            flow_nodes: []
 
-  def init({id, options, model}) do
+  def init({id, attrs, model}) do
     :syn.register({model.pid, :process, id}, self())
 
     state =
       %__MODULE__{}
-      |> put_state(BPXE.Engine.Base, %{id: id, options: options, model: model})
+      |> put_state(BPXE.Engine.Base, %{id: id, attrs: attrs, model: model})
       |> initialize()
 
     # Done initializing
@@ -204,8 +204,8 @@ defmodule BPXE.Engine.Process do
     result =
       apply(module, :start_link, args)
       |> Result.map(fn pid ->
-        if options = pending_sequence_flows[id] do
-          FlowNode.add_sequence_flow(pid, id, options)
+        if attrs = pending_sequence_flows[id] do
+          FlowNode.add_sequence_flow(pid, id, attrs)
         end
 
         pid
@@ -282,114 +282,114 @@ defmodule BPXE.Engine.Process do
     end
   end
 
-  defp handle_call_internal({:add_event, id, type, options}, _from, state) do
+  defp handle_call_internal({:add_event, id, type, attrs}, _from, state) do
     base_state = get_state(state, BPXE.Engine.Base)
 
     case {type,
           start_flow_node(
             BPXE.Engine.Event,
             id,
-            [id, type, options, base_state.model, self()],
+            [id, type, attrs, base_state.model, self()],
             state
           )} do
       {:startEvent, {:reply, result, state}} ->
-        {:reply, result, %{state | start_events: Map.put(state.start_events, id, options)}}
+        {:reply, result, %{state | start_events: Map.put(state.start_events, id, attrs)}}
 
       {_, {:reply, result, state}} ->
         {:reply, result, state}
     end
   end
 
-  defp handle_call_internal({:add_task, id, type, options}, _from, state) do
+  defp handle_call_internal({:add_task, id, type, attrs}, _from, state) do
     base_state = get_state(state, BPXE.Engine.Base)
 
     start_flow_node(
       BPXE.Engine.Task,
       id,
-      [id, type, options, base_state.model, self()],
+      [id, type, attrs, base_state.model, self()],
       state
     )
   end
 
-  defp handle_call_internal({:add_sequence_flow, id, options}, _from, state) do
+  defp handle_call_internal({:add_sequence_flow, id, attrs}, _from, state) do
     base_state = get_state(state, BPXE.Engine.Base)
 
-    case :syn.whereis({base_state.model.pid, :flow_node, options["sourceRef"]}) do
+    case :syn.whereis({base_state.model.pid, :flow_node, attrs["sourceRef"]}) do
       pid when is_pid(pid) ->
-        {:reply, FlowNode.add_sequence_flow(pid, id, options), state}
+        {:reply, FlowNode.add_sequence_flow(pid, id, attrs), state}
 
       :undefined ->
         {:reply, {:ok, id},
          %{
            state
            | pending_sequence_flows:
-               Map.put(state.pending_sequence_flows, options["sourceRef"], options)
+               Map.put(state.pending_sequence_flows, attrs["sourceRef"], attrs)
          }}
     end
   end
 
-  defp handle_call_internal({:add_exclusive_gateway, id, options}, _from, state) do
+  defp handle_call_internal({:add_exclusive_gateway, id, attrs}, _from, state) do
     base_state = get_state(state, BPXE.Engine.Base)
 
     start_flow_node(
       BPXE.Engine.ExclusiveGateway,
       id,
-      [id, options, base_state.model, self()],
+      [id, attrs, base_state.model, self()],
       state
     )
   end
 
-  defp handle_call_internal({:add_parallel_gateway, id, options}, _from, state) do
+  defp handle_call_internal({:add_parallel_gateway, id, attrs}, _from, state) do
     base_state = get_state(state, BPXE.Engine.Base)
 
     start_flow_node(
       BPXE.Engine.ParallelGateway,
       id,
-      [id, options, base_state.model, self()],
+      [id, attrs, base_state.model, self()],
       state
     )
   end
 
-  defp handle_call_internal({:add_inclusive_gateway, id, options}, _from, state) do
+  defp handle_call_internal({:add_inclusive_gateway, id, attrs}, _from, state) do
     base_state = get_state(state, BPXE.Engine.Base)
 
     start_flow_node(
       BPXE.Engine.InclusiveGateway,
       id,
-      [id, options, base_state.model, self()],
+      [id, attrs, base_state.model, self()],
       state
     )
   end
 
-  defp handle_call_internal({:add_event_based_gateway, id, options}, _from, state) do
+  defp handle_call_internal({:add_event_based_gateway, id, attrs}, _from, state) do
     base_state = get_state(state, BPXE.Engine.Base)
 
     start_flow_node(
       BPXE.Engine.EventBasedGateway,
       id,
-      [id, options, base_state.model, self()],
+      [id, attrs, base_state.model, self()],
       state
     )
   end
 
-  defp handle_call_internal({:add_precedence_gateway, id, options}, _from, state) do
+  defp handle_call_internal({:add_precedence_gateway, id, attrs}, _from, state) do
     base_state = get_state(state, BPXE.Engine.Base)
 
     start_flow_node(
       BPXE.Engine.PrecedenceGateway,
       id,
-      [id, options, base_state.model, self()],
+      [id, attrs, base_state.model, self()],
       state
     )
   end
 
-  defp handle_call_internal({:add_sensor_gateway, id, options}, _from, state) do
+  defp handle_call_internal({:add_sensor_gateway, id, attrs}, _from, state) do
     base_state = get_state(state, BPXE.Engine.Base)
 
     start_flow_node(
       BPXE.Engine.SensorGateway,
       id,
-      [id, options, base_state.model, self()],
+      [id, attrs, base_state.model, self()],
       state
     )
   end

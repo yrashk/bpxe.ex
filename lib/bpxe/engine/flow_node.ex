@@ -100,7 +100,7 @@ defmodule BPXE.Engine.FlowNode do
         {:reply, :ok, state}
       end
 
-      def handle_call({:add_sequence_flow, id, options}, _from, state) do
+      def handle_call({:add_sequence_flow, id, attrs}, _from, state) do
         :syn.join({get_state(state, BPXE.Engine.Base).model.pid, :flow_sequence, id}, self())
 
         flow_node_state = get_state(state, BPXE.Engine.FlowNode)
@@ -108,14 +108,14 @@ defmodule BPXE.Engine.FlowNode do
         state =
           put_state(state, BPXE.Engine.FlowNode, %{
             flow_node_state
-            | sequence_flows: Map.put(flow_node_state.sequence_flows, id, options),
+            | sequence_flows: Map.put(flow_node_state.sequence_flows, id, attrs),
               sequence_flow_order: [id | flow_node_state.sequence_flow_order]
           })
 
         {:reply, {:ok, {FlowNode, {:sequence_flow, self(), id}}}, state}
       end
 
-      def handle_call({:add_condition_expression, id, options, body}, _from, state) do
+      def handle_call({:add_condition_expression, id, attrs, body}, _from, state) do
         flow_node_state = get_state(state, BPXE.Engine.FlowNode)
 
         case Map.get(flow_node_state.sequence_flows, id) do
@@ -130,7 +130,7 @@ defmodule BPXE.Engine.FlowNode do
                     Map.put(
                       flow_node_state.sequence_flows,
                       id,
-                      Map.put(sequence_flow, :conditionExpression, {options, body})
+                      Map.put(sequence_flow, :conditionExpression, {attrs, body})
                     )
               })
 
@@ -504,8 +504,8 @@ defmodule BPXE.Engine.FlowNode do
     call(pid, :clear_incoming)
   end
 
-  def add_sequence_flow(pid, id, options) do
-    call(pid, {:add_sequence_flow, id, options})
+  def add_sequence_flow(pid, id, attrs) do
+    call(pid, {:add_sequence_flow, id, attrs})
   end
 
   def get_sequence_flows(pid) do
@@ -520,16 +520,16 @@ defmodule BPXE.Engine.FlowNode do
     call(pid, :clear_sequence_flows)
   end
 
-  def add_condition_expression({:sequence_flow, id, pid}, options, body) do
-    call(pid, {:add_condition_expression, id, options, body})
+  def add_condition_expression({:sequence_flow, id, pid}, attrs, body) do
+    call(pid, {:add_condition_expression, id, attrs, body})
   end
 
   def add_condition_expression(
         %BPXE.Engine.Model.Recordable.Ref{} = ref,
-        options,
+        attrs,
         body
       ) do
-    call(ref, {:add_condition_expression, options, body})
+    call(ref, {:add_condition_expression, attrs, body})
   end
 
   def synthesize(pid) do
@@ -538,8 +538,8 @@ defmodule BPXE.Engine.FlowNode do
 
   def subcall(
         {:sequence_flow, pid, id},
-        {:add_condition_expression, options, body}
+        {:add_condition_expression, attrs, body}
       ) do
-    call(pid, {:add_condition_expression, id, options, body})
+    call(pid, {:add_condition_expression, id, attrs, body})
   end
 end

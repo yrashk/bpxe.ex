@@ -8,14 +8,14 @@ defmodule BPXE.Engine.EventBasedGateway do
   defstate activated: nil
   @persist_state :activated
 
-  def start_link(id, options, model, process) do
-    start_link([{id, options, model, process}])
+  def start_link(id, attrs, model, process) do
+    start_link([{id, attrs, model, process}])
   end
 
-  def init({id, options, model, process}) do
+  def init({id, attrs, model, process}) do
     state =
       %__MODULE__{}
-      |> put_state(Base, %{id: id, options: options, model: model, process: process})
+      |> put_state(Base, %{id: id, attrs: attrs, model: model, process: process})
       |> initialize()
 
     init_ack()

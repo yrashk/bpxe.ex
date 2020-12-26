@@ -2,7 +2,7 @@ defmodule BPXE.Engine.Activity do
   use BPXE.Engine.Model.Recordable
 
   defmodule StandardLoop do
-    defstruct id: nil, options: %{}, condition: nil, counter: nil
+    defstruct id: nil, attrs: %{}, condition: nil, counter: nil
     use ExConstructor
   end
 
@@ -12,21 +12,21 @@ defmodule BPXE.Engine.Activity do
       alias BPXE.Engine.{Base, Process}
       alias BPXE.Engine.Process.Log
 
-      def handle_call({:add_standard_loop_characteristics, id, options}, _from, state) do
+      def handle_call({:add_standard_loop_characteristics, id, attrs}, _from, state) do
         state =
           put_in(
             state.__layers__[BPXE.Engine.Activity].loop,
-            StandardLoop.new(id: id, options: options)
+            StandardLoop.new(id: id, attrs: attrs)
           )
 
         {:reply, {:ok, self()}, state}
       end
 
-      def handle_call({:add_loop_condition, id, options, body}, _from, state) do
+      def handle_call({:add_loop_condition, id, attrs, body}, _from, state) do
         state =
           update_in(
             state.__layers__[BPXE.Engine.Activity].loop,
-            &%{&1 | condition: {id, options, body}}
+            &%{&1 | condition: {id, attrs, body}}
           )
 
         {:reply, {:ok, id}, state}
@@ -53,13 +53,12 @@ defmodule BPXE.Engine.Activity do
              response,
              state
            ) do
-        %StandardLoop{options: options, counter: ctr} =
-          state.__layers__[BPXE.Engine.Activity].loop
+        %StandardLoop{attrs: attrs, counter: ctr} = state.__layers__[BPXE.Engine.Activity].loop
 
-        test_before = (options["testBefore"] || "false") == "true"
+        test_before = (attrs["testBefore"] || "false") == "true"
 
         loop_maximum =
-          if max = options["loopMaximum"] do
+          if max = attrs["loopMaximum"] do
             {int, _} = Integer.parse(max)
             int
           else
@@ -145,11 +144,11 @@ defmodule BPXE.Engine.Activity do
     end
   end
 
-  def add_standard_loop_characteristics(node, id, options) do
-    call(node, {:add_standard_loop_characteristics, id, options})
+  def add_standard_loop_characteristics(node, id, attrs) do
+    call(node, {:add_standard_loop_characteristics, id, attrs})
   end
 
-  def add_loop_condition(node, id, options, body) do
-    call(node, {:add_loop_condition, id, options, body})
+  def add_loop_condition(node, id, attrs, body) do
+    call(node, {:add_loop_condition, id, attrs, body})
   end
 end

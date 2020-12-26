@@ -8,22 +8,22 @@ defmodule BPXE.Engine.Event do
   defstate type: nil, activated: nil
   @persist_state :activated
 
-  def start_link(id, type, options, model, process) do
-    start_link([{id, type, options, model, process}])
+  def start_link(id, type, attrs, model, process) do
+    start_link([{id, type, attrs, model, process}])
   end
 
-  def add_signal_event_definition(pid, options) do
-    call(pid, {:add_signal_event_definition, options})
+  def add_signal_event_definition(pid, attrs) do
+    call(pid, {:add_signal_event_definition, attrs})
   end
 
-  def init({id, type, options, model, process}) do
+  def init({id, type, attrs, model, process}) do
     :syn.register({model.pid, :event, type, id}, self())
 
     state =
       %__MODULE__{type: type}
       |> put_state(Base, %{
         id: id,
-        options: options,
+        attrs: attrs,
         model: model,
         process: process
       })
@@ -34,12 +34,12 @@ defmodule BPXE.Engine.Event do
     enter_loop(state)
   end
 
-  def handle_call({:add_signal_event_definition, options}, _from, state) do
+  def handle_call({:add_signal_event_definition, attrs}, _from, state) do
     base_state = get_state(state, BPXE.Engine.Base)
     # Camunda Modeler creates signalEventDefinitions without `signalRef`, just `id`,
     # so if `signalRef` is not used, fall back to `id`.
-    :syn.join({base_state.model.pid, :signal, options["signalRef"] || options["id"]}, self())
-    {:reply, {:ok, options}, state}
+    :syn.join({base_state.model.pid, :signal, attrs["signalRef"] || attrs["id"]}, self())
+    {:reply, {:ok, attrs}, state}
   end
 
   def handle_token({%BPXE.Token{} = token, _id}, %__MODULE__{type: :startEvent} = state) do

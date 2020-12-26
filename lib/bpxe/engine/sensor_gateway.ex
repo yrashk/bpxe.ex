@@ -21,14 +21,14 @@ defmodule BPXE.Engine.SensorGateway do
   defstate fired: []
   @persist_state :fired
 
-  def start_link(id, options, model, process) do
-    GenServer.start_link(__MODULE__, {id, options, model, process})
+  def start_link(id, attrs, model, process) do
+    GenServer.start_link(__MODULE__, {id, attrs, model, process})
   end
 
-  def init({id, options, model, process}) do
+  def init({id, attrs, model, process}) do
     state =
       %__MODULE__{}
-      |> put_state(Base, %{id: id, options: options, model: model, process: process})
+      |> put_state(Base, %{id: id, attrs: attrs, model: model, process: process})
 
     state = initialize(state)
     {:ok, state}

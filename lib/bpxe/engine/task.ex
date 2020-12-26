@@ -8,20 +8,20 @@ defmodule BPXE.Engine.Task do
 
   defstate type: nil, script: ""
 
-  def start_link(id, type, options, model, process) do
-    start_link([{id, type, options, model, process}])
+  def start_link(id, type, attrs, model, process) do
+    start_link([{id, type, attrs, model, process}])
   end
 
   def add_script(pid, script) do
     call(pid, {:add_script, script})
   end
 
-  def init({id, type, options, model, process}) do
+  def init({id, type, attrs, model, process}) do
     state =
       %__MODULE__{type: type}
       |> put_state(Base, %{
         id: id,
-        options: options,
+        attrs: attrs,
         model: model,
         process: process
       })
@@ -101,7 +101,7 @@ defmodule BPXE.Engine.Task do
         {token, _id},
         %__MODULE__{
           type: :serviceTask,
-          __layers__: %{Base => %{options: %{{@bpxe_spec, "name"} => service}}}
+          __layers__: %{Base => %{attrs: %{{@bpxe_spec, "name"} => service}}}
         } = state
       ) do
     base_state = get_state(state, BPXE.Engine.Base)
@@ -170,7 +170,7 @@ defmodule BPXE.Engine.Task do
         )
 
       token =
-        if result_var = base_state.options[{@bpxe_spec, "resultVariable"}] do
+        if result_var = base_state.attrs[{@bpxe_spec, "resultVariable"}] do
           %{token | payload: Map.put(token.payload, result_var, response.payload)}
         else
           token

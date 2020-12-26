@@ -5,26 +5,26 @@ defmodule BPXE.BPMN.Handler.Engine do
   alias BPXE.Engine
 
   @impl BPMNHandler
-  def add_process(model, %{"id" => id} = options) do
+  def add_process(model, %{"id" => id} = attrs) do
     id = id || generate_id()
-    Engine.Model.add_process(model, id, options)
+    Engine.Model.add_process(model, id, attrs)
   end
 
   @impl BPMNHandler
-  def add_event(process, type, %{"id" => id} = options) do
+  def add_event(process, type, %{"id" => id} = attrs) do
     id = id || generate_id()
-    Engine.Process.add_event(process, id, type, options)
+    Engine.Process.add_event(process, id, type, attrs)
   end
 
   @impl BPMNHandler
-  def add_signal_event_definition(event, options) do
-    Engine.Event.add_signal_event_definition(event, options)
+  def add_signal_event_definition(event, attrs) do
+    Engine.Event.add_signal_event_definition(event, attrs)
   end
 
   @impl BPMNHandler
-  def add_task(process, %{"id" => id} = options, type \\ :task) do
+  def add_task(process, %{"id" => id} = attrs, type \\ :task) do
     id = id || generate_id()
-    Engine.Process.add_task(process, id, type, options)
+    Engine.Process.add_task(process, id, type, attrs)
   end
 
   @impl BPMNHandler
@@ -33,13 +33,13 @@ defmodule BPXE.BPMN.Handler.Engine do
   end
 
   @impl BPMNHandler
-  def add_standard_loop_characteristics(activity, id, options) do
-    Engine.Activity.add_standard_loop_characteristics(activity, id, options)
+  def add_standard_loop_characteristics(activity, id, attrs) do
+    Engine.Activity.add_standard_loop_characteristics(activity, id, attrs)
   end
 
   @impl BPMNHandler
-  def add_loop_condition(loop, id, options, body) do
-    Engine.Activity.add_loop_condition(loop, id, options, body)
+  def add_loop_condition(loop, id, attrs, body) do
+    Engine.Activity.add_loop_condition(loop, id, attrs, body)
   end
 
   @impl BPMNHandler
@@ -53,32 +53,32 @@ defmodule BPXE.BPMN.Handler.Engine do
   end
 
   @impl BPMNHandler
-  def add_sequence_flow(process, %{"id" => id} = options) do
+  def add_sequence_flow(process, %{"id" => id} = attrs) do
     id = id || generate_id()
-    Engine.Process.add_sequence_flow(process, id, options)
+    Engine.Process.add_sequence_flow(process, id, attrs)
   end
 
   @impl BPMNHandler
-  def add_condition_expression(node, options, body) do
-    Engine.FlowNode.add_condition_expression(node, options, body)
+  def add_condition_expression(node, attrs, body) do
+    Engine.FlowNode.add_condition_expression(node, attrs, body)
   end
 
   @impl BPMNHandler
-  def add_parallel_gateway(process, %{"id" => id} = options) do
+  def add_parallel_gateway(process, %{"id" => id} = attrs) do
     id = id || generate_id()
-    Engine.Process.add_parallel_gateway(process, id, options)
+    Engine.Process.add_parallel_gateway(process, id, attrs)
   end
 
   @impl BPMNHandler
-  def add_inclusive_gateway(process, %{"id" => id} = options) do
+  def add_inclusive_gateway(process, %{"id" => id} = attrs) do
     id = id || generate_id()
-    Engine.Process.add_inclusive_gateway(process, id, options)
+    Engine.Process.add_inclusive_gateway(process, id, attrs)
   end
 
   @impl BPMNHandler
-  def add_event_based_gateway(process, %{"id" => id} = options) do
+  def add_event_based_gateway(process, %{"id" => id} = attrs) do
     id = id || generate_id()
-    Engine.Process.add_event_based_gateway(process, id, options)
+    Engine.Process.add_event_based_gateway(process, id, attrs)
   end
 
   @impl BPMNHandler
