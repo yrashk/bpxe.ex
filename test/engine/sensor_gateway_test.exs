@@ -1,48 +1,47 @@
 defmodule BPXETest.Engine.SensorGateway do
   use ExUnit.Case, async: true
-  alias BPXE.Engine.{Model, Process, FlowNode}
+  alias BPXE.Engine.{Model, Process, SequenceFlow}
   alias BPXE.Engine.Process.Log
   doctest BPXE.Engine.SensorGateway
 
   @xsi "http://www.w3.org/2001/XMLSchema-instance"
   test "sends completion notification with fired sequence flows" do
     {:ok, pid} = Model.start_link()
-    {:ok, proc1} = Model.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
+    {:ok, proc1} = Model.add_process(pid, %{"id" => "proc1", "name" => "Proc 1"})
 
-    {:ok, start} = Process.add_event(proc1, "start", :startEvent, %{"id" => "start"})
+    {:ok, start} = Process.add_start_event(proc1, %{"id" => "start"})
 
-    {:ok, fork} = Process.add_parallel_gateway(proc1, "fork", %{"id" => "fork"})
+    {:ok, fork} = Process.add_parallel_gateway(proc1, %{"id" => "fork"})
     {:ok, _} = Process.establish_sequence_flow(proc1, "s1", start, fork)
 
-    {:ok, sensor} = Process.add_sensor_gateway(proc1, "sensor", %{"id" => "sensor"})
+    {:ok, sensor} = Process.add_sensor_gateway(proc1, %{"id" => "sensor"})
 
     {:ok, t1sf} = Process.establish_sequence_flow(proc1, "fork_1", fork, sensor)
     {:ok, t2sf} = Process.establish_sequence_flow(proc1, "fork_2", fork, sensor)
     {:ok, t3sf} = Process.establish_sequence_flow(proc1, "fork_3", fork, sensor)
     {:ok, _} = Process.establish_sequence_flow(proc1, "completion", fork, sensor)
 
-    FlowNode.add_condition_expression(
+    SequenceFlow.add_condition_expression(
       t1sf,
       %{{@xsi, "type"} => "tFormalExpression"},
       "`true`"
     )
 
-    FlowNode.add_condition_expression(
+    SequenceFlow.add_condition_expression(
       t2sf,
       %{{@xsi, "type"} => "tFormalExpression"},
       "`true`"
     )
 
-    FlowNode.add_condition_expression(
+    SequenceFlow.add_condition_expression(
       t3sf,
       %{{@xsi, "type"} => "tFormalExpression"},
       "`false`"
     )
 
-    {:ok, join} = Process.add_parallel_gateway(proc1, "join", %{"id" => "join"})
+    {:ok, join} = Process.add_parallel_gateway(proc1, %{"id" => "join"})
 
-    {:ok, sensor_reader} =
-      Process.add_task(proc1, "sensorReader", :task, %{"id" => "sensorReader"})
+    {:ok, sensor_reader} = Process.add_task(proc1, %{"id" => "sensorReader"})
 
     {:ok, _} = Process.establish_sequence_flow(proc1, "join_1", sensor, join)
     {:ok, _} = Process.establish_sequence_flow(proc1, "join_2", sensor, join)

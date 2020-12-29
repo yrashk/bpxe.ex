@@ -2,7 +2,6 @@ defmodule BPXETest.BPMN.JSON do
   use ExUnit.Case, async: true
   doctest BPXE.BPMN.JSON
   alias BPXE.Engine.{Model, Models}
-  import BPXETest.Utils
 
   @json [
     %{"test" => 123, "world" => "hello", "again" => %{"yes" => 321}},
@@ -36,18 +35,7 @@ defmodule BPXETest.BPMN.JSON do
   end
 
   defp jsons(pid) do
-    alias BPXE.Engine.Model.Recordable.Ref
     model = Model.model(pid)
-
-    extension_elements = find_model(model, ["process", "task", :add_extension_elements])
-
-    Enum.filter(model[extension_elements], fn
-      %Ref{payload: {:add_json, nil, _}} = ref ->
-        ref
-
-      _ ->
-        false
-    end)
-    |> Enum.map(fn %Ref{payload: {:add_json, nil, json}} -> json end)
+    Warpath.query!(model, "$.process.serviceTask.extensionElements.:json[*].:body")
   end
 end

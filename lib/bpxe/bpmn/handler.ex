@@ -1,27 +1,9 @@
 defmodule BPXE.BPMN.Handler do
-  @callback add_process(term, Map.t()) :: {:ok, term} | {:error, term}
-  @callback add_event(term, type :: atom, Map.t()) :: {:ok, term} | {:error, term}
-  @callback add_signal_event_definition(term, Map.t()) :: {:ok, term} | {:error, term}
-  @callback add_task(term, Map.t()) :: {:ok, term} | {:error, term}
-  @callback add_task(term, Map.t(), type :: atom) :: {:ok, term} | {:error, term}
-  @callback add_script(term, String.t()) :: {:ok, term} | {:error, term}
-  @callback add_outgoing(term, name :: String.t()) :: {:ok, term} | {:error, term}
-  @callback add_incoming(term, name :: String.t()) :: {:ok, term} | {:error, term}
-  @callback add_sequence_flow(term, Map.t()) :: {:ok, term} | {:error, term}
-  @callback add_condition_expression(term, Map.t(), String.t()) :: {:ok, term} | {:error, term}
-  @callback add_parallel_gateway(term, Map.t()) :: {:ok, term} | {:error, term}
-  @callback add_inclusive_gateway(term, Map.t()) :: {:ok, term} | {:error, term}
-  @callback add_event_based_gateway(term, Map.t()) :: {:ok, term} | {:error, term}
-  @callback add_extension_elements(term) :: {:ok, term} | {:error, term}
-  @callback add_json(term, term) :: {:ok, term} | {:error, term}
-  @callback add_standard_loop_characteristics(term, term, Map.t()) :: {:ok, term} | {:error, term}
-  @callback add_loop_condition(term, term, Map.t(), String.t()) :: {:ok, term} | {:error, term}
-  @callback complete(term) :: {:ok, term} | {:error, term}
-
   @behaviour Saxy.Handler
 
+  import BPXE.Helpers
+
   defstruct ns: %{},
-            handler: BPXE.BPMN.Handler.Engine,
             current: [],
             characters: nil,
             attrs: nil,
@@ -44,8 +26,7 @@ defmodule BPXE.BPMN.Handler do
   def handle_event(:start_document, _prolog, options) when is_list(options) do
     {:ok,
      %__MODULE__{
-       handler: options[:handler] || BPXE.BPMN.Handler.Engine,
-       current: [options[:model]]
+       current: [{options[:model], nil}]
      }}
   end
 
@@ -86,295 +67,52 @@ defmodule BPXE.BPMN.Handler do
     handle_event(:end_element, split_ns(element, ns), state)
   end
 
-  def handle_event(
-        :start_element,
-        {{bpmn, "definitions"}, _attrs},
-        %__MODULE__{ns: %{@bpmn_spec => bpmn}} = state
-      ) do
-    {:ok, state}
-  end
+  # Handle all elements from the specification
+  for {element, _} <- BPXE.BPMN.Semantic.elements() do
+    @element element
+    element_spec =
+      if element in Map.keys(BPXE.BPMN.Semantic.core_elements()) do
+        @bpmn_spec
+      else
+        @bpxe_spec
+      end
 
-  def handle_event(
-        :start_element,
-        {{bpmn, "process"}, attrs},
-        %__MODULE__{ns: %{@bpmn_spec => bpmn}, current: [model | _], handler: handler} = state
-      )
-      when not is_nil(model) do
-    handler.add_process(model, attrs)
-    |> Result.map(fn process -> %{state | current: [process | state.current]} end)
-  end
+    @element_spec element_spec
 
-  def handle_event(
-        :end_element,
-        {bpmn, "process"},
-        %__MODULE__{ns: %{@bpmn_spec => bpmn}} = state
-      ) do
-    {:ok, %{state | current: tl(state.current)}}
-  end
+    def handle_event(
+          :start_element,
+          {{ns, @element}, attrs},
+          %__MODULE__{ns: %{@element_spec => ns}, current: [{handler, node} | _] = current} =
+            state
+        ) do
+      attrs = update_in(attrs["id"], &(&1 || generate_id()))
 
-  def handle_event(
-        :start_element,
-        {{bpmn, "parallelGateway"}, attrs},
-        %__MODULE__{ns: %{@bpmn_spec => bpmn}, handler: handler, current: [current | _]} = state
-      ) do
-    handler.add_parallel_gateway(current, attrs)
-    |> Result.map(fn gateway -> %{state | current: [gateway | state.current]} end)
-  end
+      GenServer.call(handler, {:add_node, node, @element, attrs})
+      |> result()
+      |> Result.map(fn {handler_, node_} ->
+        %{state | current: [{handler_, node_} | current], attrs: attrs, characters: ""}
+      end)
+      |> Result.and_then(fn state ->
+        complete_event(:start_element, {{ns, @element}, attrs}, state)
+      end)
+    end
 
-  def handle_event(
-        :end_element,
-        {bpmn, "parallelGateway"},
-        %__MODULE__{ns: %{@bpmn_spec => bpmn}} = state
-      ) do
-    {:ok, %{state | current: tl(state.current)}}
-  end
-
-  def handle_event(
-        :start_element,
-        {{bpmn, "inclusiveGateway"}, attrs},
-        %__MODULE__{ns: %{@bpmn_spec => bpmn}, handler: handler, current: [current | _]} = state
-      ) do
-    handler.add_inclusive_gateway(current, attrs)
-    |> Result.map(fn gateway -> %{state | current: [gateway | state.current]} end)
-  end
-
-  def handle_event(
-        :end_element,
-        {bpmn, "inclusiveGateway"},
-        %__MODULE__{ns: %{@bpmn_spec => bpmn}} = state
-      ) do
-    {:ok, %{state | current: tl(state.current)}}
-  end
-
-  def handle_event(
-        :start_element,
-        {{bpmn, "eventBasedGateway"}, attrs},
-        %__MODULE__{ns: %{@bpmn_spec => bpmn}, handler: handler, current: [current | _]} = state
-      ) do
-    handler.add_event_based_gateway(current, attrs)
-    |> Result.map(fn gateway -> %{state | current: [gateway | state.current]} end)
-  end
-
-  def handle_event(
-        :end_element,
-        {bpmn, "eventBasedGateway"},
-        %__MODULE__{ns: %{@bpmn_spec => bpmn}} = state
-      ) do
-    {:ok, %{state | current: tl(state.current)}}
-  end
-
-  @event_types ~w(startEvent intermediateCatchEvent intermediateThrowEvent implicitThrowEvent boundaryEvent endEvent)
-
-  def handle_event(
-        :start_element,
-        {{bpmn, event}, attrs},
-        %__MODULE__{ns: %{@bpmn_spec => bpmn}, handler: handler, current: [process | _]} = state
-      )
-      when event in @event_types do
-    handler.add_event(process, String.to_atom(event), attrs)
-    |> Result.map(fn event -> %{state | current: [event | state.current]} end)
-  end
-
-  def handle_event(
-        :end_element,
-        {bpmn, event},
-        %__MODULE__{ns: %{@bpmn_spec => bpmn}} = state
-      )
-      when event in @event_types do
-    {:ok, %{state | current: tl(state.current)}}
-  end
-
-  def handle_event(
-        :start_element,
-        {{bpmn, "signalEventDefinition"}, attrs},
-        %__MODULE__{ns: %{@bpmn_spec => bpmn}, handler: handler, current: [process | _]} = state
-      ) do
-    handler.add_signal_event_definition(process, attrs)
-    |> Result.map(fn _ -> state end)
-  end
-
-  @task_types ~w(task serviceTask sendTask receiveTask userTask manualTask
-    businessRuleTask scriptTask subProcess adHocSubProcess transaction callActivity)
-
-  def handle_event(
-        :start_element,
-        {{bpmn, task}, attrs},
-        %__MODULE__{ns: %{@bpmn_spec => bpmn}, handler: handler, current: [process | _]} = state
-      )
-      when task in @task_types do
-    handler.add_task(process, attrs, String.to_atom(task))
-    |> Result.map(fn event -> %{state | current: [event | state.current]} end)
-  end
-
-  def handle_event(
-        :end_element,
-        {bpmn, task},
-        %__MODULE__{ns: %{@bpmn_spec => bpmn}} = state
-      )
-      when task in @task_types do
-    {:ok, %{state | current: tl(state.current)}}
-  end
-
-  def handle_event(
-        :start_element,
-        {{bpmn, "script"}, _attrs},
-        %__MODULE__{ns: %{@bpmn_spec => bpmn}, characters: nil} = state
-      ) do
-    {:ok, %{state | characters: ""}}
-  end
-
-  def handle_event(
-        :end_element,
-        {bpmn, "script"},
-        %__MODULE__{
-          ns: %{@bpmn_spec => bpmn},
-          handler: handler,
-          characters: characters,
-          current: [current | _]
-        } = state
-      ) do
-    handler.add_script(current, characters)
-    |> Result.map(fn _ -> %{state | characters: nil, current: state.current} end)
-  end
-
-  def handle_event(
-        :start_element,
-        {{bpmn, "standardLoopCharacteristics"}, attrs},
-        %__MODULE__{ns: %{@bpmn_spec => bpmn}, current: [node | _] = current, handler: handler} =
-          state
-      ) do
-    handler.add_standard_loop_characteristics(node, attrs["id"], attrs)
-    |> Result.map(fn loop -> %{state | current: [loop | current]} end)
-  end
-
-  def handle_event(
-        :start_element,
-        {{bpmn, "loopCondition"}, attrs},
-        %__MODULE__{ns: %{@bpmn_spec => bpmn}, characters: nil} = state
-      ) do
-    {:ok, %{state | characters: "", attrs: attrs}}
-  end
-
-  def handle_event(
-        :end_element,
-        {bpmn, "loopCondition"},
-        %__MODULE__{
-          ns: %{@bpmn_spec => bpmn},
-          handler: handler,
-          characters: characters,
-          current: [current | _]
-        } = state
-      ) do
-    handler.add_loop_condition(current, state.attrs["id"], state.attrs, characters)
-    |> Result.map(fn _ -> %{state | characters: nil, current: state.current, attrs: nil} end)
-  end
-
-  def handle_event(
-        :end_element,
-        {bpmn, "standardLoopCharacteristics"},
-        %__MODULE__{ns: %{@bpmn_spec => bpmn}, current: [_ | rest]} = state
-      ) do
-    %{state | current: rest}
-  end
-
-  def handle_event(
-        :start_element,
-        {{bpmn, "outgoing"}, _attrs},
-        %__MODULE__{ns: %{@bpmn_spec => bpmn}, characters: nil} = state
-      ) do
-    {:ok, %{state | characters: ""}}
-  end
-
-  def handle_event(
-        :start_element,
-        {{bpmn, "incoming"}, _attrs},
-        %__MODULE__{ns: %{@bpmn_spec => bpmn}, characters: nil} = state
-      ) do
-    {:ok, %{state | characters: ""}}
-  end
-
-  def handle_event(
-        :end_element,
-        {bpmn, "outgoing"},
-        %__MODULE__{
-          ns: %{@bpmn_spec => bpmn},
-          handler: handler,
-          characters: outgoing,
-          current: [event | _]
-        } = state
-      ) do
-    handler.add_outgoing(event, outgoing)
-    |> Result.map(fn _ -> %{state | characters: nil} end)
-  end
-
-  def handle_event(
-        :end_element,
-        {bpmn, "incoming"},
-        %__MODULE__{
-          ns: %{@bpmn_spec => bpmn},
-          handler: handler,
-          characters: incoming,
-          current: [event | _]
-        } = state
-      ) do
-    handler.add_incoming(event, incoming)
-    |> Result.map(fn _ -> %{state | characters: nil} end)
-  end
-
-  def handle_event(
-        :start_element,
-        {{bpmn, "sequenceFlow"}, attrs},
-        %__MODULE__{ns: %{@bpmn_spec => bpmn}, handler: handler, current: [current | _]} = state
-      ) do
-    handler.add_sequence_flow(current, attrs)
-    |> Result.map(fn flow -> %{state | current: [flow | state.current]} end)
-  end
-
-  def handle_event(
-        :end_element,
-        {bpmn, "sequenceFlow"},
-        %__MODULE__{ns: %{@bpmn_spec => bpmn}, current: [_ | rest]} = state
-      ) do
-    {:ok, %{state | current: rest}}
-  end
-
-  def handle_event(
-        :start_element,
-        {{bpmn, "conditionExpression"}, attrs},
-        %__MODULE__{ns: %{@bpmn_spec => bpmn}, characters: nil} = state
-      ) do
-    {:ok, %{state | characters: "", attrs: attrs}}
-  end
-
-  def handle_event(
-        :end_element,
-        {bpmn, "conditionExpression"},
-        %__MODULE__{
-          ns: %{@bpmn_spec => bpmn},
-          handler: handler,
-          characters: body,
-          current: [flow | _],
-          attrs: attrs
-        } = state
-      ) do
-    handler.add_condition_expression(flow, attrs, body)
-    |> Result.map(fn _ -> %{state | characters: nil, attrs: nil} end)
-  end
-
-  def handle_event(
-        :start_element,
-        {{bpmn, "extensionElements"}, _attrs},
-        %__MODULE__{
-          ns: %{@bpmn_spec => bpmn},
-          handler: handler,
-          current: [node | _] = current,
-          extension: nil
-        } = state
-      ) do
-    handler.add_extension_elements(node)
-    |> Result.map(fn result ->
-      %{state | extension: true, current: [result | current], extension_top: 0}
-    end)
+    def handle_event(
+          :end_element,
+          {ns, @element},
+          %__MODULE__{
+            ns: %{@element_spec => ns},
+            current: [{handler, node} | rest],
+            characters: characters
+          } = state
+        ) do
+      GenServer.call(handler, {:complete_node, node, characters})
+      |> result()
+      |> Result.map(fn _ -> %{state | current: rest, characters: nil} end)
+      |> Result.and_then(fn state ->
+        complete_event(:end_element, {ns, @element}, state)
+      end)
+    end
   end
 
   def handle_event(
@@ -393,8 +131,7 @@ defmodule BPXE.BPMN.Handler do
         {bpxe, "json"},
         %__MODULE__{
           ns: %{@bpxe_spec => bpxe},
-          handler: handler,
-          current: [node | _],
+          current: [{handler, node} | _],
           extension: true,
           characters: characters
         } = state
@@ -415,7 +152,7 @@ defmodule BPXE.BPMN.Handler do
         {:error, {:unexpected_interpolation, other}}
     end
     |> Result.and_then(fn json ->
-      handler.add_json(node, json)
+      GenServer.call(handler, {:add_json, node, json})
     end)
     |> Result.map(fn _ ->
       %{state | characters: nil}
@@ -460,15 +197,14 @@ defmodule BPXE.BPMN.Handler do
           ns: %{@json_spec => json},
           extension: extension,
           extension_top: extension_top,
-          current: [node | _],
-          handler: handler
+          current: [{handler, node} | _]
         } = state
       )
       when not is_nil(extension) do
     BPXE.BPMN.JSON.handle_event(:end_element, element, state.extension)
     |> Result.map(fn result ->
       if extension_top == 1 do
-        handler.add_json(node, BPXE.BPMN.JSON.prepare(result))
+        GenServer.call(handler, {:add_json, node, BPXE.BPMN.JSON.prepare(result)})
         true
       else
         result
@@ -477,14 +213,6 @@ defmodule BPXE.BPMN.Handler do
     |> Result.map(fn result ->
       %{state | extension: result, extension_top: extension_top - 1}
     end)
-  end
-
-  def handle_event(
-        :end_element,
-        {bpmn, "extensionElements"},
-        %__MODULE__{ns: %{@bpmn_spec => bpmn}, current: [_ | rest]} = state
-      ) do
-    {:ok, %{state | extension: nil, extension_top: nil, current: rest}}
   end
 
   def handle_event(
@@ -514,11 +242,36 @@ defmodule BPXE.BPMN.Handler do
     {:ok, state}
   end
 
-  def handle_event(:end_document, _, %__MODULE__{current: [model], handler: handler}) do
-    handler.complete(model)
-  end
-
   def handle_event(_event, _arg, state) do
     {:ok, state}
+  end
+
+  def complete_event(
+        :start_element,
+        {{bpmn, "extensionElements"}, _attrs},
+        %__MODULE__{
+          ns: %{@bpmn_spec => bpmn}
+        } = state
+      ) do
+    {:ok, %{state | extension: true, extension_top: 0}}
+  end
+
+  def complete_event(
+        :end_element,
+        {bpmn, "extensionElements"},
+        %__MODULE__{
+          ns: %{@bpmn_spec => bpmn}
+        } = state
+      ) do
+    {:ok, %{state | extension: nil, extension_top: nil}}
+  end
+
+  def complete_event(_, _, state) do
+    {:ok, state}
+  end
+
+  defp generate_id() do
+    {m, f, a} = Application.get_env(:bpxe, :spec_id_generator)
+    apply(m, f, a)
   end
 end

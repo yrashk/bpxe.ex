@@ -1,7 +1,6 @@
 defmodule BPXE.Engine.InclusiveGateway do
   alias BPXE.Engine.{Process, FlowNode, Base}
   alias BPXE.Engine.Process.Log
-  use BPXE.Engine.Model.Recordable
   use GenServer
   use FlowNode
 
@@ -12,14 +11,14 @@ defmodule BPXE.Engine.InclusiveGateway do
   @persist_state :fired
   @persist_state :incoming_tokens
 
-  def start_link(id, attrs, model, process) do
-    GenServer.start_link(__MODULE__, {id, attrs, model, process})
+  def start_link(element, attrs, model, process) do
+    GenServer.start_link(__MODULE__, {element, attrs, model, process})
   end
 
-  def init({id, attrs, model, process}) do
+  def init({_element, attrs, model, process}) do
     state =
       %__MODULE__{}
-      |> put_state(Base, %{id: id, attrs: attrs, model: model, process: process})
+      |> put_state(Base, %{attrs: attrs, model: model, process: process})
 
     state = initialize(state)
     {:ok, state}
@@ -30,7 +29,7 @@ defmodule BPXE.Engine.InclusiveGateway do
 
     Process.log(base_state.process, %Log.InclusiveGatewayReceived{
       pid: self(),
-      id: base_state.id,
+      id: base_state.attrs["id"],
       token_id: token.token_id,
       from: id
     })
@@ -42,7 +41,7 @@ defmodule BPXE.Engine.InclusiveGateway do
         # only one incoming, we're done (fork)
         Process.log(base_state.process, %Log.InclusiveGatewayCompleted{
           pid: self(),
-          id: base_state.id,
+          id: base_state.attrs["id"],
           token_id: token.token_id
         })
 
@@ -52,7 +51,7 @@ defmodule BPXE.Engine.InclusiveGateway do
         # there's a token but it couldn't come from anywhere. What gives?
         Process.log(base_state.process, %Log.InclusiveGatewayCompleted{
           pid: self(),
-          id: base_state.id,
+          id: base_state.attrs["id"],
           token_id: nil
         })
 
@@ -102,7 +101,7 @@ defmodule BPXE.Engine.InclusiveGateway do
     if all_fired? do
       Process.log(base_state.process, %Log.InclusiveGatewayCompleted{
         pid: self(),
-        id: base_state.id,
+        id: base_state.attrs["id"],
         token_id: fired_token.payload.token_id,
         fired:
           fired_token.payload.fired
@@ -156,29 +155,28 @@ defmodule BPXE.Engine.InclusiveGateway do
           # it's one -- a fork-condition-<something>-join, still should skip it
           # if the condition was not satisfied)
           g = G.new()
-          G.add_vertex(g, base_state.id)
+          G.add_vertex(g, base_state.attrs["id"])
 
-          if build_graph(g, base_state.id, state) == :found do
+          if build_graph(g, base_state.attrs["id"], state) == :found do
             fork_id = GU.topsort(g) |> List.first()
             fork = FlowNode.whereis(base_state.model.pid, fork_id)
             gw_id = {:synthesized_sensor_gateway, fork_id}
-            {:ok, gw} = Process.add_sensor_gateway(process, gw_id, %{"id" => gw_id})
+            {:ok, gw} = Process.add_sensor_gateway(process, %{"id" => gw_id})
             outgoing = FlowNode.get_outgoing(fork)
             FlowNode.clear_outgoing(fork)
 
             # Rewire outgoing
-            sequence_flows = FlowNode.get_sequence_flows(fork)
-            FlowNode.clear_sequence_flows(fork)
+            sequence_flows = sequence_flows(state)
 
             for sequence_flow <- outgoing do
               {_, attrs} = Enum.find(sequence_flows, fn {k, _} -> k == sequence_flow end)
               successor = FlowNode.whereis(base_state.model.pid, attrs["targetRef"])
               in_flow_id = {:synthesized_sequence_flow, {:in, sequence_flow}}
               FlowNode.remove_incoming(successor, sequence_flow)
-              FlowNode.add_outgoing(fork, in_flow_id)
-              FlowNode.add_incoming(gw, in_flow_id)
+              FlowNode.add_outgoing(fork, %{}, in_flow_id)
+              FlowNode.add_incoming(gw, %{}, in_flow_id)
 
-              FlowNode.add_sequence_flow(fork, in_flow_id, %{
+              Process.add_sequence_flow(base_state.process, %{
                 "id" => in_flow_id,
                 "sourceRef" => fork_id,
                 "targetRef" => gw_id,
@@ -187,10 +185,10 @@ defmodule BPXE.Engine.InclusiveGateway do
 
               out_flow_id = {:synthesized_sequence_flow, {:out, sequence_flow}}
 
-              FlowNode.add_incoming(successor, out_flow_id)
-              FlowNode.add_outgoing(gw, out_flow_id)
+              FlowNode.add_incoming(successor, %{}, out_flow_id)
+              FlowNode.add_outgoing(gw, %{}, out_flow_id)
 
-              FlowNode.add_sequence_flow(gw, out_flow_id, %{
+              Process.add_sequence_flow(base_state.process, %{
                 "id" => out_flow_id,
                 "sourceRef" => gw_id,
                 "targetRef" => attrs["targetRef"]
@@ -199,10 +197,10 @@ defmodule BPXE.Engine.InclusiveGateway do
 
             # Add a completion flow to fork
             completion_id = {:synthesized_sequence_flow_completion, gw_id}
-            FlowNode.add_outgoing(fork, completion_id)
-            FlowNode.add_incoming(gw, completion_id)
+            FlowNode.add_outgoing(fork, %{}, completion_id)
+            FlowNode.add_incoming(gw, %{}, completion_id)
 
-            FlowNode.add_sequence_flow(fork, completion_id, %{
+            Process.add_sequence_flow(base_state.process, %{
               "id" => completion_id,
               "sourceRef" => fork_id,
               "targetRef" => gw_id
@@ -210,12 +208,12 @@ defmodule BPXE.Engine.InclusiveGateway do
 
             # Add a completion flow to sensor
             sensor_to_gateway_id = {:synethesized_senquence_flow_sensor, gw_id}
-            FlowNode.add_outgoing(gw, sensor_to_gateway_id)
+            FlowNode.add_outgoing(gw, %{}, sensor_to_gateway_id)
 
-            FlowNode.add_sequence_flow(gw, sensor_to_gateway_id, %{
+            Process.add_sequence_flow(base_state.process, %{
               "id" => sensor_to_gateway_id,
               "sourceRef" => gw_id,
-              "targetRef" => base_state.id
+              "targetRef" => base_state.attrs["id"]
             })
 
             state =
@@ -233,7 +231,7 @@ defmodule BPXE.Engine.InclusiveGateway do
   end
 
   defp incoming(current, %__MODULE__{
-         __layers__: %{FlowNode => %{incoming: incoming}, Base => %{id: current}}
+         __layers__: %{FlowNode => %{incoming: incoming}, Base => %{attrs: %{"id" => current}}}
        }),
        do: incoming
 

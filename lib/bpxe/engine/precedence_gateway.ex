@@ -11,7 +11,6 @@ defmodule BPXE.Engine.PrecedenceGateway do
   """
   use GenServer
   use BPXE.Engine.FlowNode
-  use BPXE.Engine.Model.Recordable
   alias BPXE.Engine.Process
   alias BPXE.Engine.Process.Log
 
@@ -19,14 +18,14 @@ defmodule BPXE.Engine.PrecedenceGateway do
 
   @persist_state :precedence
 
-  def start_link(id, attrs, model, process) do
-    GenServer.start_link(__MODULE__, {id, attrs, model, process})
+  def start_link(element, attrs, model, process) do
+    GenServer.start_link(__MODULE__, {element, attrs, model, process})
   end
 
-  def init({id, attrs, model, process}) do
+  def init({_element, attrs, model, process}) do
     state =
       %__MODULE__{}
-      |> put_state(Base, %{id: id, attrs: attrs, model: model, process: process})
+      |> put_state(Base, %{attrs: attrs, model: model, process: process})
 
     state = initialize(state)
     {:ok, state}
@@ -37,7 +36,7 @@ defmodule BPXE.Engine.PrecedenceGateway do
 
     Process.log(base_state.process, %Log.PrecedenceGatewayActivated{
       pid: self(),
-      id: base_state.id,
+      id: base_state.attrs["id"],
       token_id: token.token_id
     })
 
@@ -45,7 +44,7 @@ defmodule BPXE.Engine.PrecedenceGateway do
       nil ->
         Process.log(base_state.process, %Log.PrecedenceGatewayPrecedenceEstablished{
           pid: self(),
-          id: base_state.id,
+          id: base_state.attrs["id"],
           token_id: token.token_id
         })
 
@@ -65,7 +64,7 @@ defmodule BPXE.Engine.PrecedenceGateway do
       precedence ->
         Process.log(base_state.process, %Log.PrecedenceGatewayTokenDiscarded{
           pid: self(),
-          id: base_state.id,
+          id: base_state.attrs["id"],
           token_id: token.token_id
         })
 

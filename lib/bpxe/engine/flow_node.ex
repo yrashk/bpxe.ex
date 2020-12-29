@@ -1,6 +1,4 @@
 defmodule BPXE.Engine.FlowNode do
-  use BPXE.Engine.Model.Recordable
-
   defmacro __using__(_options \\ []) do
     quote location: :keep do
       use BPXE.Engine.Base
@@ -12,7 +10,11 @@ defmodule BPXE.Engine.FlowNode do
 
       @persist_state {BPXE.Engine.FlowNode, :buffer}
 
-      def handle_call({:add_incoming, id}, _from, state) do
+      def handle_call({:add_node, _, "incoming", _attrs}, _from, state) do
+        {:reply, {:ok, {self(), :incoming}}, state}
+      end
+
+      def handle_call({:complete_node, :incoming, id}, _from, state) do
         :syn.join({get_state(state, BPXE.Engine.Base).model.pid, :flow_out, id}, self())
         flow_node_state = get_state(state, BPXE.Engine.FlowNode)
 
@@ -59,7 +61,12 @@ defmodule BPXE.Engine.FlowNode do
         {:reply, :ok, state}
       end
 
-      def handle_call({:add_outgoing, id}, _from, state) do
+      def handle_call({:add_node, _, "outgoing", _attrs}, _from, state) do
+        {:reply, {:ok, {self(), :outgoing}}, state}
+      end
+
+      def handle_call({:complete_node, :outgoing, id}, _from, state) do
+        :syn.join({get_state(state, BPXE.Engine.Base).model.pid, :flow_sequence, id}, self())
         flow_node_state = get_state(state, BPXE.Engine.FlowNode)
 
         state =
@@ -77,6 +84,7 @@ defmodule BPXE.Engine.FlowNode do
       end
 
       def handle_call({:remove_outgoing, id}, _from, state) do
+        :syn.leave({get_state(state, BPXE.Engine.Base).model.pid, :flow_sequence, id}, self())
         flow_node_state = get_state(state, BPXE.Engine.FlowNode)
 
         state =
@@ -91,6 +99,13 @@ defmodule BPXE.Engine.FlowNode do
       def handle_call(:clear_outgoing, _from, state) do
         flow_node_state = get_state(state, BPXE.Engine.FlowNode)
 
+        for outgoing <- flow_node_state.outgoing do
+          :syn.leave(
+            {get_state(state, BPXE.Engine.Base).model.pid, :flow_sequence, outgoing},
+            self()
+          )
+        end
+
         state =
           put_state(state, BPXE.Engine.FlowNode, %{
             flow_node_state
@@ -98,75 +113,6 @@ defmodule BPXE.Engine.FlowNode do
           })
 
         {:reply, :ok, state}
-      end
-
-      def handle_call({:add_sequence_flow, id, attrs}, _from, state) do
-        :syn.join({get_state(state, BPXE.Engine.Base).model.pid, :flow_sequence, id}, self())
-
-        flow_node_state = get_state(state, BPXE.Engine.FlowNode)
-
-        state =
-          put_state(state, BPXE.Engine.FlowNode, %{
-            flow_node_state
-            | sequence_flows: Map.put(flow_node_state.sequence_flows, id, attrs),
-              sequence_flow_order: [id | flow_node_state.sequence_flow_order]
-          })
-
-        {:reply, {:ok, {FlowNode, {:sequence_flow, self(), id}}}, state}
-      end
-
-      def handle_call({:add_condition_expression, id, attrs, body}, _from, state) do
-        flow_node_state = get_state(state, BPXE.Engine.FlowNode)
-
-        case Map.get(flow_node_state.sequence_flows, id) do
-          nil ->
-            {:reply, {:error, :not_found}, state}
-
-          sequence_flow ->
-            state =
-              put_state(state, BPXE.Engine.FlowNode, %{
-                flow_node_state
-                | sequence_flows:
-                    Map.put(
-                      flow_node_state.sequence_flows,
-                      id,
-                      Map.put(sequence_flow, :conditionExpression, {attrs, body})
-                    )
-              })
-
-            {:reply, :ok, state}
-        end
-      end
-
-      def handle_call(:clear_sequence_flows, _from, state) do
-        flow_node_state = get_state(state, BPXE.Engine.FlowNode)
-
-        state =
-          put_state(state, BPXE.Engine.FlowNode, %{
-            flow_node_state
-            | sequence_flows: %{},
-              sequence_flow_order: []
-          })
-
-        {:reply, :ok, state}
-      end
-
-      def handle_call({:remove_sequence_flow, id}, _from, state) do
-        flow_node_state = get_state(state, BPXE.Engine.FlowNode)
-        :syn.leave({get_state(state, BPXE.Engine.Base).model.pid, :flow_sequence, id}, self())
-
-        state =
-          put_state(state, BPXE.Engine.FlowNode, %{
-            flow_node_state
-            | sequence_flows: Map.delete(flow_node_state.sequence_flows, id),
-              sequence_flow_order: flow_node_state.sequence_flow_order -- [id]
-          })
-
-        {:reply, Map.get(flow_node_state.sequence_flows, id), state}
-      end
-
-      def handle_call(:get_sequence_flows, _from, state) do
-        {:reply, get_state(state, BPXE.Engine.FlowNode).sequence_flows, state}
       end
 
       def handle_call(:get_incoming, _from, state) do
@@ -218,7 +164,7 @@ defmodule BPXE.Engine.FlowNode do
 
         Process.log(base_state.process, %Log.FlowNodeActivated{
           pid: self(),
-          id: base_state.id,
+          id: base_state.attrs["id"],
           token: token,
           token_id: token.token_id
         })
@@ -238,18 +184,21 @@ defmodule BPXE.Engine.FlowNode do
 
             Process.log(base_state.process, %Log.FlowNodeForward{
               pid: self(),
-              id: base_state.id,
+              id: base_state.attrs["id"],
               token_id: token.token_id,
               to: flow_node_state.outgoing
             })
 
+            process_sequence_flows = sequence_flows(state)
+
             sequence_flows =
-              flow_node_state.sequence_flow_order
+              flow_node_state.outgoing
               |> Enum.reverse()
               # ensure condition-expressioned sequence flows are at the top
               |> Enum.sort_by(fn id ->
-                !flow_node_state.sequence_flows[id][:conditionExpression]
+                !process_sequence_flows[id][:conditionExpression]
               end)
+              |> Enum.map(&process_sequence_flows[&1])
 
             state =
               Enum.reduce(sequence_flows, state, fn sequence_flow, state ->
@@ -275,10 +224,14 @@ defmodule BPXE.Engine.FlowNode do
 
             Process.log(base_state.process, %Log.FlowNodeForward{
               pid: self(),
-              id: base_state.id,
+              id: base_state.attrs["id"],
               token_id: token.token_id,
               to: outgoing
             })
+
+            process_sequence_flows = sequence_flows(state)
+
+            outgoing = Enum.map(outgoing, &process_sequence_flows[&1])
 
             state =
               Enum.reduce(outgoing, state, fn sequence_flow, state ->
@@ -312,9 +265,12 @@ defmodule BPXE.Engine.FlowNode do
       def handle_recovery(recovered, state) do
         state = super(recovered, state)
         flow_node_state = get_state(state, BPXE.Engine.FlowNode)
+        base_state = get_state(state, BPXE.Engine.Base)
+
+        process_sequence_flows = sequence_flows(state)
 
         Enum.reduce(flow_node_state.buffer, state, fn {_token_id, sequence_flow}, token ->
-          send(sequence_flow, token, state)
+          send(process_sequence_flows[sequence_flow], token, state)
         end)
       end
 
@@ -341,7 +297,7 @@ defmodule BPXE.Engine.FlowNode do
         BPXE.Engine.Model.save_state(
           base_state.model,
           generation,
-          base_state.id,
+          base_state.attrs["id"],
           self(),
           saving_state
         )
@@ -349,7 +305,7 @@ defmodule BPXE.Engine.FlowNode do
 
       defp commit_state(generation, state) do
         base_state = get_state(state, BPXE.Engine.Base)
-        BPXE.Engine.Model.commit_state(base_state.model, generation, base_state.id)
+        BPXE.Engine.Model.commit_state(base_state.model, generation, base_state.attrs["id"])
       end
 
       defp ack(%BPXE.Token{__generation__: 0}, _id, state) do
@@ -369,7 +325,7 @@ defmodule BPXE.Engine.FlowNode do
 
       def init_flow_node(state) do
         base_state = get_state(state, BPXE.Engine.Base)
-        :syn.register({base_state.model.pid, :flow_node, base_state.id}, self())
+        :syn.register({base_state.model.pid, :flow_node, base_state.attrs["id"]}, self())
 
         layer = %{
           incoming: [],
@@ -390,7 +346,7 @@ defmodule BPXE.Engine.FlowNode do
         flow_node_state = get_state(state, BPXE.Engine.FlowNode)
 
         proceed =
-          case flow_node_state.sequence_flows[sequence_flow][:conditionExpression] do
+          case sequence_flow[:conditionExpression] do
             {%{{@xsi, "type"} => formal_expr}, body}
             when formal_expr == "bpmn:tFormalExpression" or formal_expr == "tFormalExpression" ->
               process_vars = Base.variables(base_state.process)
@@ -409,7 +365,7 @@ defmodule BPXE.Engine.FlowNode do
                 {:error, error} ->
                   Process.log(base_state.process, %Log.ExpressionErrorOccurred{
                     pid: self(),
-                    id: sequence_flow,
+                    id: sequence_flow["id"],
                     token_id: token.token_id,
                     expression: body,
                     error: error
@@ -427,7 +383,8 @@ defmodule BPXE.Engine.FlowNode do
 
           put_state(state, BPXE.Engine.FlowNode, %{
             flow_node_state
-            | buffer: Map.put(flow_node_state.buffer, {token.token_id, sequence_flow}, token)
+            | buffer:
+                Map.put(flow_node_state.buffer, {token.token_id, sequence_flow["id"]}, token)
           })
         else
           state
@@ -436,13 +393,12 @@ defmodule BPXE.Engine.FlowNode do
 
       def send(sequence_flow, token, state) do
         base_state = get_state(state, BPXE.Engine.Base)
-        flow_node_state = get_state(state, BPXE.Engine.FlowNode)
 
-        target = flow_node_state.sequence_flows[sequence_flow]["targetRef"]
+        target = sequence_flow["targetRef"]
 
         case :syn.whereis({base_state.model.pid, :flow_node, target}) do
           pid when is_pid(pid) ->
-            send(pid, {token, sequence_flow})
+            send(pid, {token, sequence_flow["id"]})
 
           # FIXME: how should we handle this?
           :undefined ->
@@ -454,6 +410,11 @@ defmodule BPXE.Engine.FlowNode do
 
       def synthesize(state) do
         {:ok, state}
+      end
+
+      defp sequence_flows(state) do
+        base_state = get_state(state, BPXE.Engine.Base)
+        BPXE.Engine.Process.sequence_flows(base_state.process)
       end
 
       defoverridable handle_recovery: 2,
@@ -472,74 +433,41 @@ defmodule BPXE.Engine.FlowNode do
     end
   end
 
-  def add_outgoing(pid, name) do
-    call(pid, {:add_outgoing, name})
-  end
-
   def get_outgoing(pid) do
-    call(pid, :get_outgoing)
+    GenServer.call(pid, :get_outgoing)
   end
 
   def remove_outgoing(pid, name) do
-    call(pid, {:remove_outgoing, name})
+    GenServer.call(pid, {:remove_outgoing, name})
   end
 
   def clear_outgoing(pid) do
-    call(pid, :clear_outgoing)
-  end
-
-  def add_incoming(pid, name) do
-    call(pid, {:add_incoming, name})
+    GenServer.call(pid, :clear_outgoing)
   end
 
   def remove_incoming(pid, name) do
-    call(pid, {:remove_incoming, name})
+    GenServer.call(pid, {:remove_incoming, name})
   end
 
   def get_incoming(pid) do
-    call(pid, :get_incoming)
+    GenServer.call(pid, :get_incoming)
   end
 
   def clear_incoming(pid) do
-    call(pid, :clear_incoming)
-  end
-
-  def add_sequence_flow(pid, id, attrs) do
-    call(pid, {:add_sequence_flow, id, attrs})
-  end
-
-  def get_sequence_flows(pid) do
-    call(pid, :get_sequence_flows)
-  end
-
-  def remove_sequence_flow(pid, id) do
-    call(pid, {:remove_sequence_flow, id})
-  end
-
-  def clear_sequence_flows(pid) do
-    call(pid, :clear_sequence_flows)
-  end
-
-  def add_condition_expression({:sequence_flow, id, pid}, attrs, body) do
-    call(pid, {:add_condition_expression, id, attrs, body})
-  end
-
-  def add_condition_expression(
-        %BPXE.Engine.Model.Recordable.Ref{} = ref,
-        attrs,
-        body
-      ) do
-    call(ref, {:add_condition_expression, attrs, body})
+    GenServer.call(pid, :clear_incoming)
   end
 
   def synthesize(pid) do
-    call(pid, :synthesize)
+    GenServer.call(pid, :synthesize)
   end
 
-  def subcall(
-        {:sequence_flow, pid, id},
-        {:add_condition_expression, attrs, body}
-      ) do
-    call(pid, {:add_condition_expression, id, attrs, body})
+  import BPXE.Engine.BPMN
+
+  def add_incoming(pid, attrs, body \\ nil) do
+    add_node(pid, "incoming", attrs, body)
+  end
+
+  def add_outgoing(pid, attrs, body \\ nil) do
+    add_node(pid, "outgoing", attrs, body)
   end
 end

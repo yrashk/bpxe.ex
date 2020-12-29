@@ -59,7 +59,9 @@ defmodule BPXE.MixProject do
       {:deep_merge, "~> 1.0.0"},
       {:jason, "~> 1.2.2"},
       {:bpxe_jmes, "~> 0.6.1"},
-      {:propcheck, "~> 1.3", only: [:dev, :test]}
+      {:propcheck, "~> 1.3", only: [:dev, :test]},
+      {:proper_case, "~> 1.3.1"},
+      {:warpath, "~> 0.5.0", only: [:test]}
     ]
   end
 end

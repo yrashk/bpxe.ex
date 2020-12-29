@@ -1,16 +1,17 @@
 defmodule BPXE.Engine.Base do
-  use BPXE.Engine.Model.Recordable
-
   defmacro __using__(_ \\ []) do
     quote location: :keep do
       import BPXE.Engine.Base, only: [defstate: 1]
       Module.register_attribute(__MODULE__, :initializer, accumulate: true)
       Module.register_attribute(__MODULE__, :persist_state, accumulate: true)
+      # Set this to `true` if the node defines its own handler for
+      # `:complete_node` that catches all variations
+      Module.register_attribute(__MODULE__, :complete_node_catch_all, accumulate: false)
 
       @persist_state {BPXE.Engine.Base, :variables}
 
       def handle_call(:id, _from, state) do
-        {:reply, get_state(state, BPXE.Engine.Base).id, state}
+        {:reply, get_state(state, BPXE.Engine.Base).attrs["id"], state}
       end
 
       def handle_call(:model, _from, state) do
@@ -21,11 +22,11 @@ defmodule BPXE.Engine.Base do
         {:reply, __MODULE__, state}
       end
 
-      def handle_call(:add_extension_elements, _from, state) do
-        {:reply, {:ok, self()}, state}
+      def handle_call({:add_node, _ref, "extensionElements", _attrs}, _from, state) do
+        {:reply, {:ok, {self(), :extensions}}, state}
       end
 
-      def handle_call({:add_json, nil, json}, _from, state) do
+      def handle_call({:add_json, :extensions, json}, _from, state) do
         base_state = get_state(state, BPXE.Engine.Base)
 
         state =
@@ -53,7 +54,7 @@ defmodule BPXE.Engine.Base do
           state,
           BPXE.Engine.Base,
           base_state
-          |> Map.put(:variables, %{"id" => base_state.id})
+          |> Map.put(:variables, %{"id" => base_state.attrs["id"]})
           |> Map.put(:extensions, [])
         )
       end
@@ -89,7 +90,7 @@ defmodule BPXE.Engine.Base do
           BPXE.Engine.Model.save_state(
             base_state.model,
             token.__generation__,
-            base_state.id,
+            base_state.attrs["id"],
             self(),
             %{
               variables: variables
@@ -114,8 +115,12 @@ defmodule BPXE.Engine.Base do
     end
   end
 
+  def id({pid, ref}) do
+    GenServer.call(pid, {:id, ref})
+  end
+
   def id(pid) do
-    call(pid, :id)
+    GenServer.call(pid, :id)
   end
 
   def model(pid) do
@@ -134,16 +139,14 @@ defmodule BPXE.Engine.Base do
     GenServer.call(pid, {:merge_variables, variables, token})
   end
 
-  def add_extension_elements(pid) do
-    call(pid, :add_extension_elements)
-  end
-
-  def add_json(pid, json) do
-    call(pid, {:add_json, nil, json})
-  end
-
   defmacro __before_compile__(_) do
     quote location: :keep do
+      unless @complete_node_catch_all do
+        def handle_call({:complete_node, _, _}, _from, state) do
+          {:reply, :ok, state}
+        end
+      end
+
       unless Module.defines?(__MODULE__, {:__initializers__, 0}) do
         defp __initializers__(), do: @initializer
       end
@@ -159,5 +162,11 @@ defmodule BPXE.Engine.Base do
       @state [{:__layers__, %{}} | fields]
       defstruct @state
     end
+  end
+
+  import BPXE.Engine.BPMN
+
+  def add_extension_elements(pid, attrs, body \\ nil) do
+    add_node(pid, "extensionElements", attrs, body)
   end
 end

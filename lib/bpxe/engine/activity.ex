@@ -1,6 +1,4 @@
 defmodule BPXE.Engine.Activity do
-  use BPXE.Engine.Model.Recordable
-
   defmodule StandardLoop do
     defstruct id: nil, attrs: %{}, condition: nil, counter: nil
     use ExConstructor
@@ -12,24 +10,38 @@ defmodule BPXE.Engine.Activity do
       alias BPXE.Engine.{Base, Process}
       alias BPXE.Engine.Process.Log
 
-      def handle_call({:add_standard_loop_characteristics, id, attrs}, _from, state) do
+      def handle_call(
+            {:add_node, _ref, "standardLoopCharacteristics", %{"id" => id} = attrs},
+            _from,
+            state
+          ) do
         state =
           put_in(
             state.__layers__[BPXE.Engine.Activity].loop,
             StandardLoop.new(id: id, attrs: attrs)
           )
 
-        {:reply, {:ok, self()}, state}
+        {:reply, {:ok, {self(), {:standard_loop, id}}}, state}
       end
 
-      def handle_call({:add_loop_condition, id, attrs, body}, _from, state) do
+      def handle_call({:add_node, {:standard_loop, id}, "loopCondition", attrs}, _from, state) do
         state =
-          update_in(
-            state.__layers__[BPXE.Engine.Activity].loop,
-            &%{&1 | condition: {id, attrs, body}}
+          put_in(
+            state.__layers__[BPXE.Engine.Activity].loop.condition,
+            {id, attrs, nil}
           )
 
-        {:reply, {:ok, id}, state}
+        {:reply, {:ok, {self(), {:standard_loop_condition, id}}}, state}
+      end
+
+      def handle_call({:complete_node, {:standard_loop_condition, id}, body}, _from, state) do
+        state =
+          update_in(
+            state.__layers__[BPXE.Engine.Activity].loop.condition,
+            fn {id, attrs, _} -> {id, attrs, body} end
+          )
+
+        {:reply, :ok, state}
       end
 
       def handle_token(
@@ -144,11 +156,13 @@ defmodule BPXE.Engine.Activity do
     end
   end
 
-  def add_standard_loop_characteristics(node, id, attrs) do
-    call(node, {:add_standard_loop_characteristics, id, attrs})
+  import BPXE.Engine.BPMN
+
+  def add_standard_loop_characteristics(pid, attrs, body \\ nil) do
+    add_node(pid, "standardLoopCharacteristics", attrs, body)
   end
 
-  def add_loop_condition(node, id, attrs, body) do
-    call(node, {:add_loop_condition, id, attrs, body})
+  def add_loop_condition(pid, attrs, body \\ nil) do
+    add_node(pid, "loopCondition", attrs, body)
   end
 end

@@ -4,23 +4,19 @@ defmodule BPXE.Engine.Task do
   use BPXE.Engine.Activity
   alias BPXE.Engine.{Process, Base}
   alias BPXE.Engine.Process.Log
-  use BPXE.Engine.Model.Recordable
 
   defstate type: nil, script: ""
 
-  def start_link(id, type, attrs, model, process) do
-    start_link([{id, type, attrs, model, process}])
+  def start_link(element, attrs, model, process) do
+    start_link([{element, attrs, model, process}])
   end
 
-  def add_script(pid, script) do
-    call(pid, {:add_script, script})
-  end
+  def init({element, attrs, model, process}) do
+    type = get_type(element)
 
-  def init({id, type, attrs, model, process}) do
     state =
       %__MODULE__{type: type}
       |> put_state(Base, %{
-        id: id,
         attrs: attrs,
         model: model,
         process: process
@@ -31,8 +27,12 @@ defmodule BPXE.Engine.Task do
     enter_loop(state)
   end
 
-  def handle_call({:add_script, script}, _from, state) do
-    {:reply, {:ok, script}, %{state | script: script}}
+  def handle_call({:add_node, _ref, "script", _attrs}, _from, state) do
+    {:reply, {:ok, {self(), :script}}, state}
+  end
+
+  def handle_call({:complete_node, :script, script}, _from, state) do
+    {:reply, :ok, %{state | script: script}}
   end
 
   def handle_token({token, _id}, %__MODULE__{type: :scriptTask} = state) do
@@ -40,7 +40,7 @@ defmodule BPXE.Engine.Task do
 
     Process.log(base_state.process, %Log.TaskActivated{
       pid: self(),
-      id: base_state.id,
+      id: base_state.attrs["id"],
       token_id: token.token_id
     })
 
@@ -63,7 +63,7 @@ defmodule BPXE.Engine.Task do
 
         Process.log(base_state.process, %Log.TaskCompleted{
           pid: self(),
-          id: base_state.id,
+          id: base_state.attrs["id"],
           token_id: token.token_id
         })
 
@@ -72,7 +72,7 @@ defmodule BPXE.Engine.Task do
       {:error, err} ->
         Process.log(base_state.process, %Log.ScriptTaskErrorOccurred{
           pid: self(),
-          id: base_state.id,
+          id: base_state.attrs["id"],
           token_id: token.token_id,
           error: err
         })
@@ -108,7 +108,7 @@ defmodule BPXE.Engine.Task do
 
     Process.log(base_state.process, %Log.TaskActivated{
       pid: self(),
-      id: base_state.id,
+      id: base_state.attrs["id"],
       token_id: token.token_id
     })
 
@@ -140,7 +140,7 @@ defmodule BPXE.Engine.Task do
                     {:error, error} ->
                       Process.log(base_state.process, %Log.ExpressionErrorOccurred{
                         pid: self(),
-                        id: base_state.id,
+                        id: base_state.attrs["id"],
                         token_id: token.token_id,
                         expression: expr,
                         error: error
@@ -178,7 +178,7 @@ defmodule BPXE.Engine.Task do
 
       Process.log(base_state.process, %Log.TaskCompleted{
         pid: self(),
-        id: base_state.id,
+        id: base_state.attrs["id"],
         token_id: token.token_id
       })
 
@@ -187,7 +187,7 @@ defmodule BPXE.Engine.Task do
       %ExpressionError{expression: expression, error: error} ->
         Process.log(base_state.process, %Log.ExpressionErrorOccurred{
           pid: self(),
-          id: base_state.id,
+          id: base_state.attrs["id"],
           token_id: token.token_id,
           expression: expression,
           error: error
@@ -202,16 +202,24 @@ defmodule BPXE.Engine.Task do
 
     Process.log(base_state.process, %Log.TaskActivated{
       pid: self(),
-      id: base_state.id,
+      id: base_state.attrs["id"],
       token_id: token.token_id
     })
 
     Process.log(base_state.process, %Log.TaskCompleted{
       pid: self(),
-      id: base_state.id,
+      id: base_state.attrs["id"],
       token_id: token.token_id
     })
 
     {:send, token, state}
+  end
+
+  defp get_type(name), do: String.to_atom(name)
+
+  import BPXE.Engine.BPMN
+
+  def add_script(pid, attrs, body \\ nil) do
+    add_node(pid, "script", attrs, body)
   end
 end

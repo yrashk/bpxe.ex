@@ -2,7 +2,11 @@
 <xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema"
     xmlns:vc="http://www.w3.org/2007/XMLSchema-versioning" elementFormDefault="qualified"
     vc:minVersion="1.1" targetNamespace="http://bpxe.org/spec/current"
-    xmlns:bpxe="http://bpxe.org/spec/current">
+    xmlns:bpxe="http://bpxe.org/spec/current"
+    xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+    xmlns:xsi="https://www.w3.org/2001/XMLSchema-instance">
+    
+    <xsd:import namespace="http://www.omg.org/spec/BPMN/20100524/MODEL" schemaLocation="BPMN20.xsd"></xsd:import>
 
     <xsd:attributeGroup name="serviceTaskAttributes">
         <xsd:attribute name="name" type="xsd:string" use="required" targetNamespace="http://bpxe.org/spec/current">
@@ -23,4 +27,29 @@
     <xsd:element name="json" type="xsd:string">
         <xsd:annotation><xsd:documentation>Plain JSON (can be used in extensionElements)</xsd:documentation></xsd:annotation>
     </xsd:element>
+    
+    <xsd:element name="sensorGateway" substitutionGroup="bpmn:flowElement" type="bpxe:tSensorGateway"></xsd:element>
+    <xsd:complexType name="tSensorGateway">
+        <xsd:annotation><xsd:documentation>
+            This gateway senses which of first N-1 incoming sequence flows fired (i.e.their conditions were truthful) [where N is the total number of incoming
+            sequence flows], maps these N-1 incoming sequence flows to first N-1 outgoing sequence flows, and once Nth incoming sequence fires, it sends 0-based
+            indices of incoming sequences fired to Nth outgoing sequence flow
+        </xsd:documentation></xsd:annotation>
+        <xsd:complexContent>
+            <xsd:extension base="bpmn:tGateway"/>
+        </xsd:complexContent>
+    </xsd:complexType>
+    
+    
+    <xsd:element name="precedenceGateway" substitutionGroup="bpmn:flowElement" type="bpxe:tPrecedenceGateway"></xsd:element>
+    <xsd:complexType name="tPrecedenceGateway">
+        <xsd:annotation><xsd:documentation>This gateway will only process the first model of a received token  and send it out to a corresponding output.
+         The correspondance is achieved by requiring the same number of incoming and outgoing sequence flows and they will be mapped directly, so that Nth incoming
+         flow will trigger Nth outgoing flow.      
+        </xsd:documentation></xsd:annotation>
+        <xsd:complexContent>
+            <xsd:extension base="bpmn:tGateway"/>
+        </xsd:complexContent>
+    </xsd:complexType>
+    
 </xsd:schema>

@@ -1,9 +1,7 @@
 defmodule BPXETest.BPMN do
   use ExUnit.Case, async: true
   alias BPXE.Engine.Model
-  alias BPXE.Engine.Model.Recordable.Ref
   doctest BPXE.BPMN
-  import BPXETest.Utils
 
   test "parsing sample" do
     {:ok, pid} = BPXE.Engine.Models.start_model()
@@ -24,11 +22,9 @@ defmodule BPXETest.BPMN do
 
     model = Model.model(pid)
 
-    %Ref{payload: {:add_json, _, expr}} =
-      find_model(model, ["sample", "start", :add_extension_elements, :add_json])
+    expr = Warpath.query!(model, "$.process.startEvent.extensionElements.:json.:body")
 
     assert is_function(expr)
-
     assert expr.(fn "test" -> %{"b" => "c"} end) == {:ok, %{"a" => %{"b" => "c"}}}
   end
 
@@ -42,8 +38,7 @@ defmodule BPXETest.BPMN do
 
     model = Model.model(pid)
 
-    %Ref{payload: {:add_json, _, expr}} =
-      find_model(model, ["sample", "end", :add_extension_elements, :add_json])
+    expr = Warpath.query!(model, "$.process.endEvent.extensionElements.:json.:body")
 
     assert is_function(expr)
 

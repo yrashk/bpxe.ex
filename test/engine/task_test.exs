@@ -7,19 +7,19 @@ defmodule BPXETest.Engine.Task do
 
   test "executes a script, captures state and retrieves it in other scripts" do
     {:ok, pid} = Model.start_link()
-    {:ok, proc1} = Model.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
+    {:ok, proc1} = Model.add_process(pid, %{"id" => "proc1", "name" => "Proc 1"})
 
-    {:ok, start} = Process.add_event(proc1, "start", :startEvent, %{"id" => "start"})
-    {:ok, task} = Process.add_task(proc1, "task", :scriptTask, %{"id" => "task"})
-    {:ok, _} = Task.add_script(task, ~s|
+    {:ok, start} = Process.add_start_event(proc1, %{"id" => "start"})
+    {:ok, task} = Process.add_script_task(proc1, %{"id" => "task"})
+    {:ok, _} = Task.add_script(task, %{}, ~s|
       process.a = {}
       process.a.v = 1
       |)
 
     {:ok, _} = Process.establish_sequence_flow(proc1, "s1", start, task)
 
-    {:ok, task2} = Process.add_task(proc1, "task2", :scriptTask, %{"id" => "task2"})
-    {:ok, _} = Task.add_script(task2, ~s|
+    {:ok, task2} = Process.add_script_task(proc1, %{"id" => "task2"})
+    {:ok, _} = Task.add_script(task2, %{}, ~s|
       process.a.v = process.a.v + 2
       |)
 
@@ -40,11 +40,11 @@ defmodule BPXETest.Engine.Task do
 
   test "executes a script that modifies no state" do
     {:ok, pid} = Model.start_link()
-    {:ok, proc1} = Model.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
+    {:ok, proc1} = Model.add_process(pid, %{"id" => "proc1", "name" => "Proc 1"})
 
-    {:ok, start} = Process.add_event(proc1, "start", :startEvent, %{"id" => "start"})
-    {:ok, task} = Process.add_task(proc1, "task", :scriptTask, %{"id" => "task"})
-    {:ok, _} = Task.add_script(task, ~s|
+    {:ok, start} = Process.add_start_event(proc1, %{"id" => "start"})
+    {:ok, task} = Process.add_script_task(proc1, %{"id" => "task"})
+    {:ok, _} = Task.add_script(task, %{}, ~s|
       |)
 
     {:ok, _} = Process.establish_sequence_flow(proc1, "s1", start, task)
@@ -63,12 +63,12 @@ defmodule BPXETest.Engine.Task do
 
   test "executes a script that modifies token's payload" do
     {:ok, pid} = Model.start_link()
-    {:ok, proc1} = Model.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
+    {:ok, proc1} = Model.add_process(pid, %{"id" => "proc1", "name" => "Proc 1"})
 
-    {:ok, start} = Process.add_event(proc1, "start", :startEvent, %{"id" => "start"})
-    {:ok, the_end} = Process.add_event(proc1, "end", :endEvent, %{"id" => "end"})
-    {:ok, task} = Process.add_task(proc1, "task", :scriptTask, %{"id" => "task"})
-    {:ok, _} = Task.add_script(task, ~s|
+    {:ok, start} = Process.add_start_event(proc1, %{"id" => "start"})
+    {:ok, the_end} = Process.add_end_event(proc1, %{"id" => "end"})
+    {:ok, task} = Process.add_script_task(proc1, %{"id" => "task"})
+    {:ok, _} = Task.add_script(task, %{}, ~s|
       flow.a = 1
       |)
 
@@ -106,21 +106,21 @@ defmodule BPXETest.Engine.Task do
       {:ok, service} = BPXE.Service.start_link(Service)
       Model.register_service(pid, "service", service)
 
-      {:ok, proc1} = Model.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
+      {:ok, proc1} = Model.add_process(pid, %{"id" => "proc1", "name" => "Proc 1"})
 
-      {:ok, start} = Process.add_event(proc1, "start", :startEvent, %{"id" => "start"})
-      {:ok, the_end} = Process.add_event(proc1, "end", :endEvent, %{"id" => "end"})
+      {:ok, start} = Process.add_start_event(proc1, %{"id" => "start"})
+      {:ok, the_end} = Process.add_end_event(proc1, %{"id" => "end"})
 
       {:ok, task} =
-        Process.add_task(proc1, "task", :serviceTask, %{
+        Process.add_service_task(proc1, %{
           "id" => "task",
           {BPXE.BPMN.ext_spec(), "name"} => "service",
           {BPXE.BPMN.ext_spec(), "resultVariable"} => "result"
         })
 
-      {:ok, ext} = BPXE.Engine.Base.add_extension_elements(task)
-      BPXE.Engine.Base.add_json(ext, %{"hello" => "world"})
-      BPXE.Engine.Base.add_json(ext, %{"world" => "goodbye"})
+      {:ok, ext} = BPXE.Engine.Base.add_extension_elements(task, %{})
+      BPXE.Engine.BPMN.add_json(ext, %{"hello" => "world"})
+      BPXE.Engine.BPMN.add_json(ext, %{"world" => "goodbye"})
 
       {:ok, _} = Process.establish_sequence_flow(proc1, "s1", start, task)
       {:ok, _} = Process.establish_sequence_flow(proc1, "s2", task, the_end)
@@ -154,27 +154,27 @@ defmodule BPXETest.Engine.Task do
       {:ok, service} = BPXE.Service.start_link(Service)
       Model.register_service(pid, "service", service)
 
-      {:ok, proc1} = Model.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
+      {:ok, proc1} = Model.add_process(pid, %{"id" => "proc1", "name" => "Proc 1"})
 
-      {:ok, start} = Process.add_event(proc1, "start", :startEvent, %{"id" => "start"})
-      {:ok, the_end} = Process.add_event(proc1, "end", :endEvent, %{"id" => "end"})
+      {:ok, start} = Process.add_start_event(proc1, %{"id" => "start"})
+      {:ok, the_end} = Process.add_end_event(proc1, %{"id" => "end"})
 
       {:ok, task} =
-        Process.add_task(proc1, "task", :serviceTask, %{
+        Process.add_service_task(proc1, %{
           "id" => "task",
           {BPXE.BPMN.ext_spec(), "name"} => "service",
           {BPXE.BPMN.ext_spec(), "resultVariable"} => "result"
         })
 
-      {:ok, ext} = BPXE.Engine.Base.add_extension_elements(task)
+      {:ok, ext} = BPXE.Engine.Base.add_extension_elements(task, %{})
 
       # NB: we use elem(0) below to accommodate for the fact that `Task` DOES supply an encoder so that
       # BPMN interpolation can encode the value as needed if the input is not just one interpolated expression
-      BPXE.Engine.Base.add_json(ext, fn cb ->
+      BPXE.Engine.BPMN.add_json(ext, fn cb ->
         %{"hello" => cb.("process.hello") |> elem(0)}
       end)
 
-      BPXE.Engine.Base.add_json(ext, fn cb ->
+      BPXE.Engine.BPMN.add_json(ext, fn cb ->
         %{"world" => cb.("process.world") |> elem(0)}
       end)
 
@@ -212,23 +212,23 @@ defmodule BPXETest.Engine.Task do
       {:ok, service} = BPXE.Service.start_link(Service)
       Model.register_service(pid, "service", service)
 
-      {:ok, proc1} = Model.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
+      {:ok, proc1} = Model.add_process(pid, %{"id" => "proc1", "name" => "Proc 1"})
 
-      {:ok, start} = Process.add_event(proc1, "start", :startEvent, %{"id" => "start"})
-      {:ok, the_end} = Process.add_event(proc1, "end", :endEvent, %{"id" => "end"})
+      {:ok, start} = Process.add_start_event(proc1, %{"id" => "start"})
+      {:ok, the_end} = Process.add_end_event(proc1, %{"id" => "end"})
 
       {:ok, task} =
-        Process.add_task(proc1, "task", :serviceTask, %{
+        Process.add_service_task(proc1, %{
           "id" => "task",
           {BPXE.BPMN.ext_spec(), "name"} => "service",
           {BPXE.BPMN.ext_spec(), "resultVariable"} => "result"
         })
 
-      {:ok, ext} = BPXE.Engine.Base.add_extension_elements(task)
+      {:ok, ext} = BPXE.Engine.Base.add_extension_elements(task, %{})
 
       # NB: we use elem(0) below to accommodate for the fact that `Task` DOES supply an encoder so that
       # BPMN interpolation can encode the value as needed if the input is not just one interpolated expression
-      BPXE.Engine.Base.add_json(ext, fn cb ->
+      BPXE.Engine.BPMN.add_json(ext, fn cb ->
         %{"hello" => cb.("this is not an expression") |> elem(0)}
       end)
 
@@ -254,12 +254,12 @@ defmodule BPXETest.Engine.Task do
 
   test "should log an error in script if it happens" do
     {:ok, pid} = Model.start_link()
-    {:ok, proc1} = Model.add_process(pid, "proc1", %{"id" => "proc1", "name" => "Proc 1"})
+    {:ok, proc1} = Model.add_process(pid, %{"id" => "proc1", "name" => "Proc 1"})
 
-    {:ok, start} = Process.add_event(proc1, "start", :startEvent, %{"id" => "start"})
-    {:ok, the_end} = Process.add_event(proc1, "end", :endEvent, %{"id" => "end"})
-    {:ok, task} = Process.add_task(proc1, "task", :scriptTask, %{"id" => "task"})
-    {:ok, _} = Task.add_script(task, ~s|
+    {:ok, start} = Process.add_start_event(proc1, %{"id" => "start"})
+    {:ok, the_end} = Process.add_end_event(proc1, %{"id" => "end"})
+    {:ok, task} = Process.add_script_task(proc1, %{"id" => "task"})
+    {:ok, _} = Task.add_script(task, %{}, ~s|
       this is not a script
       |)
 

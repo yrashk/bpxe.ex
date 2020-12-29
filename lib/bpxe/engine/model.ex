@@ -1,14 +1,6 @@
 defmodule BPXE.Engine.Model do
   use GenServer
 
-  use BPXE.Engine.Model.Recordable,
-    handle:
-      ~w(add_process add_event add_sequence_flow add_event_based_gateway add_exclusive_gateway
-        add_inclusive_gateway add_precedence_gateway add_sensor_gateway add_signal_event_definition
-        add_parallel_gateway add_condition_expression add_incoming add_outgoing add_task add_script
-        add_extension_elements add_json add_standard_loop_characteristics add_loop_condition
-      )a ++ if(Mix.env() == :test, do: [:add_flow_node], else: [])
-
   defmodule Config do
     defstruct flow_handler: nil, pid: nil, init_fn: nil, id: nil
     use ExConstructor
@@ -45,12 +37,20 @@ defmodule BPXE.Engine.Model do
     end
   end
 
-  def add_process(pid, id, attrs) do
-    call(pid, {:add_process, id, attrs})
+  import BPXE.Engine.BPMN
+
+  for {element, attrs} <- BPXE.BPMN.Semantic.elements(),
+      attrs["substitutionGroup"] == "rootElement" do
+    @element element
+    @typ ProperCase.snake_case(element)
+    @name "add_#{@typ}" |> String.to_atom()
+    def unquote(@name)(pid, attrs, body \\ nil) do
+      add_node(pid, @element, attrs, body)
+    end
   end
 
   def processes(pid) do
-    call(pid, :processes)
+    GenServer.call(pid, :processes)
   end
 
   def provision_processes(pid) do
@@ -231,11 +231,9 @@ defmodule BPXE.Engine.Model do
 
   def handle_call(:processes, _from, state) do
     processes =
-      Enum.filter(state.model[nil] || [], fn
-        %Ref{payload: {:add_process, _, _attrs}} -> true
-        _ -> false
-      end)
-      |> Enum.map(fn %Ref{payload: {:add_process, id, _attrs}} -> id end)
+      for {{:info, _ref}, {"process", %{"id" => id}, _body}} <- state.model do
+        id
+      end
 
     {:reply, processes, state}
   end
@@ -245,34 +243,70 @@ defmodule BPXE.Engine.Model do
   end
 
   def handle_call(:model, _from, state) do
-    {:reply, state.model |> Enum.map(fn {k, v} -> {k, Enum.reverse(v)} end) |> Map.new(), state}
+    {:reply, build_model(state.model), state}
   end
 
   def handle_call({:provision_process, id}, _from, state) do
-    alias BPXE.Engine.Model.Recordable.Ref
+    matching_processes =
+      for {{:info, ref}, {"process", %{"id" => ^id} = attrs, _body}} <- state.model do
+        {ref, attrs}
+      end
 
-    ref =
-      Enum.find(state.model[nil], fn
-        %Ref{payload: {:add_process, ^id, _attrs}} ->
-          true
+    case matching_processes do
+      [{ref, attrs} | _] ->
+        case BPXE.Engine.Process.start_link(attrs, state.config) do
+          {:ok, pid} ->
+            {:reply, execute_model(ref, {:ok, pid}, pid, state), state}
 
-        _ ->
-          false
+          {:error, reason} ->
+            {:reply, {:error, reason}, state}
+        end
+
+      _ ->
+        {:reply, {:error, :process_not_found}, state}
+    end
+  end
+
+  def handle_call({:id, ref}, _from, state) do
+    {_, %{"id" => id}, _} = state.model[{:info, ref}]
+    {:reply, id, state}
+  end
+
+  def handle_call({:add_node, ref, element, attrs}, _from, state) do
+    reference = make_ref()
+    record = {element, attrs, nil}
+
+    state =
+      update_in(state.model[ref], fn
+        nil -> [reference]
+        list -> [reference | list]
       end)
 
-    if ref do
-      %Ref{payload: {:add_process, ^id, attrs}} = ref
+    state = put_in(state.model[{:info, reference}], record)
 
-      case BPXE.Engine.Process.start_link(id, attrs, state.config) do
-        {:ok, pid} ->
-          {:reply, execute_model(ref, {:ok, pid}, pid, state), state}
+    {:reply, {:ok, {self(), reference}}, state}
+  end
 
-        {:error, reason} ->
-          {:reply, {:error, reason}, state}
-      end
-    else
-      {:reply, {:error, :process_not_found}, state}
-    end
+  def handle_call({:add_json, ref, json}, _from, state) do
+    reference = make_ref()
+    record = {:json, %{}, json}
+
+    state =
+      update_in(state.model[ref], fn
+        nil -> [reference]
+        list -> [reference | list]
+      end)
+
+    state = put_in(state.model[{:info, reference}], record)
+
+    {:reply, {:ok, {self(), reference}}, state}
+  end
+
+  def handle_call({:complete_node, ref, body}, _from, state) do
+    state =
+      update_in(state.model[{:info, ref}], fn {element, attrs, _} -> {element, attrs, body} end)
+
+    {:reply, :ok, state}
   end
 
   def handle_cast(:initialized, state) do
@@ -284,25 +318,23 @@ defmodule BPXE.Engine.Model do
   end
 
   defp execute_model(ref, result, pid, state) do
-    alias BPXE.Engine.Model.Recordable.Ref
-
     Enum.reduce((state.model[ref] || []) |> Enum.reverse(), result, fn
       _, {:error, _} = error ->
         error
 
-      %Ref{payload: payload} = ref_, acc ->
-        result =
-          case pid do
-            {module, arg} ->
-              apply(module, :subcall, [arg, payload])
+      ref_, acc ->
+        {element, attrs, body} = state.model[{:info, ref_}]
 
-            pid when is_pid(pid) ->
-              GenServer.call(pid, payload)
+        result =
+          if element == :json do
+            add_json(pid, body)
+          else
+            add_node(pid, element, attrs, body)
           end
 
         case result do
           {:error, reason} ->
-            {:error, {payload, reason}}
+            {:error, {{element, attrs}, reason}}
 
           {:ok, pid_} ->
             execute_model(ref_, acc, pid_, state)
@@ -316,5 +348,36 @@ defmodule BPXE.Engine.Model do
   defp generate_id() do
     {m, f, a} = Application.get_env(:bpxe, :spec_id_generator)
     apply(m, f, a)
+  end
+
+  defp build_model(model) do
+    build_model(model, nil, %{})
+  end
+
+  defp build_model(model, nil, map) do
+    for ref <- Enum.reverse(model[nil] || []), reduce: map do
+      acc -> Map.merge(acc, build_model(model, ref, map))
+    end
+  end
+
+  defp build_model(model, key, map) do
+    {element, attrs, body} = model[{:info, key}]
+    attrs = put_in(attrs[:body], body)
+
+    map =
+      update_in(map[element], fn
+        nil ->
+          attrs
+
+        list when is_list(list) ->
+          list ++ [attrs]
+
+        attrs1 ->
+          [attrs1, attrs]
+      end)
+
+    for ref <- Enum.reverse(model[key] || []), reduce: map do
+      acc -> put_in(acc[element], Map.merge(acc[element], build_model(model, ref, acc[element])))
+    end
   end
 end

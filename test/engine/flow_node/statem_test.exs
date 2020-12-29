@@ -9,14 +9,14 @@ defmodule BPXETest.Engine.FlowNode.StateM do
 
     defstate master: nil
 
-    def start_link(master, id, model, process) do
-      start_link([{master, id, model, process}])
+    def start_link(element, attrs, model, process) do
+      start_link([{element, attrs, model, process}])
     end
 
-    def init({master, id, model, process}) do
+    def init({_element, attrs, model, process}) do
       state =
-        %__MODULE__{master: master}
-        |> put_state(BPXE.Engine.Base, %{id: id, model: model, process: process})
+        %__MODULE__{master: attrs[:master]}
+        |> put_state(BPXE.Engine.Base, %{attrs: attrs, model: model, process: process})
         |> initialize()
 
       init_ack()
@@ -28,15 +28,20 @@ defmodule BPXETest.Engine.FlowNode.StateM do
     forall cmds in commands(__MODULE__) do
       trap_exit do
         alias BPXE.Engine.Model
-        alias BPXE.Engine.Process, as: P
 
         # Setup model & process
         {:ok, model} = Model.start_link()
-        {:ok, _} = Model.add_process(model, "process", %{"id" => "process"})
+        {:ok, _} = Model.add_process(model, %{"id" => "process"})
         {:ok, process} = Model.provision_process(model, "process")
 
         # Configure the process instance manually
-        {:ok, pid} = P.add_flow_node(process, "test", TestFlowNode, [self(), "test"])
+        {:ok, pid} =
+          BPXE.Engine.BPMN.add_node(
+            process,
+            "flowNode",
+            %{module: TestFlowNode, master: self()},
+            nil
+          )
 
         Process.register(pid, __MODULE__)
 
@@ -90,7 +95,7 @@ defmodule BPXETest.Engine.FlowNode.StateM do
   end
 
   defcommand :add_incoming do
-    def impl(id), do: FlowNode.add_incoming(__MODULE__, id)
+    def impl(id), do: FlowNode.add_incoming(__MODULE__, %{}, id)
 
     def next(state, [id], _) do
       # Ensure if a duplicate incoming addition is requested,
@@ -128,7 +133,7 @@ defmodule BPXETest.Engine.FlowNode.StateM do
   end
 
   defcommand :add_outgoing do
-    def impl(id), do: FlowNode.add_outgoing(__MODULE__, id)
+    def impl(id), do: FlowNode.add_outgoing(__MODULE__, %{}, id)
 
     def next(state, [id], _) do
       # Ensure if a duplicate outgoing addition is requested,

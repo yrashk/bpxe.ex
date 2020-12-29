@@ -1,7 +1,6 @@
 defmodule BPXE.Engine.ParallelGateway do
   use GenServer
   use BPXE.Engine.FlowNode
-  use BPXE.Engine.Model.Recordable
   alias BPXE.Engine.Process
   alias BPXE.Engine.Process.Log
 
@@ -10,14 +9,14 @@ defmodule BPXE.Engine.ParallelGateway do
   @persist_state :token_ids
   @persist_state :drop_tokens
 
-  def start_link(id, attrs, model, process) do
-    GenServer.start_link(__MODULE__, {id, attrs, model, process})
+  def start_link(element, attrs, model, process) do
+    GenServer.start_link(__MODULE__, {element, attrs, model, process})
   end
 
-  def init({id, attrs, model, process}) do
+  def init({_element, attrs, model, process}) do
     state =
       %__MODULE__{}
-      |> put_state(Base, %{id: id, attrs: attrs, model: model, process: process})
+      |> put_state(Base, %{attrs: attrs, model: model, process: process})
 
     state = initialize(state)
     {:ok, state}
@@ -28,7 +27,7 @@ defmodule BPXE.Engine.ParallelGateway do
 
     Process.log(base_state.process, %Log.ParallelGatewayReceived{
       pid: self(),
-      id: base_state.id,
+      id: base_state.attrs["id"],
       token_id: token.token_id,
       from: id
     })
@@ -40,7 +39,7 @@ defmodule BPXE.Engine.ParallelGateway do
         # only one incoming, we're done
         Process.log(base_state.process, %Log.ParallelGatewayCompleted{
           pid: self(),
-          id: base_state.id,
+          id: base_state.attrs["id"],
           token_id: token.token_id,
           to: flow_node_state.outgoing
         })
@@ -51,7 +50,7 @@ defmodule BPXE.Engine.ParallelGateway do
         # there's a token but it couldn't come from anywhere. What gives?
         Process.log(base_state.process, %Log.ParallelGatewayCompleted{
           pid: self(),
-          id: base_state.id,
+          id: base_state.attrs["id"],
           token_id: token.token_id,
           to: []
         })
@@ -93,7 +92,7 @@ defmodule BPXE.Engine.ParallelGateway do
 
             Process.log(base_state.process, %Log.ParallelGatewayCompleted{
               pid: self(),
-              id: base_state.id,
+              id: base_state.attrs["id"],
               token_id: token.token_id,
               to: flow_node_state.outgoing
             })
