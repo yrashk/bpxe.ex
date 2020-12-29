@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+    xmlns:vc="http://www.w3.org/2007/XMLSchema-versioning" elementFormDefault="qualified"
+    vc:minVersion="1.1" targetNamespace="http://www.omg.org/spec/BPMN/20100524/MODEL">
+    
+    <xsd:override schemaLocation="BPMN20.xsd">
+        <xsd:complexType name="tServiceTask">
+            <xsd:complexContent>
+                <xsd:extension base="tTask">
+                    <xsd:attribute name="implementation" type="tImplementation"
+                        default="##WebService"/>
+                    <xsd:attribute name="operationRef" type="xsd:QName" use="optional"/>
+                    <xsd:attributeGroup ref="bpxe:serviceTaskAttributes"></xsd:attributeGroup>
+                </xsd:extension>
+            </xsd:complexContent>
+        </xsd:complexType>
+        <xsd:complexType name="tParallelGateway">
+            <xsd:complexContent>
+                <xsd:extension base="tGateway">
+                    <xsd:attributeGroup ref="bpxe:parallelGatewayAttributes"></xsd:attributeGroup>
+                </xsd:extension>
+            </xsd:complexContent>
+        </xsd:complexType>
+    </xsd:override>
+</xsd:schema>
