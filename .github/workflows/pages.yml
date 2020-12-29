@@ -16,8 +16,7 @@ jobs:
       - name: Build
         run: |
           mkdir -p website/spec
-          cp -R priv/schemas/*.xsd website/spec
-          cp website/spec/bpxe.xsd website/spec/current
+          cp -R priv/schemas/* website/spec
 
       - name: Deploy
         uses: peaceiris/actions-gh-pages@v3
