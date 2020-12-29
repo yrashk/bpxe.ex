@@ -6,7 +6,7 @@
     xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
     xmlns:xsi="https://www.w3.org/2001/XMLSchema-instance">
     
-    <xsd:import namespace="http://www.omg.org/spec/BPMN/20100524/MODEL" schemaLocation="BPMN20.xsd"></xsd:import>
+    <xsd:import namespace="http://www.omg.org/spec/BPMN/20100524/MODEL" schemaLocation="bpmn.xsd"></xsd:import>
 
     <xsd:attributeGroup name="serviceTaskAttributes">
         <xsd:attribute name="name" type="xsd:string" use="required" targetNamespace="http://bpxe.org/spec/current">
