@@ -1,7 +1,7 @@
 defmodule BPXE.Engine.SensorGateway do
   @moduledoc """
-  *Note: This gateway is not described in BPMN 2.0. Currently it can only be
-  added programmatically (not through BPMN XML document, at this time)*
+  *Note: This gateway is not described in BPMN 2.0. However, it's available through
+  BPXE's extension schema.*
 
   This gateway senses which of first N-1 incoming sequence flows fired (i.e.
   their conditions were truthful) [where N is the total number of incoming

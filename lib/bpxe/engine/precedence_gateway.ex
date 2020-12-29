@@ -1,7 +1,7 @@
 defmodule BPXE.Engine.PrecedenceGateway do
   @moduledoc """
-  *Note: This gateway is not described in BPMN 2.0. Currently it can only be
-  added programmatically (not through BPMN XML document, at this time)*
+  *Note: This gateway is not described in BPMN 2.0. However, it's available through
+  BPXE's extension schema.
 
   This gateway will only process the first model of a received token
   (tracked by token_id) and send it out to a corresponding output. The
