@@ -101,7 +101,7 @@ defmodule BPXE.Engine.Task do
         {token, _id},
         %__MODULE__{
           type: :serviceTask,
-          __layers__: %{Base => %{attrs: %{{@bpxe_spec, "name"} => service}}}
+          __layers__: %{Base => %{attrs: %{{@bpxe_spec, "name"} => service} = attrs}}
         } = state
       ) do
     base_state = get_state(state, BPXE.Engine.Base)
@@ -111,6 +111,20 @@ defmodule BPXE.Engine.Task do
       id: base_state.attrs["id"],
       token_id: token.token_id
     })
+
+    timeout =
+      if duration = attrs[{@bpxe_spec, "timeout"}] do
+        case Timex.Duration.parse(duration) do
+          {:ok, duration} ->
+            Timex.Duration.to_milliseconds(duration) |> floor()
+
+          {:error, _err} ->
+            # TODO: log error?
+            nil
+        end
+      else
+        nil
+      end
 
     try do
       payload =
@@ -166,7 +180,8 @@ defmodule BPXE.Engine.Task do
           service,
           %BPXE.Service.Request{
             payload: payload
-          }
+          },
+          timeout
         )
 
       token =
@@ -191,6 +206,16 @@ defmodule BPXE.Engine.Task do
           token_id: token.token_id,
           expression: expression,
           error: error
+        })
+
+        {:dontsend, state}
+
+      :exit, {:timeout, _} ->
+        Process.log(base_state.process, %Log.ServiceTimeoutOccurred{
+          pid: self(),
+          id: base_state.attrs["id"],
+          token_id: token.token_id,
+          timeout: timeout
         })
 
         {:dontsend, state}

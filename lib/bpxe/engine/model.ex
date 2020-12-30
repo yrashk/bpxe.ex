@@ -112,10 +112,10 @@ defmodule BPXE.Engine.Model do
     BPXE.Service.registered(service, pid, name)
   end
 
-  def call_service(pid, name, request) do
+  def call_service(pid, name, request, timeout \\ nil) do
     case find_service(pid, name) do
       nil -> nil
-      service -> BPXE.Service.call(service, request, pid)
+      service -> BPXE.Service.call(service, request, pid, timeout)
     end
   end
 

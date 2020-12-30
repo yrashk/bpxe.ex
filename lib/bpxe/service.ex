@@ -7,6 +7,10 @@ defmodule BPXE.Service do
     defstruct payload: nil
   end
 
+  @default_timeout 5000
+
+  def default_timeout(), do: @default_timeout
+
   def start_link(module, options \\ []) do
     GenServer.start_link(module, options)
   end
@@ -15,8 +19,8 @@ defmodule BPXE.Service do
     GenServer.call(pid, {:registered, model, name})
   end
 
-  def call(pid, request, model) do
-    GenServer.call(pid, {request, model})
+  def call(pid, request, model, timeout \\ nil) do
+    GenServer.call(pid, {request, model}, timeout || default_timeout())
   end
 
   @callback handle_request(

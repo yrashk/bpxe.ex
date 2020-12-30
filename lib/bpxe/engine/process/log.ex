@@ -94,4 +94,8 @@ defmodule BPXE.Engine.Process.Log do
   defmodule ScriptTaskErrorOccurred do
     defstruct pid: nil, id: nil, token_id: nil, error: nil
   end
+
+  defmodule ServiceTimeoutOccurred do
+    defstruct pid: nil, id: nil, token_id: nil, timeout: nil
+  end
 end

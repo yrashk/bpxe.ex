@@ -93,6 +93,10 @@ defmodule BPXETest.Engine.Task do
       use BPXE.Service, state: [called: false]
 
       def handle_request(%BPXE.Service.Request{payload: payload} = req, _model, _from, state) do
+        if timeout = state.options[:timeout] do
+          :timer.sleep(timeout)
+        end
+
         {:reply, %BPXE.Service.Response{payload: payload}, %{state | called: req}}
       end
 
@@ -145,6 +149,46 @@ defmodule BPXETest.Engine.Task do
            token: %BPXE.Token{
              payload: %{"result" => [%{"hello" => "world"}, %{"world" => "goodbye"}]}
            }
+         }}
+      )
+    end
+
+    test "should log an error if the service timed out" do
+      {:ok, pid} = Model.start_link()
+      {:ok, service} = BPXE.Service.start_link(Service, timeout: 100)
+      Model.register_service(pid, "service", service)
+
+      {:ok, proc1} = Model.add_process(pid, %{"id" => "proc1", "name" => "Proc 1"})
+
+      {:ok, start} = Process.add_start_event(proc1, %{"id" => "start"})
+      {:ok, the_end} = Process.add_end_event(proc1, %{"id" => "end"})
+
+      {:ok, task} =
+        Process.add_service_task(proc1, %{
+          "id" => "task",
+          {BPXE.BPMN.ext_spec(), "name"} => "service",
+          {BPXE.BPMN.ext_spec(), "resultVariable"} => "result",
+          {BPXE.BPMN.ext_spec(), "timeout"} => "PT0.1S"
+        })
+
+      {:ok, ext} = BPXE.Engine.Base.add_extension_elements(task, %{})
+      BPXE.Engine.BPMN.add_json(ext, %{"hello" => "world"})
+      BPXE.Engine.BPMN.add_json(ext, %{"world" => "goodbye"})
+
+      {:ok, _} = Process.establish_sequence_flow(proc1, "s1", start, task)
+      {:ok, _} = Process.establish_sequence_flow(proc1, "s2", task, the_end)
+
+      {:ok, proc1} = Model.provision_process(pid, "proc1")
+      :ok = Process.subscribe_log(proc1)
+
+      assert [{"proc1", [{"start", :ok}]}] |> List.keysort(0) ==
+               Model.start(pid) |> List.keysort(0)
+
+      assert_receive(
+        {Log,
+         %Log.ServiceTimeoutOccurred{
+           id: "task",
+           timeout: 100
          }}
       )
     end
