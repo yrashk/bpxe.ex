@@ -63,7 +63,8 @@ defmodule BPXE.MixProject do
       {:proper_case, "~> 1.3.1"},
       {:warpath, "~> 0.5.0", only: [:test]},
       {:table_rex, "~> 3.1.0", only: [:dev, :test]},
-      {:traverse, "~> 1.0.1", only: [:dev, :test]}
+      {:traverse, "~> 1.0.1", only: [:dev, :test]},
+      {:credo, "~> 1.5", only: [:dev, :test], runtime: false}
     ]
   end
 end

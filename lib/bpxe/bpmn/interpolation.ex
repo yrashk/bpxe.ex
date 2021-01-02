@@ -39,7 +39,7 @@ defmodule BPXE.BPMN.Interpolation do
       end
 
     case {evaluated, to_string_f} do
-      {result, _} when length(acc) == 0 and length(rest) == 0 ->
+      {result, _} when acc == [] and rest == [] ->
         result
 
       {result, f} ->
