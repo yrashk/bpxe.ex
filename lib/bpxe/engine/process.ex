@@ -58,14 +58,14 @@ defmodule BPXE.Engine.Process do
   end
 
   @doc """
-  Passively listen for log tokens from a process. This will start delivering tokens in the following
+  Passively listen for log messages from a process. This will start delivering tokens in the following
   format:
 
   ```elixir
-  {BPXE.Engine.Process.Log, token}
+  {BPXE.Engine.Process.Log, message}
   ```
 
-  to `subscriber` (`self()` by default). Most (if not all?) log tokens should be defined in
+  to `subscriber` (`self()` by default). Most (if not all?) log message should be defined in
   `BPXE.Engine.Process.Log` module.
 
   This is particularly useful for testing, rendering visualizations, etc.
@@ -75,17 +75,17 @@ defmodule BPXE.Engine.Process do
   @spec subscribe_log(pid(), pid()) :: :ok
   @spec subscribe_log(pid()) :: :ok
   def subscribe_log(pid, subscriber \\ self()) do
-    BPXE.Channel.join({pid, :log_log}, subscriber)
+    BPXE.Channel.join({pid, :log}, subscriber)
   end
 
   @doc """
-  Stop receiving passive log tokens from a process (initiated by `subscribe_logs/2`). If you were not listening
+  Stop receiving passive log messages from a process (initiated by `subscribe_logs/2`). If you were not listening
   originally, it will return `{:error, :not_listening}`. Otherwise, it will return `:ok`.
   """
   @spec unsubscribe_log(pid()) :: :ok | {:error, term}
   @spec unsubscribe_log(pid(), pid()) :: :ok | {:error, term}
   def unsubscribe_log(pid, subscriber \\ self()) do
-    BPXE.Channel.leave({pid, :log_log}, subscriber)
+    BPXE.Channel.leave({pid, :log}, subscriber)
     |> Result.map_error(fn :not_in_group -> :not_listening end)
   end
 
@@ -94,7 +94,7 @@ defmodule BPXE.Engine.Process do
   """
   @spec log(pid(), term()) :: :ok
   def log(pid, log) do
-    BPXE.Channel.publish({pid, :log_log}, {BPXE.Engine.Process.Log, log})
+    BPXE.Channel.publish({pid, :log}, {BPXE.Engine.Process.Log, log})
   end
 
   def start(pid) do
