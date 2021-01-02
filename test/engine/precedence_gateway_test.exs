@@ -59,6 +59,6 @@ defmodule BPXETest.Engine.PrecedenceGateway do
   end
 
   defp signal(model, id) do
-    :syn.publish({model, :signal, id}, {BPXE.Signal, id})
+    BPXE.Channel.publish({model, :signal, id}, {BPXE.Signal, id})
   end
 end

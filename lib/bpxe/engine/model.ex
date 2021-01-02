@@ -82,8 +82,8 @@ defmodule BPXE.Engine.Model do
   end
 
   def start(pid, process_id) do
-    case :syn.whereis({pid, :process, process_id}) do
-      :undefined ->
+    case BPXE.Registry.whereis({pid, :process, process_id}) do
+      nil ->
         provision_process(pid, process_id)
         start(pid, process_id)
 
@@ -94,7 +94,7 @@ defmodule BPXE.Engine.Model do
 
   def synthesize(pid) do
     for process <- processes(pid) do
-      pid = :syn.whereis({pid, :process, process})
+      pid = BPXE.Registry.whereis({pid, :process, process})
       BPXE.Engine.Process.synthesize(pid)
     end
   end
@@ -108,7 +108,7 @@ defmodule BPXE.Engine.Model do
   end
 
   def register_service(pid, name, service) do
-    :syn.register({BPXE.Service, pid, name}, service)
+    BPXE.Registry.register({BPXE.Service, pid, name}, service)
     BPXE.Service.registered(service, pid, name)
   end
 
@@ -120,10 +120,7 @@ defmodule BPXE.Engine.Model do
   end
 
   def find_service(pid, name) do
-    case :syn.whereis({BPXE.Service, pid, name}) do
-      :undefined -> nil
-      pid when is_pid(pid) -> pid
-    end
+    BPXE.Registry.whereis({BPXE.Service, pid, name})
   end
 
   def save_state(%Config{flow_handler: nil}, _generation, _id, _pid, _state) do

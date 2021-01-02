@@ -13,7 +13,7 @@ defmodule BPXE.Engine.Event do
 
   def init({element, attrs, model, process}) do
     type = get_type(element)
-    :syn.register({model.pid, :event, type, attrs["id"]}, self())
+    BPXE.Registry.register({model.pid, :event, type, attrs["id"]})
 
     state =
       %__MODULE__{type: type}
@@ -33,7 +33,7 @@ defmodule BPXE.Engine.Event do
     base_state = get_state(state, BPXE.Engine.Base)
     # Camunda Modeler creates signalEventDefinitions without `signalRef`, just `id`,
     # so if `signalRef` is not used, fall back to `id`.
-    :syn.join({base_state.model.pid, :signal, attrs["signalRef"] || attrs["id"]}, self())
+    BPXE.Channel.join({base_state.model.pid, :signal, attrs["signalRef"] || attrs["id"]})
     {:reply, {:ok, {self(), :signal_event_definition}}, state}
   end
 

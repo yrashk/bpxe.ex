@@ -46,7 +46,7 @@ defmodule BPXETest.Engine.Model do
 
     me = self()
     id = make_ref()
-    :syn.join({BPXE.Engine.Model, id}, me)
+    BPXE.Channel.join({BPXE.Engine.Model, id})
 
     {:ok, pid} =
       BPXE.Engine.Models.start_model(
@@ -105,7 +105,7 @@ defmodule BPXETest.Engine.Model do
 
     me = self()
     id = make_ref()
-    :syn.join({BPXE.Engine.Model, id}, me)
+    BPXE.Channel.join({BPXE.Engine.Model, id})
 
     {:ok, pid} =
       BPXE.Engine.Models.start_model(
@@ -152,7 +152,7 @@ defmodule BPXETest.Engine.Model do
   end
 
   defp signal(model, id) do
-    :syn.publish({model, :signal, id}, {BPXE.Signal, id})
+    BPXE.Channel.publish({model, :signal, id}, {BPXE.Signal, id})
   end
 
   defp flush_messages() do

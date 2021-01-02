@@ -239,7 +239,7 @@ defmodule BPXE.Engine.InclusiveGateway do
     do: FlowNode.whereis(model.pid, current) |> FlowNode.get_incoming()
 
   defp find_predecessor(sequence_flow, %__MODULE__{__layers__: %{Base => %{model: model}}}) do
-    :syn.get_members({model.pid, :flow_sequence, sequence_flow})
+    BPXE.Channel.get_members({model.pid, :flow_sequence, sequence_flow})
     |> Enum.map(fn node -> {node, Base.module(node)} end)
     |> List.first()
   end

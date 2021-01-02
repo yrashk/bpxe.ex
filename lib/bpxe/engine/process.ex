@@ -75,7 +75,7 @@ defmodule BPXE.Engine.Process do
   @spec subscribe_log(pid(), pid()) :: :ok
   @spec subscribe_log(pid()) :: :ok
   def subscribe_log(pid, subscriber \\ self()) do
-    :syn.join({pid, :log_log}, subscriber)
+    BPXE.Channel.join({pid, :log_log}, subscriber)
   end
 
   @doc """
@@ -85,7 +85,7 @@ defmodule BPXE.Engine.Process do
   @spec unsubscribe_log(pid()) :: :ok | {:error, term}
   @spec unsubscribe_log(pid(), pid()) :: :ok | {:error, term}
   def unsubscribe_log(pid, subscriber \\ self()) do
-    :syn.leave({pid, :log_log}, subscriber)
+    BPXE.Channel.leave({pid, :log_log}, subscriber)
     |> Result.map_error(fn :not_in_group -> :not_listening end)
   end
 
@@ -94,7 +94,7 @@ defmodule BPXE.Engine.Process do
   """
   @spec log(pid(), term()) :: :ok
   def log(pid, log) do
-    :syn.publish({pid, :log_log}, {BPXE.Engine.Process.Log, log})
+    BPXE.Channel.publish({pid, :log_log}, {BPXE.Engine.Process.Log, log})
   end
 
   def start(pid) do
@@ -112,7 +112,7 @@ defmodule BPXE.Engine.Process do
   def start(pid, id) do
     synthesize(pid)
     model = GenServer.call(pid, :model)
-    event = :syn.whereis({model.pid, :event, :startEvent, id})
+    event = BPXE.Registry.whereis({model.pid, :event, :startEvent, id})
     token = BPXE.Token.new(activation: new_activation(pid))
     send(event, {token, nil})
     :ok
@@ -143,7 +143,7 @@ defmodule BPXE.Engine.Process do
   def sequence_flows(pid) do
     # We're doing this so that sequence flows can be accessed by flow nodes
     # without blocking Process
-    {_pid, meta} = :syn.whereis({__MODULE__, pid}, :with_meta)
+    {_pid, meta} = BPXE.Registry.whereis({__MODULE__, pid}, meta: true)
     sequence_flows = meta[:sequence_flows]
     Set.to_list!(sequence_flows) |> Map.new()
   end
@@ -155,8 +155,8 @@ defmodule BPXE.Engine.Process do
 
   def init({attrs, model}) do
     sequence_flows = Set.new!()
-    :syn.register({model.pid, :process, attrs["id"]}, self())
-    :syn.register({__MODULE__, self()}, self(), sequence_flows: sequence_flows)
+    BPXE.Registry.register({model.pid, :process, attrs["id"]})
+    BPXE.Registry.register({__MODULE__, self()}, sequence_flows: sequence_flows)
 
     state =
       %__MODULE__{sequence_flows: sequence_flows}

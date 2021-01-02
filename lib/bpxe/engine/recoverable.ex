@@ -1,12 +1,15 @@
 defmodule BPXE.Engine.Recoverable do
   defmacro __using__(_options \\ []) do
     quote location: :keep do
+      require BPXE.Channel
+
       def handle_info(
-            {:syn_multi_call, pid, {BPXE.Engine.Recoverable, :recovered_state, saved_state}},
+            {BPXE.Channel.multi_call(), pid,
+             {BPXE.Engine.Recoverable, :recovered_state, saved_state}},
             state
           ) do
         state = handle_recovery(saved_state, state)
-        :syn.multi_call_reply(pid, :ok)
+        BPXE.Channel.multi_call_reply(pid, :ok)
         {:noreply, state}
       end
 
@@ -26,7 +29,7 @@ defmodule BPXE.Engine.Recoverable do
 
       def init_recoverable(state) do
         base_state = get_state(state, BPXE.Engine.Base)
-        :syn.join({base_state.model.pid, :state_recovery, base_state.attrs["id"]}, self())
+        BPXE.Channel.join({base_state.model.pid, :state_recovery, base_state.attrs["id"]})
         state
       end
 

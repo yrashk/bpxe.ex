@@ -15,7 +15,7 @@ defmodule BPXE.Engine.FlowNode do
       end
 
       def handle_call({:complete_node, :incoming, id}, _from, state) do
-        :syn.join({get_state(state, BPXE.Engine.Base).model.pid, :flow_out, id}, self())
+        BPXE.Channel.join({get_state(state, BPXE.Engine.Base).model.pid, :flow_out, id})
         flow_node_state = get_state(state, BPXE.Engine.FlowNode)
 
         state =
@@ -36,7 +36,7 @@ defmodule BPXE.Engine.FlowNode do
         base_state = get_state(state, BPXE.Engine.Base)
 
         for flow <- flow_node_state.incoming do
-          :syn.leave({base_state.model.pid, :flow_out, flow}, self())
+          BPXE.Channel.leave({base_state.model.pid, :flow_out, flow})
         end
 
         state =
@@ -49,7 +49,7 @@ defmodule BPXE.Engine.FlowNode do
       end
 
       def handle_call({:remove_incoming, id}, _from, state) do
-        :syn.leave({get_state(state, BPXE.Engine.Base).model.pid, :flow_out, id}, self())
+        BPXE.Channel.leave({get_state(state, BPXE.Engine.Base).model.pid, :flow_out, id})
         flow_node_state = get_state(state, BPXE.Engine.FlowNode)
 
         state =
@@ -66,7 +66,7 @@ defmodule BPXE.Engine.FlowNode do
       end
 
       def handle_call({:complete_node, :outgoing, id}, _from, state) do
-        :syn.join({get_state(state, BPXE.Engine.Base).model.pid, :flow_sequence, id}, self())
+        BPXE.Channel.join({get_state(state, BPXE.Engine.Base).model.pid, :flow_sequence, id})
         flow_node_state = get_state(state, BPXE.Engine.FlowNode)
 
         state =
@@ -84,7 +84,7 @@ defmodule BPXE.Engine.FlowNode do
       end
 
       def handle_call({:remove_outgoing, id}, _from, state) do
-        :syn.leave({get_state(state, BPXE.Engine.Base).model.pid, :flow_sequence, id}, self())
+        BPXE.Channel.leave({get_state(state, BPXE.Engine.Base).model.pid, :flow_sequence, id})
         flow_node_state = get_state(state, BPXE.Engine.FlowNode)
 
         state =
@@ -100,10 +100,7 @@ defmodule BPXE.Engine.FlowNode do
         flow_node_state = get_state(state, BPXE.Engine.FlowNode)
 
         for outgoing <- flow_node_state.outgoing do
-          :syn.leave(
-            {get_state(state, BPXE.Engine.Base).model.pid, :flow_sequence, outgoing},
-            self()
-          )
+          BPXE.Channel.leave({get_state(state, BPXE.Engine.Base).model.pid, :flow_sequence, outgoing})
         end
 
         state =
@@ -315,7 +312,7 @@ defmodule BPXE.Engine.FlowNode do
       defp ack(%BPXE.Token{token_id: token_id}, id, state) do
         base_state = get_state(state, BPXE.Engine.Base)
 
-        :syn.publish(
+        BPXE.Channel.publish(
           {base_state.model.pid, :flow_sequence, id},
           {BPXE.Token.Ack, token_id, id}
         )
@@ -325,7 +322,7 @@ defmodule BPXE.Engine.FlowNode do
 
       def init_flow_node(state) do
         base_state = get_state(state, BPXE.Engine.Base)
-        :syn.register({base_state.model.pid, :flow_node, base_state.attrs["id"]}, self())
+        BPXE.Registry.register({base_state.model.pid, :flow_node, base_state.attrs["id"]})
 
         layer = %{
           incoming: [],
@@ -396,12 +393,12 @@ defmodule BPXE.Engine.FlowNode do
 
         target = sequence_flow["targetRef"]
 
-        case :syn.whereis({base_state.model.pid, :flow_node, target}) do
+        case BPXE.Registry.whereis({base_state.model.pid, :flow_node, target}) do
           pid when is_pid(pid) ->
             send(pid, {token, sequence_flow["id"]})
 
           # FIXME: how should we handle this?
-          :undefined ->
+          nil ->
             :skip
         end
 
@@ -427,10 +424,7 @@ defmodule BPXE.Engine.FlowNode do
   end
 
   def whereis(model_pid, id) do
-    case :syn.whereis({model_pid, :flow_node, id}) do
-      :undefined -> nil
-      pid when is_pid(pid) -> pid
-    end
+    BPXE.Registry.whereis({model_pid, :flow_node, id})
   end
 
   def get_outgoing(pid) do

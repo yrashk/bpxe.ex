@@ -124,7 +124,7 @@ defmodule BPXE.Engine.FlowHandler.ETS do
       # FIXME: infinite timeout is not great, but a short timeout isn't great either, need to figure
       # the best way to handle it
       {_replies, _bad_pids} =
-        :syn.multi_call(
+        BPXE.Channel.multi_call(
           {model, :state_recovery, id},
           {BPXE.Engine.Recoverable, :recovered_state, saved_state}
         )

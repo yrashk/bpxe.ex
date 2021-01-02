@@ -61,7 +61,9 @@ defmodule BPXE.MixProject do
       {:bpxe_jmes, "~> 0.6.1"},
       {:propcheck, "~> 1.3", only: [:dev, :test]},
       {:proper_case, "~> 1.3.1"},
-      {:warpath, "~> 0.5.0", only: [:test]}
+      {:warpath, "~> 0.5.0", only: [:test]},
+      {:table_rex, "~> 3.1.0", only: [:dev, :test]},
+      {:traverse, "~> 1.0.1", only: [:dev, :test]}
     ]
   end
 end
