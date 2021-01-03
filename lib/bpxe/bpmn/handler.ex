@@ -85,8 +85,6 @@ defmodule BPXE.BPMN.Handler do
           %__MODULE__{ns: %{@element_spec => ns}, current: [{handler, node} | _] = current} =
             state
         ) do
-      attrs = update_in(attrs["id"], &(&1 || generate_id()))
-
       GenServer.call(handler, {:add_node, node, @element, attrs})
       |> result()
       |> Result.map(fn {handler_, node_} ->
@@ -268,10 +266,5 @@ defmodule BPXE.BPMN.Handler do
 
   def complete_event(_, _, state) do
     {:ok, state}
-  end
-
-  defp generate_id() do
-    {m, f, a} = Application.get_env(:bpxe, :spec_id_generator)
-    apply(m, f, a)
   end
 end

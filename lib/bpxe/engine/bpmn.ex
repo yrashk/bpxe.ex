@@ -8,11 +8,12 @@ defmodule BPXE.Engine.BPMN do
   end
 
   def add_node({pid, ref}, element, attrs) do
+    attrs = update_in(attrs["id"], &(&1 || generate_id()))
     GenServer.call(pid, {:add_node, ref, element, attrs})
   end
 
   def add_node(pid, element, attrs) do
-    GenServer.call(pid, {:add_node, nil, element, attrs})
+    add_node({pid, nil}, element, attrs)
   end
 
   def complete_node(node) do
@@ -33,5 +34,10 @@ defmodule BPXE.Engine.BPMN do
 
   def add_json(pid, json) do
     GenServer.call(pid, {:add_json, nil, json})
+  end
+
+  defp generate_id() do
+    {m, f, a} = Application.get_env(:bpxe, :spec_id_generator)
+    apply(m, f, a)
   end
 end
