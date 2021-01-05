@@ -21,5 +21,17 @@
                 </xsd:extension>
             </xsd:complexContent>
         </xsd:complexType>
+        <xsd:complexType name="tProperty">
+            <xsd:complexContent>
+                <xsd:extension base="tBaseElement">
+                    <xsd:sequence>
+                        <xsd:element ref="dataState" minOccurs="0" maxOccurs="1"/>
+                    </xsd:sequence>
+                    <xsd:attribute name="name" type="xsd:string"/>
+                    <xsd:attribute name="itemSubjectRef" type="xsd:QName"/>
+                    <xsd:attributeGroup ref="bpxe:propertyAttributes"></xsd:attributeGroup>
+                </xsd:extension>
+            </xsd:complexContent>
+        </xsd:complexType>
     </xsd:override>
 </xsd:schema>

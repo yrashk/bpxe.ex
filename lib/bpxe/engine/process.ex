@@ -138,6 +138,10 @@ defmodule BPXE.Engine.Process do
     GenServer.call(pid, :activations)
   end
 
+  def get_property(pid, id, token \\ nil) do
+    GenServer.call(pid, {:get_property, id, token})
+  end
+
   alias ETS.Set
 
   def sequence_flows(pid) do
@@ -317,6 +321,26 @@ defmodule BPXE.Engine.Process do
 
   def handle_call({:complete_node, ref, body}, _from, state) do
     complete_flow_element(ref, body, state)
+  end
+
+  def handle_call({:get_property, id, token}, _from, state) do
+    result =
+      case BPXE.Registry.whereis({BPXE.Engine.FlowNode.Property, id}, meta: true) do
+        {_node, %{"flow" => "true", "name" => name}} ->
+          if token do
+            token.payload[name]
+          else
+            nil
+          end
+
+        {node, %{"name" => name}} ->
+          BPXE.Engine.Base.variables(node)[name]
+
+        nil ->
+          nil
+      end
+
+    {:reply, result, state}
   end
 
   # This is to avoid a warning from Base adding a catch-all clause

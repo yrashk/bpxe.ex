@@ -27,6 +27,13 @@
             <xsd:annotation><xsd:documentation>The gateway will join when this number of incoming flows will arrive, rest will be discarded</xsd:documentation></xsd:annotation>
         </xsd:attribute>
     </xsd:attributeGroup>
+    
+    <xsd:attributeGroup name="propertyAttributes">
+        <xsd:attribute name="flow" type="xsd:boolean"
+            targetNamespace="http://bpxe.org/spec/current" default="false">
+            <xsd:annotation><xsd:documentation>Property will be attached to the flow. Will not reset previously declared flow properties</xsd:documentation></xsd:annotation>
+        </xsd:attribute>
+    </xsd:attributeGroup>
 
     <xsd:element name="json" type="xsd:string">
         <xsd:annotation><xsd:documentation>Plain JSON (can be used in extensionElements)</xsd:documentation></xsd:annotation>
