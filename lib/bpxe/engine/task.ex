@@ -244,7 +244,11 @@ defmodule BPXE.Engine.Task do
 
   import BPXE.Engine.BPMN
 
-  def add_script(pid, attrs, body \\ nil) do
+  def add_script(pid, attrs) do
+    add_node(pid, "script", attrs)
+  end
+
+  def add_script(pid, attrs, body) do
     add_node(pid, "script", attrs, body)
   end
 end

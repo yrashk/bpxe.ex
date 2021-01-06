@@ -58,11 +58,11 @@ defmodule BPXETest.Engine.InclusiveGateway do
     {:ok, t2} = Process.add_script_task(proc1, id: "t2")
     {:ok, t3} = Process.add_script_task(proc1, id: "t3")
 
-    {:ok, _} = Task.add_script(t1, %{}, ~s|
+    {:ok, _} = Task.add_script(t1, ~s|
       flow.t1 = true
       |)
 
-    {:ok, _} = Task.add_script(t2, %{}, ~s|
+    {:ok, _} = Task.add_script(t2, ~s|
       flow.t2 = true
       |)
 

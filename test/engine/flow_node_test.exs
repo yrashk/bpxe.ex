@@ -81,7 +81,7 @@ defmodule BPXETest.Engine.FlowNode do
 
     {:ok, start} = Process.add_start_event(proc1, id: "start")
     {:ok, task} = Process.add_script_task(proc1, id: "task")
-    {:ok, _} = Task.add_script(task, %{}, ~s|
+    {:ok, _} = Task.add_script(task, ~s|
       process.proceed = true 
       flow_node.test = flow_node.id
       |)
@@ -146,7 +146,7 @@ defmodule BPXETest.Engine.FlowNode do
     {:ok, the_end} = Process.add_end_event(proc1, id: "end")
 
     {:ok, task} = Process.add_script_task(proc1, id: "task")
-    {:ok, _} = Task.add_script(task, %{}, ~s|
+    {:ok, _} = Task.add_script(task, ~s|
       flow.a = true
       |)
 
@@ -185,7 +185,7 @@ defmodule BPXETest.Engine.FlowNode do
     {:ok, the_end} = Process.add_end_event(proc1, id: "end")
 
     {:ok, task} = Process.add_script_task(proc1, id: "task")
-    {:ok, _} = Task.add_script(task, %{}, ~s|
+    {:ok, _} = Task.add_script(task, ~s|
       flow.a = true
       flow_node.b = "hello"
       |)

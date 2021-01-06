@@ -7,6 +7,10 @@ defmodule BPXE.Engine.BPMN do
     end)
   end
 
+  def add_node(pid, element, body) when is_binary(body) do
+    add_node(pid, element, %{}, body)
+  end
+
   def add_node({pid, ref}, element, attrs) do
     attrs = Enum.map(attrs, &process_attribute/1) |> Map.new()
     attrs = update_in(attrs["id"], &(&1 || generate_id()))

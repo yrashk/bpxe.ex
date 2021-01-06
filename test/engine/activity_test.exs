@@ -15,7 +15,7 @@ defmodule BPXETest.Engine.Activity do
       {:ok, start} = Process.add_start_event(proc1, id: "start")
       {:ok, the_end} = Process.add_end_event(proc1, id: "end")
       {:ok, task} = Process.add_script_task(proc1, id: "task")
-      {:ok, _} = Task.add_script(task, %{}, ~s|
+      {:ok, _} = Task.add_script(task, ~s|
         process.a = (process.a or 0) + 1
         flow.a = (flow.a or 0) + 1
       |)
@@ -57,7 +57,7 @@ defmodule BPXETest.Engine.Activity do
       {:ok, start} = Process.add_start_event(proc1, id: "start")
       {:ok, the_end} = Process.add_end_event(proc1, id: "end")
       {:ok, task} = Process.add_script_task(proc1, id: "task")
-      {:ok, _} = Task.add_script(task, %{}, ~s|
+      {:ok, _} = Task.add_script(task, ~s|
         process.a = (process.a or 0) + 1
         flow.a = (flow.a or 0) + 1
       |)
@@ -99,7 +99,7 @@ defmodule BPXETest.Engine.Activity do
       {:ok, start} = Process.add_start_event(proc1, id: "start")
       {:ok, the_end} = Process.add_end_event(proc1, id: "end")
       {:ok, task} = Process.add_script_task(proc1, id: "task")
-      {:ok, _} = Task.add_script(task, %{}, ~s|
+      {:ok, _} = Task.add_script(task, ~s|
         process.a = (process.a or 0) + 1
         flow.a = (flow.a or 0) + 1
       |)

@@ -11,7 +11,7 @@ defmodule BPXETest.Engine.Task do
 
     {:ok, start} = Process.add_start_event(proc1, id: "start")
     {:ok, task} = Process.add_script_task(proc1, id: "task")
-    {:ok, _} = Task.add_script(task, %{}, ~s|
+    {:ok, _} = Task.add_script(task, ~s|
       process.a = {}
       process.a.v = 1
       |)
@@ -19,7 +19,7 @@ defmodule BPXETest.Engine.Task do
     {:ok, _} = Process.establish_sequence_flow(proc1, "s1", start, task)
 
     {:ok, task2} = Process.add_script_task(proc1, id: "task2")
-    {:ok, _} = Task.add_script(task2, %{}, ~s|
+    {:ok, _} = Task.add_script(task2, ~s|
       process.a.v = process.a.v + 2
       |)
 
@@ -44,7 +44,7 @@ defmodule BPXETest.Engine.Task do
 
     {:ok, start} = Process.add_start_event(proc1, id: "start")
     {:ok, task} = Process.add_script_task(proc1, id: "task")
-    {:ok, _} = Task.add_script(task, %{}, ~s|
+    {:ok, _} = Task.add_script(task, ~s|
       |)
 
     {:ok, _} = Process.establish_sequence_flow(proc1, "s1", start, task)
@@ -68,7 +68,7 @@ defmodule BPXETest.Engine.Task do
     {:ok, start} = Process.add_start_event(proc1, id: "start")
     {:ok, the_end} = Process.add_end_event(proc1, id: "end")
     {:ok, task} = Process.add_script_task(proc1, id: "task")
-    {:ok, _} = Task.add_script(task, %{}, ~s|
+    {:ok, _} = Task.add_script(task, ~s|
       flow.a = 1
       |)
 
@@ -303,7 +303,7 @@ defmodule BPXETest.Engine.Task do
     {:ok, start} = Process.add_start_event(proc1, id: "start")
     {:ok, the_end} = Process.add_end_event(proc1, id: "end")
     {:ok, task} = Process.add_script_task(proc1, id: "task")
-    {:ok, _} = Task.add_script(task, %{}, ~s|
+    {:ok, _} = Task.add_script(task, ~s|
       this is not a script
       |)
 
