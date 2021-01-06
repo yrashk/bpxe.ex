@@ -31,7 +31,7 @@ defmodule BPXETest.Engine.FlowNode.StateM do
 
         # Setup model & process
         {:ok, model} = Model.start_link()
-        {:ok, _} = Model.add_process(model, %{"id" => "process"})
+        {:ok, _} = Model.add_process(model, id: "process")
         {:ok, process} = Model.provision_process(model, "process")
 
         # Configure the process instance manually

@@ -8,10 +8,10 @@ defmodule BPXETest.Engine.FlowNode do
 
   test "sequence flow with no condition proceeds" do
     {:ok, pid} = Model.start_link()
-    {:ok, proc1} = Model.add_process(pid, %{"id" => "proc1", "name" => "Proc 1"})
+    {:ok, proc1} = Model.add_process(pid, id: "proc1", name: "Proc 1")
 
-    {:ok, start} = Process.add_start_event(proc1, %{"id" => "start"})
-    {:ok, the_end} = Process.add_end_event(proc1, %{"id" => "end"})
+    {:ok, start} = Process.add_start_event(proc1, id: "start")
+    {:ok, the_end} = Process.add_end_event(proc1, id: "end")
 
     {:ok, _} = Process.establish_sequence_flow(proc1, "s1", start, the_end)
 
@@ -28,10 +28,10 @@ defmodule BPXETest.Engine.FlowNode do
 
   test "sequence flow with a truthful condition proceeds" do
     {:ok, pid} = Model.start_link()
-    {:ok, proc1} = Model.add_process(pid, %{"id" => "proc1", "name" => "Proc 1"})
+    {:ok, proc1} = Model.add_process(pid, id: "proc1", name: "Proc 1")
 
-    {:ok, start} = Process.add_start_event(proc1, %{"id" => "start"})
-    {:ok, the_end} = Process.add_end_event(proc1, %{"id" => "end"})
+    {:ok, start} = Process.add_start_event(proc1, id: "start")
+    {:ok, the_end} = Process.add_end_event(proc1, id: "end")
 
     {:ok, sf} = Process.establish_sequence_flow(proc1, "s1", start, the_end)
 
@@ -49,10 +49,10 @@ defmodule BPXETest.Engine.FlowNode do
 
   test "sequence flow with a falsy condition does not proceed" do
     {:ok, pid} = Model.start_link()
-    {:ok, proc1} = Model.add_process(pid, %{"id" => "proc1", "name" => "Proc 1"})
+    {:ok, proc1} = Model.add_process(pid, id: "proc1", name: "Proc 1")
 
-    {:ok, start} = Process.add_start_event(proc1, %{"id" => "start"})
-    {:ok, the_end} = Process.add_end_event(proc1, %{"id" => "end"})
+    {:ok, start} = Process.add_start_event(proc1, id: "start")
+    {:ok, the_end} = Process.add_end_event(proc1, id: "end")
 
     {:ok, sf} = Process.establish_sequence_flow(proc1, "s1", start, the_end)
 
@@ -77,15 +77,15 @@ defmodule BPXETest.Engine.FlowNode do
     # `process` -- unbounded dictionary for process state
     # `flow_node` -- current flow_node
     {:ok, pid} = Model.start_link()
-    {:ok, proc1} = Model.add_process(pid, %{"id" => "proc1", "name" => "Proc 1"})
+    {:ok, proc1} = Model.add_process(pid, id: "proc1", name: "Proc 1")
 
-    {:ok, start} = Process.add_start_event(proc1, %{"id" => "start"})
-    {:ok, task} = Process.add_script_task(proc1, %{"id" => "task"})
+    {:ok, start} = Process.add_start_event(proc1, id: "start")
+    {:ok, task} = Process.add_script_task(proc1, id: "task")
     {:ok, _} = Task.add_script(task, %{}, ~s|
       process.proceed = true 
       flow_node.test = flow_node.id
       |)
-    {:ok, the_end} = Process.add_end_event(proc1, %{"id" => "end"})
+    {:ok, the_end} = Process.add_end_event(proc1, id: "end")
 
     {:ok, _} = Process.establish_sequence_flow(proc1, "s1", start, task)
     {:ok, sf} = Process.establish_sequence_flow(proc1, "s2", task, the_end)
@@ -110,10 +110,10 @@ defmodule BPXETest.Engine.FlowNode do
 
   test "sequence flow conditions error will result in a log entry" do
     {:ok, pid} = Model.start_link()
-    {:ok, proc1} = Model.add_process(pid, %{"id" => "proc1", "name" => "Proc 1"})
+    {:ok, proc1} = Model.add_process(pid, id: "proc1", name: "Proc 1")
 
-    {:ok, start} = Process.add_start_event(proc1, %{"id" => "start"})
-    {:ok, the_end} = Process.add_end_event(proc1, %{"id" => "end"})
+    {:ok, start} = Process.add_start_event(proc1, id: "start")
+    {:ok, the_end} = Process.add_end_event(proc1, id: "end")
 
     {:ok, sf} = Process.establish_sequence_flow(proc1, "s1", start, the_end)
 
@@ -140,18 +140,27 @@ defmodule BPXETest.Engine.FlowNode do
 
   test "declared flow property enters the token payload but doesn't override it" do
     {:ok, pid} = Model.start_link()
-    {:ok, proc1} = Model.add_process(pid, %{"id" => "proc1", "name" => "Proc 1"})
+    {:ok, proc1} = Model.add_process(pid, id: "proc1", name: "Proc 1")
 
-    {:ok, start} = Process.add_start_event(proc1, %{"id" => "start"})
-    {:ok, the_end} = Process.add_end_event(proc1, %{"id" => "end"})
+    {:ok, start} = Process.add_start_event(proc1, id: "start")
+    {:ok, the_end} = Process.add_end_event(proc1, id: "end")
 
-    {:ok, task} = Process.add_script_task(proc1, %{"id" => "task"})
+    {:ok, task} = Process.add_script_task(proc1, id: "task")
     {:ok, _} = Task.add_script(task, %{}, ~s|
       flow.a = true
       |)
 
-    FlowNode.add_property(task, %{"id" => "prop1", "name" => "a", "flow" => "true"})
-    FlowNode.add_property(task, %{"id" => "prop2", "name" => "b", "flow" => "true"})
+    FlowNode.add_property(task, %{
+      "id" => "prop1",
+      "name" => "a",
+      {BPXE.BPMN.ext_spec(), "flow"} => "true"
+    })
+
+    FlowNode.add_property(task, %{
+      "id" => "prop2",
+      "name" => "b",
+      {BPXE.BPMN.ext_spec(), "flow"} => "true"
+    })
 
     {:ok, _} = Process.establish_sequence_flow(proc1, "s1", start, task)
     {:ok, _} = Process.establish_sequence_flow(proc1, "s2", task, the_end)
@@ -170,19 +179,24 @@ defmodule BPXETest.Engine.FlowNode do
 
   test "finding flow and non-flow properties" do
     {:ok, pid} = Model.start_link()
-    {:ok, proc1} = Model.add_process(pid, %{"id" => "proc1", "name" => "Proc 1"})
+    {:ok, proc1} = Model.add_process(pid, id: "proc1", name: "Proc 1")
 
-    {:ok, start} = Process.add_start_event(proc1, %{"id" => "start"})
-    {:ok, the_end} = Process.add_end_event(proc1, %{"id" => "end"})
+    {:ok, start} = Process.add_start_event(proc1, id: "start")
+    {:ok, the_end} = Process.add_end_event(proc1, id: "end")
 
-    {:ok, task} = Process.add_script_task(proc1, %{"id" => "task"})
+    {:ok, task} = Process.add_script_task(proc1, id: "task")
     {:ok, _} = Task.add_script(task, %{}, ~s|
       flow.a = true
       flow_node.b = "hello"
       |)
 
-    FlowNode.add_property(task, %{"id" => "prop1", "name" => "a", "flow" => "true"})
-    FlowNode.add_property(task, %{"id" => "prop2", "name" => "b"})
+    FlowNode.add_property(task, %{
+      "id" => "prop1",
+      "name" => "a",
+      {BPXE.BPMN.ext_spec(), "flow"} => "true"
+    })
+
+    FlowNode.add_property(task, id: "prop2", name: "b")
 
     {:ok, _} = Process.establish_sequence_flow(proc1, "s1", start, task)
     {:ok, _} = Process.establish_sequence_flow(proc1, "s2", task, the_end)

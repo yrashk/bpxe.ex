@@ -18,6 +18,7 @@ defmodule BPXE.BPMN.Semantic do
   @semantic semantic
   @semantic_extensions semantic_extensions
   @elements Map.merge(semantic.elements, semantic_extensions.elements)
+  @attributes Map.merge(semantic.attributes, semantic_extensions.attributes)
 
   def elements() do
     @elements
@@ -29,5 +30,17 @@ defmodule BPXE.BPMN.Semantic do
 
   def extension_elements() do
     @semantic_extensions.elements
+  end
+
+  def attributes() do
+    @attributes
+  end
+
+  def core_attributes() do
+    @semantic.attributes
+  end
+
+  def extension_attributes() do
+    @semantic_extensions.attributes
   end
 end

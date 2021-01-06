@@ -17,8 +17,8 @@ defmodule BPXETest.Engine.Model do
 
   test "adding processes and listing them" do
     {:ok, pid} = Model.start_link()
-    {:ok, _} = Model.add_process(pid, %{"id" => "proc1", "name" => "Proc 1"})
-    {:ok, _} = Model.add_process(pid, %{"id" => "proc2", "name" => "Proc 2"})
+    {:ok, _} = Model.add_process(pid, id: "proc1", name: "Proc 1")
+    {:ok, _} = Model.add_process(pid, id: "proc2", name: "Proc 2")
 
     assert Model.processes(pid) |> Enum.sort() == ["proc1", "proc2"] |> Enum.sort()
   end
@@ -30,11 +30,11 @@ defmodule BPXETest.Engine.Model do
 
   test "starting an model with one process that has no start events" do
     {:ok, pid} = Model.start_link()
-    {:ok, _} = Model.add_process(pid, %{"id" => "proc1", "name" => "Proc 1"})
+    {:ok, _} = Model.add_process(pid, id: "proc1", name: "Proc 1")
 
-    {:ok, proc2} = Model.add_process(pid, %{"id" => "proc2", "name" => "Proc 2"})
+    {:ok, proc2} = Model.add_process(pid, id: "proc2", name: "Proc 2")
 
-    {:ok, _} = Process.add_start_event(proc2, %{"id" => "start"})
+    {:ok, _} = Process.add_start_event(proc2, id: "start")
 
     assert [{"proc1", {:error, :no_start_events}}, {"proc2", [{"start", :ok}]}] |> List.keysort(0) ==
              Model.start(pid) |> List.keysort(0)
@@ -166,26 +166,26 @@ defmodule BPXETest.Engine.Model do
   end
 
   def restart_setup(pid) do
-    {:ok, proc1} = Model.add_process(pid, %{"id" => "proc1", "name" => "Proc 1"})
+    {:ok, proc1} = Model.add_process(pid, id: "proc1", name: "Proc 1")
 
-    {:ok, start} = Process.add_start_event(proc1, %{"id" => "start"})
-    {:ok, the_end} = Process.add_end_event(proc1, %{"id" => "end"})
+    {:ok, start} = Process.add_start_event(proc1, id: "start")
+    {:ok, the_end} = Process.add_end_event(proc1, id: "end")
 
-    {:ok, event_gate} = Process.add_event_based_gateway(proc1, %{"id" => "event_gate"})
+    {:ok, event_gate} = Process.add_event_based_gateway(proc1, id: "event_gate")
 
     {:ok, _} = Process.establish_sequence_flow(proc1, "s1", start, event_gate)
 
-    {:ok, ev1} = Process.add_intermediate_catch_event(proc1, %{"id" => "ev1"})
-    {:ok, _} = Event.add_signal_event_definition(ev1, %{"signalRef" => "signal1"})
+    {:ok, ev1} = Process.add_intermediate_catch_event(proc1, id: "ev1")
+    {:ok, _} = Event.add_signal_event_definition(ev1, signalRef: "signal1")
 
-    {:ok, ev2} = Process.add_intermediate_catch_event(proc1, %{"id" => "ev2"})
-    {:ok, _} = Event.add_signal_event_definition(ev2, %{"signalRef" => "signal2"})
+    {:ok, ev2} = Process.add_intermediate_catch_event(proc1, id: "ev2")
+    {:ok, _} = Event.add_signal_event_definition(ev2, signalRef: "signal2")
 
     {:ok, _} = Process.establish_sequence_flow(proc1, "event_gate_1", event_gate, ev1)
     {:ok, _} = Process.establish_sequence_flow(proc1, "event_gate_2", event_gate, ev2)
 
-    {:ok, t1} = Process.add_task(proc1, %{"id" => "t1"})
-    {:ok, t2} = Process.add_task(proc1, %{"id" => "t2"})
+    {:ok, t1} = Process.add_task(proc1, id: "t1")
+    {:ok, t2} = Process.add_task(proc1, id: "t2")
 
     {:ok, _} = Process.establish_sequence_flow(proc1, "ev1_t", ev1, t1)
     {:ok, _} = Process.establish_sequence_flow(proc1, "ev2_t", ev2, t2)

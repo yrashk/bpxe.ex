@@ -7,14 +7,14 @@ defmodule BPXETest.Engine.ExclusiveGateway do
   @xsi "http://www.w3.org/2001/XMLSchema-instance"
   test "sequence flow with the first truthful condition proceeds" do
     {:ok, pid} = Model.start_link()
-    {:ok, proc1} = Model.add_process(pid, %{"id" => "proc1", "name" => "Proc 1"})
+    {:ok, proc1} = Model.add_process(pid, id: "proc1", name: "Proc 1")
 
-    {:ok, start} = Process.add_start_event(proc1, %{"id" => "start"})
-    {:ok, the_end} = Process.add_end_event(proc1, %{"id" => "end"})
+    {:ok, start} = Process.add_start_event(proc1, id: "start")
+    {:ok, the_end} = Process.add_end_event(proc1, id: "end")
 
-    {:ok, another_end} = Process.add_end_event(proc1, %{"id" => "anotherEnd"})
+    {:ok, another_end} = Process.add_end_event(proc1, id: "anotherEnd")
 
-    {:ok, gw} = Process.add_exclusive_gateway(proc1, %{"id" => "gw"})
+    {:ok, gw} = Process.add_exclusive_gateway(proc1, id: "gw")
 
     {:ok, _} = Process.establish_sequence_flow(proc1, "s1", start, gw)
 
@@ -46,14 +46,14 @@ defmodule BPXETest.Engine.ExclusiveGateway do
 
   test "sequence flow with the default case proceeds if no other matches" do
     {:ok, pid} = Model.start_link()
-    {:ok, proc1} = Model.add_process(pid, %{"id" => "proc1", "name" => "Proc 1"})
+    {:ok, proc1} = Model.add_process(pid, id: "proc1", name: "Proc 1")
 
-    {:ok, start} = Process.add_start_event(proc1, %{"id" => "start"})
-    {:ok, the_end} = Process.add_end_event(proc1, %{"id" => "end"})
+    {:ok, start} = Process.add_start_event(proc1, id: "start")
+    {:ok, the_end} = Process.add_end_event(proc1, id: "end")
 
-    {:ok, another_end} = Process.add_end_event(proc1, %{"id" => "anotherEnd"})
+    {:ok, another_end} = Process.add_end_event(proc1, id: "anotherEnd")
 
-    {:ok, gw} = Process.add_exclusive_gateway(proc1, %{"id" => "gw"})
+    {:ok, gw} = Process.add_exclusive_gateway(proc1, id: "gw")
 
     {:ok, _} = Process.establish_sequence_flow(proc1, "s1", start, gw)
 
@@ -86,14 +86,14 @@ defmodule BPXETest.Engine.ExclusiveGateway do
 
   test "sequence flow with the default case does not proceed if other matches, even if it was added before" do
     {:ok, pid} = Model.start_link()
-    {:ok, proc1} = Model.add_process(pid, %{"id" => "proc1", "name" => "Proc 1"})
+    {:ok, proc1} = Model.add_process(pid, id: "proc1", name: "Proc 1")
 
-    {:ok, start} = Process.add_start_event(proc1, %{"id" => "start"})
-    {:ok, the_end} = Process.add_end_event(proc1, %{"id" => "end"})
+    {:ok, start} = Process.add_start_event(proc1, id: "start")
+    {:ok, the_end} = Process.add_end_event(proc1, id: "end")
 
-    {:ok, another_end} = Process.add_end_event(proc1, %{"id" => "anotherEnd"})
+    {:ok, another_end} = Process.add_end_event(proc1, id: "anotherEnd")
 
-    {:ok, gw} = Process.add_exclusive_gateway(proc1, %{"id" => "gw"})
+    {:ok, gw} = Process.add_exclusive_gateway(proc1, id: "gw")
 
     {:ok, _} = Process.establish_sequence_flow(proc1, "s1", start, gw)
 

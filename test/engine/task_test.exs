@@ -7,10 +7,10 @@ defmodule BPXETest.Engine.Task do
 
   test "executes a script, captures state and retrieves it in other scripts" do
     {:ok, pid} = Model.start_link()
-    {:ok, proc1} = Model.add_process(pid, %{"id" => "proc1", "name" => "Proc 1"})
+    {:ok, proc1} = Model.add_process(pid, id: "proc1", name: "Proc 1")
 
-    {:ok, start} = Process.add_start_event(proc1, %{"id" => "start"})
-    {:ok, task} = Process.add_script_task(proc1, %{"id" => "task"})
+    {:ok, start} = Process.add_start_event(proc1, id: "start")
+    {:ok, task} = Process.add_script_task(proc1, id: "task")
     {:ok, _} = Task.add_script(task, %{}, ~s|
       process.a = {}
       process.a.v = 1
@@ -18,7 +18,7 @@ defmodule BPXETest.Engine.Task do
 
     {:ok, _} = Process.establish_sequence_flow(proc1, "s1", start, task)
 
-    {:ok, task2} = Process.add_script_task(proc1, %{"id" => "task2"})
+    {:ok, task2} = Process.add_script_task(proc1, id: "task2")
     {:ok, _} = Task.add_script(task2, %{}, ~s|
       process.a.v = process.a.v + 2
       |)
@@ -40,10 +40,10 @@ defmodule BPXETest.Engine.Task do
 
   test "executes a script that modifies no state" do
     {:ok, pid} = Model.start_link()
-    {:ok, proc1} = Model.add_process(pid, %{"id" => "proc1", "name" => "Proc 1"})
+    {:ok, proc1} = Model.add_process(pid, id: "proc1", name: "Proc 1")
 
-    {:ok, start} = Process.add_start_event(proc1, %{"id" => "start"})
-    {:ok, task} = Process.add_script_task(proc1, %{"id" => "task"})
+    {:ok, start} = Process.add_start_event(proc1, id: "start")
+    {:ok, task} = Process.add_script_task(proc1, id: "task")
     {:ok, _} = Task.add_script(task, %{}, ~s|
       |)
 
@@ -63,11 +63,11 @@ defmodule BPXETest.Engine.Task do
 
   test "executes a script that modifies token's payload" do
     {:ok, pid} = Model.start_link()
-    {:ok, proc1} = Model.add_process(pid, %{"id" => "proc1", "name" => "Proc 1"})
+    {:ok, proc1} = Model.add_process(pid, id: "proc1", name: "Proc 1")
 
-    {:ok, start} = Process.add_start_event(proc1, %{"id" => "start"})
-    {:ok, the_end} = Process.add_end_event(proc1, %{"id" => "end"})
-    {:ok, task} = Process.add_script_task(proc1, %{"id" => "task"})
+    {:ok, start} = Process.add_start_event(proc1, id: "start")
+    {:ok, the_end} = Process.add_end_event(proc1, id: "end")
+    {:ok, task} = Process.add_script_task(proc1, id: "task")
     {:ok, _} = Task.add_script(task, %{}, ~s|
       flow.a = 1
       |)
@@ -110,10 +110,10 @@ defmodule BPXETest.Engine.Task do
       {:ok, service} = BPXE.Service.start_link(Service)
       Model.register_service(pid, "service", service)
 
-      {:ok, proc1} = Model.add_process(pid, %{"id" => "proc1", "name" => "Proc 1"})
+      {:ok, proc1} = Model.add_process(pid, id: "proc1", name: "Proc 1")
 
-      {:ok, start} = Process.add_start_event(proc1, %{"id" => "start"})
-      {:ok, the_end} = Process.add_end_event(proc1, %{"id" => "end"})
+      {:ok, start} = Process.add_start_event(proc1, id: "start")
+      {:ok, the_end} = Process.add_end_event(proc1, id: "end")
 
       {:ok, task} =
         Process.add_service_task(proc1, %{
@@ -158,10 +158,10 @@ defmodule BPXETest.Engine.Task do
       {:ok, service} = BPXE.Service.start_link(Service, timeout: 100)
       Model.register_service(pid, "service", service)
 
-      {:ok, proc1} = Model.add_process(pid, %{"id" => "proc1", "name" => "Proc 1"})
+      {:ok, proc1} = Model.add_process(pid, id: "proc1", name: "Proc 1")
 
-      {:ok, start} = Process.add_start_event(proc1, %{"id" => "start"})
-      {:ok, the_end} = Process.add_end_event(proc1, %{"id" => "end"})
+      {:ok, start} = Process.add_start_event(proc1, id: "start")
+      {:ok, the_end} = Process.add_end_event(proc1, id: "end")
 
       {:ok, task} =
         Process.add_service_task(proc1, %{
@@ -198,10 +198,10 @@ defmodule BPXETest.Engine.Task do
       {:ok, service} = BPXE.Service.start_link(Service)
       Model.register_service(pid, "service", service)
 
-      {:ok, proc1} = Model.add_process(pid, %{"id" => "proc1", "name" => "Proc 1"})
+      {:ok, proc1} = Model.add_process(pid, id: "proc1", name: "Proc 1")
 
-      {:ok, start} = Process.add_start_event(proc1, %{"id" => "start"})
-      {:ok, the_end} = Process.add_end_event(proc1, %{"id" => "end"})
+      {:ok, start} = Process.add_start_event(proc1, id: "start")
+      {:ok, the_end} = Process.add_end_event(proc1, id: "end")
 
       {:ok, task} =
         Process.add_service_task(proc1, %{
@@ -256,10 +256,10 @@ defmodule BPXETest.Engine.Task do
       {:ok, service} = BPXE.Service.start_link(Service)
       Model.register_service(pid, "service", service)
 
-      {:ok, proc1} = Model.add_process(pid, %{"id" => "proc1", "name" => "Proc 1"})
+      {:ok, proc1} = Model.add_process(pid, id: "proc1", name: "Proc 1")
 
-      {:ok, start} = Process.add_start_event(proc1, %{"id" => "start"})
-      {:ok, the_end} = Process.add_end_event(proc1, %{"id" => "end"})
+      {:ok, start} = Process.add_start_event(proc1, id: "start")
+      {:ok, the_end} = Process.add_end_event(proc1, id: "end")
 
       {:ok, task} =
         Process.add_service_task(proc1, %{
@@ -298,11 +298,11 @@ defmodule BPXETest.Engine.Task do
 
   test "should log an error in script if it happens" do
     {:ok, pid} = Model.start_link()
-    {:ok, proc1} = Model.add_process(pid, %{"id" => "proc1", "name" => "Proc 1"})
+    {:ok, proc1} = Model.add_process(pid, id: "proc1", name: "Proc 1")
 
-    {:ok, start} = Process.add_start_event(proc1, %{"id" => "start"})
-    {:ok, the_end} = Process.add_end_event(proc1, %{"id" => "end"})
-    {:ok, task} = Process.add_script_task(proc1, %{"id" => "task"})
+    {:ok, start} = Process.add_start_event(proc1, id: "start")
+    {:ok, the_end} = Process.add_end_event(proc1, id: "end")
+    {:ok, task} = Process.add_script_task(proc1, id: "task")
     {:ok, _} = Task.add_script(task, %{}, ~s|
       this is not a script
       |)

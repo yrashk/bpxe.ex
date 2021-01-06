@@ -353,6 +353,7 @@ defmodule BPXE.Engine.FlowNode do
       end
 
       @xsi "http://www.w3.org/2001/XMLSchema-instance"
+      @ext_spec BPXE.BPMN.ext_spec()
       def send_token(sequence_flow, token, state) do
         alias BPXE.Engine.Process
 
@@ -395,7 +396,7 @@ defmodule BPXE.Engine.FlowNode do
         if proceed do
           token =
             Enum.reduce(flow_node_state.properties, token, fn
-              {_, %{"flow" => "true", "name" => name}}, acc ->
+              {_, %{{@ext_spec, "flow"} => "true", "name" => name}}, acc ->
                 update_in(token.payload, fn payload ->
                   Map.update(payload, name, nil, fn x -> x end)
                 end)

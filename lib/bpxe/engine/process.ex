@@ -323,10 +323,12 @@ defmodule BPXE.Engine.Process do
     complete_flow_element(ref, body, state)
   end
 
+  @ext_spec BPXE.BPMN.ext_spec()
+
   def handle_call({:get_property, id, token}, _from, state) do
     result =
       case BPXE.Registry.whereis({BPXE.Engine.FlowNode.Property, id}, meta: true) do
-        {_node, %{"flow" => "true", "name" => name}} ->
+        {_node, %{{@ext_spec, "flow"} => "true", "name" => name}} ->
           if token do
             token.payload[name]
           else

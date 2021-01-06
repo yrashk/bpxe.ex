@@ -10,17 +10,17 @@ defmodule BPXETest.Engine.Activity do
   describe "standard loop" do
     test "should run while condition satisfies with testBefore implied to be false" do
       {:ok, pid} = Model.start_link()
-      {:ok, proc1} = Model.add_process(pid, %{"id" => "proc1", "name" => "Proc 1"})
+      {:ok, proc1} = Model.add_process(pid, id: "proc1", name: "Proc 1")
 
-      {:ok, start} = Process.add_start_event(proc1, %{"id" => "start"})
-      {:ok, the_end} = Process.add_end_event(proc1, %{"id" => "end"})
-      {:ok, task} = Process.add_script_task(proc1, %{"id" => "task"})
+      {:ok, start} = Process.add_start_event(proc1, id: "start")
+      {:ok, the_end} = Process.add_end_event(proc1, id: "end")
+      {:ok, task} = Process.add_script_task(proc1, id: "task")
       {:ok, _} = Task.add_script(task, %{}, ~s|
         process.a = (process.a or 0) + 1
         flow.a = (flow.a or 0) + 1
       |)
 
-      {:ok, loop} = Activity.add_standard_loop_characteristics(task, %{"id" => "loop"})
+      {:ok, loop} = Activity.add_standard_loop_characteristics(task, id: "loop")
 
       {:ok, _} =
         Activity.add_loop_condition(
@@ -52,18 +52,17 @@ defmodule BPXETest.Engine.Activity do
 
     test "should run while condition satisfies with testBefore set to true" do
       {:ok, pid} = Model.start_link()
-      {:ok, proc1} = Model.add_process(pid, %{"id" => "proc1", "name" => "Proc 1"})
+      {:ok, proc1} = Model.add_process(pid, id: "proc1", name: "Proc 1")
 
-      {:ok, start} = Process.add_start_event(proc1, %{"id" => "start"})
-      {:ok, the_end} = Process.add_end_event(proc1, %{"id" => "end"})
-      {:ok, task} = Process.add_script_task(proc1, %{"id" => "task"})
+      {:ok, start} = Process.add_start_event(proc1, id: "start")
+      {:ok, the_end} = Process.add_end_event(proc1, id: "end")
+      {:ok, task} = Process.add_script_task(proc1, id: "task")
       {:ok, _} = Task.add_script(task, %{}, ~s|
         process.a = (process.a or 0) + 1
         flow.a = (flow.a or 0) + 1
       |)
 
-      {:ok, loop} =
-        Activity.add_standard_loop_characteristics(task, %{"id" => "loop", "testBefore" => "true"})
+      {:ok, loop} = Activity.add_standard_loop_characteristics(task, id: "loop", testBefore: true)
 
       {:ok, _} =
         Activity.add_loop_condition(
@@ -95,22 +94,22 @@ defmodule BPXETest.Engine.Activity do
 
     test "should respect loop cap specified in loopMaximum" do
       {:ok, pid} = Model.start_link()
-      {:ok, proc1} = Model.add_process(pid, %{"id" => "proc1", "name" => "Proc 1"})
+      {:ok, proc1} = Model.add_process(pid, id: "proc1", name: "Proc 1")
 
-      {:ok, start} = Process.add_start_event(proc1, %{"id" => "start"})
-      {:ok, the_end} = Process.add_end_event(proc1, %{"id" => "end"})
-      {:ok, task} = Process.add_script_task(proc1, %{"id" => "task"})
+      {:ok, start} = Process.add_start_event(proc1, id: "start")
+      {:ok, the_end} = Process.add_end_event(proc1, id: "end")
+      {:ok, task} = Process.add_script_task(proc1, id: "task")
       {:ok, _} = Task.add_script(task, %{}, ~s|
         process.a = (process.a or 0) + 1
         flow.a = (flow.a or 0) + 1
       |)
 
       {:ok, loop} =
-        Activity.add_standard_loop_characteristics(task, %{
-          "id" => "loop",
-          "testBefore" => "true",
-          "loopMaximum" => "1"
-        })
+        Activity.add_standard_loop_characteristics(task,
+          id: "loop",
+          testBefore: true,
+          loopMaximum: 1
+        )
 
       {:ok, _} =
         Activity.add_loop_condition(

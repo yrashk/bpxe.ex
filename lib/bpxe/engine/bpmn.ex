@@ -8,6 +8,7 @@ defmodule BPXE.Engine.BPMN do
   end
 
   def add_node({pid, ref}, element, attrs) do
+    attrs = Enum.map(attrs, &process_attribute/1) |> Map.new()
     attrs = update_in(attrs["id"], &(&1 || generate_id()))
     GenServer.call(pid, {:add_node, ref, element, attrs})
   end
@@ -40,4 +41,19 @@ defmodule BPXE.Engine.BPMN do
     {m, f, a} = Application.get_env(:bpxe, :spec_id_generator)
     apply(m, f, a)
   end
+
+  for {key, _} <- BPXE.BPMN.Semantic.core_attributes() do
+    @key String.to_atom(key)
+    @stringified_key key
+    defp process_attribute({@key, value}), do: {@stringified_key, value |> to_string()}
+  end
+
+  for {key, _} <- BPXE.BPMN.Semantic.extension_attributes() do
+    @key String.to_atom(key)
+    @stringified_key key
+    defp process_attribute({{ns, @key}, value}),
+      do: {{ns, @stringified_key}, value |> to_string()}
+  end
+
+  defp process_attribute({key, value}), do: {key, value}
 end
