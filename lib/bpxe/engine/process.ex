@@ -1,6 +1,7 @@
 defmodule BPXE.Engine.Process do
   use GenServer
   use BPXE.Engine.Base
+  use BPXE.Engine.PropertyContainer
   use BPXE.Engine.Recoverable
   alias BPXE.Engine.FlowNode
   alias BPXE.Engine.Process.Log
@@ -327,7 +328,7 @@ defmodule BPXE.Engine.Process do
 
   def handle_call({:get_property, id, token}, _from, state) do
     result =
-      case BPXE.Registry.whereis({BPXE.Engine.FlowNode.Property, id}, meta: true) do
+      case BPXE.Registry.whereis({BPXE.Engine.Property, id}, meta: true) do
         {_node, %{{@ext_spec, "flow"} => "true", "name" => name}} ->
           if token do
             token.payload[name]

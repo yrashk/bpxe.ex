@@ -9,6 +9,7 @@ defmodule BPXE.Engine.Activity do
       alias BPXE.Engine.Activity.StandardLoop
       alias BPXE.Engine.{Base, Process}
       alias BPXE.Engine.Process.Log
+      use BPXE.Engine.PropertyContainer
 
       def handle_call(
             {:add_node, _ref, "standardLoopCharacteristics", %{"id" => id} = attrs},

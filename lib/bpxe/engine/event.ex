@@ -1,6 +1,7 @@
 defmodule BPXE.Engine.Event do
   use GenServer
   use BPXE.Engine.FlowNode
+  use BPXE.Engine.PropertyContainer
   alias BPXE.Engine.Process
   alias BPXE.Engine.Process.Log
 

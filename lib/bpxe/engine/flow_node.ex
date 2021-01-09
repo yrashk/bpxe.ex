@@ -122,20 +122,6 @@ defmodule BPXE.Engine.FlowNode do
         {:reply, get_state(state, BPXE.Engine.FlowNode).outgoing |> Enum.reverse(), state}
       end
 
-      def handle_call({:add_node, _, "property", attrs}, _from, state) do
-        flow_node_state = get_state(state, BPXE.Engine.FlowNode)
-
-        state =
-          put_state(state, BPXE.Engine.FlowNode, %{
-            flow_node_state
-            | properties: Map.put(flow_node_state.properties, attrs["id"], attrs)
-          })
-
-        BPXE.Registry.register({BPXE.Engine.FlowNode.Property, attrs["id"]}, attrs)
-
-        {:reply, {:ok, {self(), :property}}, state}
-      end
-
       def handle_call(:synthesize, _from, state) do
         case synthesize(state) do
           {:ok, state} -> {:reply, :ok, state}
@@ -345,8 +331,7 @@ defmodule BPXE.Engine.FlowNode do
           outgoing: [],
           sequence_flows: %{},
           sequence_flow_order: [],
-          buffer: %{},
-          properties: %{}
+          buffer: %{}
         }
 
         put_state(state, BPXE.Engine.FlowNode, layer)
@@ -394,17 +379,6 @@ defmodule BPXE.Engine.FlowNode do
           end
 
         if proceed do
-          token =
-            Enum.reduce(flow_node_state.properties, token, fn
-              {_, %{{@ext_spec, "flow"} => "true", "name" => name}}, acc ->
-                update_in(token.payload, fn payload ->
-                  Map.update(payload, name, nil, fn x -> x end)
-                end)
-
-              _, acc ->
-                acc
-            end)
-
           state = send(sequence_flow, token, state)
 
           put_state(state, BPXE.Engine.FlowNode, %{
@@ -492,9 +466,5 @@ defmodule BPXE.Engine.FlowNode do
 
   def add_outgoing(pid, attrs, body \\ nil) do
     add_node(pid, "outgoing", attrs, body)
-  end
-
-  def add_property(pid, attrs, body \\ nil) do
-    add_node(pid, "property", attrs, body)
   end
 end
