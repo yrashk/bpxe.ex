@@ -26,7 +26,7 @@ the list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:bpxe, "~> 0.3.0"}
+    {:bpxe, "~> 0.4.0"}
   ]
 end
 ```
