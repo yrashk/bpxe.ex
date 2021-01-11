@@ -107,7 +107,7 @@ defmodule BPXE.Engine.Event do
       when not is_nil(activated) do
     base_state = get_state(state, BPXE.Engine.Base)
 
-    Process.log(base_state.process, %Log.EventTrigerred{
+    Process.log(base_state.process, %Log.EventTriggered{
       pid: self(),
       id: base_state.attrs["id"],
       token_id: activated.token_id

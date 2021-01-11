@@ -71,7 +71,7 @@ defmodule BPXE.Engine.Process.Log do
     defstruct pid: nil, id: nil, token_id: nil
   end
 
-  defmodule EventTrigerred do
+  defmodule EventTriggered do
     defstruct pid: nil, id: nil, token_id: nil
   end
 
