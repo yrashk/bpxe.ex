@@ -9,8 +9,14 @@ on:
 jobs:
   build:
 
-    name: Build and test
+    name: OTP ${{matrix.otp}} / Elixir ${{matrix.elixir}}
     runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        otp: ['23.2','23.1','23.0','22.3']
+        elixir: ['1.11.3', '1.11.2']
 
     steps:
     - uses: actions/checkout@v2
@@ -19,8 +25,8 @@ jobs:
     - name: Set up Elixir
       uses: actions/setup-elixir@v1
       with:
-        elixir-version: '1.11.2' # Define the elixir version [required]
-        otp-version: '22.3' # Define the OTP version [required]
+        elixir-version: ${{matrix.elixir}}
+        otp-version: ${{matrix.otp}}
     - name: Restore dependencies cache
       uses: actions/cache@v2
       with:
