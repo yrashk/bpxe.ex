@@ -127,52 +127,10 @@ defmodule BPXE.Engine.Task do
       end
 
     try do
-      payload =
-        base_state.extensions
-        |> Enum.filter(fn
-          {:json, _} -> true
-          _ -> false
-        end)
-        |> Enum.map(fn {:json, json} ->
-          case json do
-            json when is_function(json, 1) ->
-              cb = fn expr ->
-                process_vars = Base.variables(base_state.process)
-                {:reply, flow_node_vars, _state} = handle_call(:variables, :ignored, state)
-
-                vars = %{
-                  "process" => process_vars,
-                  "flow" => token.payload,
-                  "flow_node" => flow_node_vars
-                }
-
-                result =
-                  case JMES.search(expr, vars) do
-                    {:ok, result} ->
-                      result
-
-                    {:error, error} ->
-                      Process.log(base_state.process, %Log.ExpressionErrorOccurred{
-                        pid: self(),
-                        id: base_state.attrs["id"],
-                        token_id: token.token_id,
-                        expression: expr,
-                        error: error
-                      })
-
-                      raise ExpressionError, {expr, error}
-                  end
-
-                {result, &Jason.encode/1}
-              end
-
-              json.(cb)
-
-            _ ->
-              json
-          end
-        end)
-        |> Enum.reverse()
+      # FIXME: right now we'll just grab first input set,
+      # but it's best to explore the possibility of having more than one input set.
+      # Perhaps we can send all input sets as a map with name being key?
+      payload = get_input_set(state)
 
       response =
         BPXE.Engine.Model.call_service(
@@ -184,12 +142,8 @@ defmodule BPXE.Engine.Task do
           timeout
         )
 
-      token =
-        if result_var = base_state.attrs[{@bpxe_spec, "resultVariable"}] do
-          %{token | payload: Map.put(token.payload, result_var, response.payload)}
-        else
-          token
-        end
+      # FIXME: see above.
+      {:ok, state} = set_output_set(response, token, state)
 
       Process.log(base_state.process, %Log.TaskCompleted{
         pid: self(),
@@ -199,17 +153,6 @@ defmodule BPXE.Engine.Task do
 
       {:send, token, state}
     catch
-      %ExpressionError{expression: expression, error: error} ->
-        Process.log(base_state.process, %Log.ExpressionErrorOccurred{
-          pid: self(),
-          id: base_state.attrs["id"],
-          token_id: token.token_id,
-          expression: expression,
-          error: error
-        })
-
-        {:dontsend, state}
-
       :exit, {:timeout, _} ->
         Process.log(base_state.process, %Log.ServiceTimeoutOccurred{
           pid: self(),

@@ -1,10 +1,10 @@
 defmodule BPXE.Service do
   defmodule Request do
-    defstruct payload: nil
+    defstruct payload: []
   end
 
   defmodule Response do
-    defstruct payload: nil
+    defstruct payload: []
   end
 
   @default_timeout 5000
@@ -29,7 +29,7 @@ defmodule BPXE.Service do
               from :: term(),
               state :: term()
             ) ::
-              {:reply, term(), term()} | {:noreply, term(), term()}
+              {:reply, %Response{}, term()} | {:noreply, term()}
 
   @optional_callbacks handle_request: 4
 

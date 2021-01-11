@@ -108,7 +108,7 @@ defmodule BPXE.Engine.PropertyContainer do
 
       if Module.overridable?(__MODULE__, {:set_input_data, 4}) do
         def set_input_data(id, value, token, state) do
-          case set_input_data_impl(id, value, token, state) do
+          case set_input_data_impl_prop(id, value, token, state) do
             {:error, :not_found} ->
               super(id, value, token, state)
 
@@ -118,11 +118,11 @@ defmodule BPXE.Engine.PropertyContainer do
         end
       else
         def set_input_data(id, value, token, state) do
-          set_input_data_impl(id, value, token, state)
+          set_input_data_impl_prop(id, value, token, state)
         end
       end
 
-      defp set_input_data_impl(id, value, _token, state) do
+      defp set_input_data_impl_prop(id, value, _token, state) do
         property =
           Enum.find_value(state.__layers__[BPXE.Engine.PropertyContainer].properties, fn {_, prop} ->
             if prop["id"] == id do
@@ -146,7 +146,7 @@ defmodule BPXE.Engine.PropertyContainer do
         def get_output_data(id, state) do
           # Try to find it in properties, but continue with previous definitions
           # to find it elsewhere
-          case get_output_data_impl(id, state) do
+          case get_output_data_impl_prop(id, state) do
             {:error, :not_found} ->
               super(id, state)
 
@@ -156,11 +156,11 @@ defmodule BPXE.Engine.PropertyContainer do
         end
       else
         def get_output_data(id, state) do
-          get_output_data_impl(id, state)
+          get_output_data_impl_prop(id, state)
         end
       end
 
-      defp get_output_data_impl(id, state) do
+      defp get_output_data_impl_prop(id, state) do
         property =
           Enum.find_value(state.__layers__[BPXE.Engine.PropertyContainer].properties, fn {_, prop} ->
             if prop["id"] == id do

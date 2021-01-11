@@ -1,7 +1,7 @@
 defmodule BPXETest.Engine.Task do
   use ExUnit.Case, async: true
   alias BPXE.Engine.Model
-  alias BPXE.Engine.{Process, Task, Base}
+  alias BPXE.Engine.{Process, Task, Base, InputOutput, DataInputAssociation}
   alias BPXE.Engine.Process.Log
   doctest Task
 
@@ -105,7 +105,7 @@ defmodule BPXETest.Engine.Task do
       end
     end
 
-    test "invokes registered services" do
+    test "invokes registered services with data inputs and captures data outputs" do
       {:ok, pid} = Model.start_link()
       {:ok, service} = BPXE.Service.start_link(Service)
       Model.register_service(pid, "service", service)
@@ -115,22 +115,38 @@ defmodule BPXETest.Engine.Task do
       {:ok, start} = Process.add_start_event(proc1, id: "start")
       {:ok, the_end} = Process.add_end_event(proc1, id: "end")
 
+      {:ok, _} = Process.add_data_object(proc1, id: "do1")
+      {:ok, _} = Process.add_data_object(proc1, id: "do2")
+
       {:ok, task} =
         Process.add_service_task(proc1, %{
           "id" => "task",
-          {BPXE.BPMN.ext_spec(), "name"} => "service",
-          {BPXE.BPMN.ext_spec(), "resultVariable"} => "result"
+          {BPXE.BPMN.ext_spec(), "name"} => "service"
         })
 
-      {:ok, ext} = BPXE.Engine.Base.add_extension_elements(task, %{})
-      BPXE.Engine.BPMN.add_json(ext, %{"hello" => "world"})
-      BPXE.Engine.BPMN.add_json(ext, %{"world" => "goodbye"})
+      {:ok, io} = InputOutput.add_io_specification(task)
+
+      {:ok, _} = InputOutput.add_data_input(io, id: "i1")
+      {:ok, _} = InputOutput.add_data_input(io, id: "i2")
+
+      {:ok, is} = InputOutput.add_input_set(io)
+      {:ok, _} = InputOutput.add_data_input_ref(is, "i1")
+      {:ok, _} = InputOutput.add_data_input_ref(is, "i2")
+
+      {:ok, _} = DataInputAssociation.add(task, source: "do1", target: "i1")
+      {:ok, _} = DataInputAssociation.add(task, source: "do2", target: "i2")
 
       {:ok, _} = Process.establish_sequence_flow(proc1, "s1", start, task)
       {:ok, _} = Process.establish_sequence_flow(proc1, "s2", task, the_end)
 
       {:ok, proc1} = Model.provision_process(pid, "proc1")
       :ok = Process.subscribe_log(proc1)
+
+      {:ok, do1} = Process.data_object(proc1, "do1")
+      Process.update_data_object(proc1, %{do1 | value: %{"hello" => "world"}})
+
+      {:ok, do2} = Process.data_object(proc1, "do2")
+      Process.update_data_object(proc1, %{do2 | value: %{"world" => "goodbye"}})
 
       assert [{"proc1", [{"start", :ok}]}] |> List.keysort(0) ==
                Model.start(pid) |> List.keysort(0)
@@ -142,15 +158,7 @@ defmodule BPXETest.Engine.Task do
       assert %BPXE.Service.Request{payload: [%{"hello" => "world"}, %{"world" => "goodbye"}]} =
                state.called
 
-      assert_receive(
-        {Log,
-         %Log.FlowNodeActivated{
-           id: "end",
-           token: %BPXE.Token{
-             payload: %{"result" => [%{"hello" => "world"}, %{"world" => "goodbye"}]}
-           }
-         }}
-      )
+      assert_receive({Log, %Log.FlowNodeActivated{id: "end"}})
     end
 
     test "should log an error if the service timed out" do
@@ -167,13 +175,8 @@ defmodule BPXETest.Engine.Task do
         Process.add_service_task(proc1, %{
           "id" => "task",
           {BPXE.BPMN.ext_spec(), "name"} => "service",
-          {BPXE.BPMN.ext_spec(), "resultVariable"} => "result",
           {BPXE.BPMN.ext_spec(), "timeout"} => "PT0.1S"
         })
-
-      {:ok, ext} = BPXE.Engine.Base.add_extension_elements(task, %{})
-      BPXE.Engine.BPMN.add_json(ext, %{"hello" => "world"})
-      BPXE.Engine.BPMN.add_json(ext, %{"world" => "goodbye"})
 
       {:ok, _} = Process.establish_sequence_flow(proc1, "s1", start, task)
       {:ok, _} = Process.establish_sequence_flow(proc1, "s2", task, the_end)
@@ -189,108 +192,6 @@ defmodule BPXETest.Engine.Task do
          %Log.ServiceTimeoutOccurred{
            id: "task",
            timeout: 100
-         }}
-      )
-    end
-
-    test "should be able to use functionally derived payload (used in interpolation)" do
-      {:ok, pid} = Model.start_link()
-      {:ok, service} = BPXE.Service.start_link(Service)
-      Model.register_service(pid, "service", service)
-
-      {:ok, proc1} = Model.add_process(pid, id: "proc1", name: "Proc 1")
-
-      {:ok, start} = Process.add_start_event(proc1, id: "start")
-      {:ok, the_end} = Process.add_end_event(proc1, id: "end")
-
-      {:ok, task} =
-        Process.add_service_task(proc1, %{
-          "id" => "task",
-          {BPXE.BPMN.ext_spec(), "name"} => "service",
-          {BPXE.BPMN.ext_spec(), "resultVariable"} => "result"
-        })
-
-      {:ok, ext} = BPXE.Engine.Base.add_extension_elements(task, %{})
-
-      # NB: we use elem(0) below to accommodate for the fact that `Task` DOES supply an encoder so that
-      # BPMN interpolation can encode the value as needed if the input is not just one interpolated expression
-      BPXE.Engine.BPMN.add_json(ext, fn cb ->
-        %{"hello" => cb.("process.hello") |> elem(0)}
-      end)
-
-      BPXE.Engine.BPMN.add_json(ext, fn cb ->
-        %{"world" => cb.("process.world") |> elem(0)}
-      end)
-
-      {:ok, _} = Process.establish_sequence_flow(proc1, "s1", start, task)
-      {:ok, _} = Process.establish_sequence_flow(proc1, "s2", task, the_end)
-
-      {:ok, proc1} = Model.provision_process(pid, "proc1")
-      Base.merge_variables(proc1, %{"hello" => "world", "world" => "goodbye"}, BPXE.Token.new())
-
-      :ok = Process.subscribe_log(proc1)
-
-      assert [{"proc1", [{"start", :ok}]}] |> List.keysort(0) ==
-               Model.start(pid) |> List.keysort(0)
-
-      assert_receive({Log, %Log.TaskCompleted{id: "task"}})
-
-      state = GenServer.call(service, :state)
-
-      assert %BPXE.Service.Request{payload: [%{"hello" => "world"}, %{"world" => "goodbye"}]} =
-               state.called
-
-      assert_receive(
-        {Log,
-         %Log.FlowNodeActivated{
-           id: "end",
-           token: %BPXE.Token{
-             payload: %{"result" => [%{"hello" => "world"}, %{"world" => "goodbye"}]}
-           }
-         }}
-      )
-    end
-
-    test "should log an error should an error occur when using functionally derived payload (used in interpolation)" do
-      {:ok, pid} = Model.start_link()
-      {:ok, service} = BPXE.Service.start_link(Service)
-      Model.register_service(pid, "service", service)
-
-      {:ok, proc1} = Model.add_process(pid, id: "proc1", name: "Proc 1")
-
-      {:ok, start} = Process.add_start_event(proc1, id: "start")
-      {:ok, the_end} = Process.add_end_event(proc1, id: "end")
-
-      {:ok, task} =
-        Process.add_service_task(proc1, %{
-          "id" => "task",
-          {BPXE.BPMN.ext_spec(), "name"} => "service",
-          {BPXE.BPMN.ext_spec(), "resultVariable"} => "result"
-        })
-
-      {:ok, ext} = BPXE.Engine.Base.add_extension_elements(task, %{})
-
-      # NB: we use elem(0) below to accommodate for the fact that `Task` DOES supply an encoder so that
-      # BPMN interpolation can encode the value as needed if the input is not just one interpolated expression
-      BPXE.Engine.BPMN.add_json(ext, fn cb ->
-        %{"hello" => cb.("this is not an expression") |> elem(0)}
-      end)
-
-      {:ok, _} = Process.establish_sequence_flow(proc1, "s1", start, task)
-      {:ok, _} = Process.establish_sequence_flow(proc1, "s2", task, the_end)
-
-      {:ok, proc1} = Model.provision_process(pid, "proc1")
-
-      :ok = Process.subscribe_log(proc1)
-
-      assert [{"proc1", [{"start", :ok}]}] |> List.keysort(0) ==
-               Model.start(pid) |> List.keysort(0)
-
-      assert_receive(
-        {Log,
-         %Log.ExpressionErrorOccurred{
-           id: "task",
-           expression: "this is not an expression"
          }}
       )
     end
