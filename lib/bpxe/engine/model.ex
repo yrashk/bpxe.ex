@@ -29,7 +29,7 @@ defmodule BPXE.Engine.Model do
 
     case GenServer.start_link(__MODULE__, config) do
       {:ok, pid} ->
-        GenServer.call(pid, :notify_when_initialized)
+        wait_until_initialized(pid)
         {:ok, pid}
 
       error ->
@@ -47,6 +47,10 @@ defmodule BPXE.Engine.Model do
     def unquote(@name)(pid, attrs, body \\ nil) do
       add_node(pid, @element, attrs, body)
     end
+  end
+
+  def wait_until_initialized(pid) do
+    GenServer.call(pid, :notify_when_initialized)
   end
 
   def processes(pid) do

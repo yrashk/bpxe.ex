@@ -85,6 +85,8 @@ defmodule BPXETest.Engine.Model do
         {BPXE.Engine.Model, :started, pid} -> pid
       end
 
+    BPXE.Engine.Model.wait_until_initialized(pid)
+
     # send it the signal
     # if it didn't recover the state, it won't actively listen for its signal
     signal(pid, "signal1")
@@ -138,6 +140,8 @@ defmodule BPXETest.Engine.Model do
       receive do
         {BPXE.Engine.Model, :started, pid} -> pid
       end
+
+    BPXE.Engine.Model.wait_until_initialized(pid)
 
     # send it the signal
     # if it didn't recover the state, it won't actively listen for its signal
