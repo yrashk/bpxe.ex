@@ -487,14 +487,19 @@ defmodule BPXE.Engine.Process do
       {acc, gateway} =
         case FlowNode.whereis(base_state.model.pid, precedence_gateway_id) do
           nil ->
-            {:reply, {:ok, gateway}, acc} =
-              handle_call(
-                {:add_node, nil, "precedenceGateway", %{"id" => precedence_gateway_id}},
-                :ignored,
-                acc
-              )
+            case add_flow_element(
+                   nil,
+                   "precedenceGateway",
+                   %{"id" => precedence_gateway_id},
+                   acc
+                 ) do
+              {:reply, {:ok, gateway}, acc} ->
+                {acc, gateway}
 
-            {acc, gateway}
+              {:reply, {:error, err}, _acc} ->
+                # FIXME: is there a better way to handle this?
+                raise err
+            end
 
           pid when is_pid(pid) ->
             {acc, pid}
@@ -502,17 +507,20 @@ defmodule BPXE.Engine.Process do
 
       event_sequence_flow_id = {:synthesized_sequence_flow, {:in, event_outgoing}}
 
-      {:reply, _, acc} =
-        handle_call(
-          {:add_node, nil, "sequenceFlow",
-           %{
-             "id" => event_sequence_flow_id,
-             "sourceRef" => event_id,
-             "targetRef" => precedence_gateway_id
-           }},
-          :ignored,
-          acc
-        )
+      acc =
+        case add_flow_element(
+               nil,
+               "sequenceFlow",
+               %{
+                 "id" => event_sequence_flow_id,
+                 "sourceRef" => event_id,
+                 "targetRef" => precedence_gateway_id
+               },
+               acc
+             ) do
+          {:reply, _, acc} ->
+            acc
+        end
 
       FlowNode.add_outgoing(event, %{}, event_sequence_flow_id)
       FlowNode.add_incoming(gateway, %{}, event_sequence_flow_id)
@@ -521,17 +529,20 @@ defmodule BPXE.Engine.Process do
 
       target_id = event_original_sequence_flow["targetRef"]
 
-      {:reply, _, acc} =
-        handle_call(
-          {:add_node, nil, "sequenceFlow",
-           %{
-             "id" => gateway_sequence_flow_id,
-             "sourceRef" => precedence_gateway_id,
-             "targetRef" => target_id
-           }},
-          :ignored,
-          acc
-        )
+      acc =
+        case add_flow_element(
+               nil,
+               "sequenceFlow",
+               %{
+                 "id" => gateway_sequence_flow_id,
+                 "sourceRef" => precedence_gateway_id,
+                 "targetRef" => target_id
+               },
+               acc
+             ) do
+          {:reply, _, acc} ->
+            acc
+        end
 
       target = FlowNode.whereis(base_state.model.pid, target_id)
       FlowNode.remove_incoming(target, event_outgoing)
