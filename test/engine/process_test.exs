@@ -54,4 +54,75 @@ defmodule BPXETest.Engine.Process do
 
     assert Process.new_activation(proc1) != Process.new_activation(proc2)
   end
+
+  test "registering a data object" do
+    {:ok, pid} = Model.start_link()
+    {:ok, proc1} = Model.add_process(pid, id: "proc1", name: "Proc 1")
+
+    {:ok, _} = Process.add_data_object(proc1, id: "do1")
+
+    {:ok, proc1} = Model.provision_process(pid, "proc1")
+
+    {:ok, data_object} = Process.data_object(proc1, "do1")
+
+    assert data_object.attrs["id"] == "do1"
+  end
+
+  test "registering a data object with a state" do
+    {:ok, pid} = Model.start_link()
+    {:ok, proc1} = Model.add_process(pid, id: "proc1", name: "Proc 1")
+
+    {:ok, do1} = Process.add_data_object(proc1, id: "do1")
+    BPXE.Engine.DataObject.add_data_state(do1, name: "init")
+
+    {:ok, proc1} = Model.provision_process(pid, "proc1")
+
+    {:ok, data_object} = Process.data_object(proc1, "do1")
+
+    assert data_object.state == "init"
+  end
+
+  test "updating a data object" do
+    {:ok, pid} = Model.start_link()
+    {:ok, proc1} = Model.add_process(pid, id: "proc1", name: "Proc 1")
+
+    {:ok, _} = Process.add_data_object(proc1, id: "do1")
+
+    {:ok, proc1} = Model.provision_process(pid, "proc1")
+
+    {:ok, data_object} = Process.data_object(proc1, "do1")
+    Process.update_data_object(proc1, %{data_object | value: 1})
+
+    {:ok, data_object} = Process.data_object(proc1, "do1")
+    assert data_object.value == 1
+  end
+
+  test "registering a data object reference" do
+    {:ok, pid} = Model.start_link()
+    {:ok, proc1} = Model.add_process(pid, id: "proc1", name: "Proc 1")
+
+    {:ok, _} = Process.add_data_object(proc1, id: "do1")
+    {:ok, _} = Process.add_data_object_reference(proc1, id: "do1ref", dataObjectRef: "do1")
+
+    {:ok, proc1} = Model.provision_process(pid, "proc1")
+
+    {:ok, %BPXE.Engine.DataObject{attrs: %{"id" => "do1"}}} = Process.data_object(proc1, "do1ref")
+  end
+
+  test "registering a data object reference with a state" do
+    {:ok, pid} = Model.start_link()
+    {:ok, proc1} = Model.add_process(pid, id: "proc1", name: "Proc 1")
+
+    {:ok, _} = Process.add_data_object(proc1, id: "do1")
+    {:ok, do1ref} = Process.add_data_object_reference(proc1, id: "do1ref", dataObjectRef: "do1")
+    BPXE.Engine.DataObject.add_data_state(do1ref, name: "init")
+
+    {:ok, proc1} = Model.provision_process(pid, "proc1")
+
+    {:ok, data_object} = Process.data_object(proc1, "do1")
+    assert data_object.state == nil
+
+    {:ok, data_object_reference} = Process.data_object_reference(proc1, "do1ref")
+    assert data_object_reference.state == "init"
+  end
 end

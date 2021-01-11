@@ -11,6 +11,10 @@ defmodule BPXE.Engine.Process.Log do
     defstruct pid: nil, id: nil, token_id: nil, to: []
   end
 
+  defmodule FlowNodeErrorOccurred do
+    defstruct pid: nil, id: nil, token_id: nil, error: nil
+  end
+
   defmodule ExpressionErrorOccurred do
     defstruct pid: nil, id: nil, token_id: nil, expression: nil, error: nil
   end

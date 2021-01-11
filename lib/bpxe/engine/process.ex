@@ -139,10 +139,6 @@ defmodule BPXE.Engine.Process do
     GenServer.call(pid, :activations)
   end
 
-  def get_property(pid, id, token \\ nil) do
-    GenServer.call(pid, {:get_property, id, token})
-  end
-
   alias ETS.Set
 
   def sequence_flows(pid) do
@@ -153,18 +149,66 @@ defmodule BPXE.Engine.Process do
     Set.to_list!(sequence_flows) |> Map.new()
   end
 
+  def data_object(pid, name) do
+    # We're doing this so that data objects can be accessed by other processes
+    # without blocking Process
+    {_pid, meta} = BPXE.Registry.whereis({__MODULE__, pid}, meta: true)
+    data_objects = meta[:data_objects]
+
+    Set.get(data_objects, name)
+    |> Result.and_then(fn
+      nil ->
+        {:error, :not_found}
+
+      {_, %BPXE.Engine.DataObject{} = value} ->
+        {:ok, value}
+
+      {_, %BPXE.Engine.DataObjectReference{attrs: %{"dataObjectRef" => ref}}} ->
+        data_object(pid, ref)
+    end)
+  end
+
+  def update_data_object(pid, %BPXE.Engine.DataObject{} = object, token \\ nil) do
+    GenServer.call(pid, {:update_data_object, object, token})
+  end
+
+  def data_object_reference(pid, name) do
+    # We're doing this so that data objects can be accessed by other processes
+    # without blocking Process
+    {_pid, meta} = BPXE.Registry.whereis({__MODULE__, pid}, meta: true)
+    data_objects = meta[:data_objects]
+
+    Set.get(data_objects, name)
+    |> Result.and_then(fn
+      nil ->
+        {:error, :not_found}
+
+      {_, %BPXE.Engine.DataObject{}} ->
+        {:error, :not_found}
+
+      {_, %BPXE.Engine.DataObjectReference{} = value} ->
+        {:ok, value}
+    end)
+  end
+
   defstate start_events: %{},
            activations: [],
            flow_nodes: [],
-           sequence_flows: nil
+           sequence_flows: nil,
+           data_objects: nil
 
   def init({attrs, model}) do
     sequence_flows = Set.new!()
+    data_objects = Set.new!()
     BPXE.Registry.register({model.pid, :process, attrs["id"]})
-    BPXE.Registry.register({__MODULE__, self()}, sequence_flows: sequence_flows)
+
+    BPXE.Registry.register({__MODULE__, self()},
+      sequence_flows: sequence_flows,
+      data_objects: data_objects
+    )
 
     state =
-      %__MODULE__{sequence_flows: sequence_flows}
+      %__MODULE__{sequence_flows: sequence_flows, data_objects: data_objects}
       |> put_state(BPXE.Engine.Base, %{attrs: attrs, model: model})
       |> initialize()
 
@@ -311,6 +355,46 @@ defmodule BPXE.Engine.Process do
     {:reply, state.activations, state}
   end
 
+  def handle_call({:add_node, _ref, "dataObject", attrs}, _from, state) do
+    result =
+      Set.put(state.data_objects, {attrs["id"], BPXE.Engine.DataObject.new(attrs: attrs)})
+      |> Result.map(fn _ ->
+        {self(), {:dataObject, attrs["id"]}}
+      end)
+
+    {:reply, result, state}
+  end
+
+  def handle_call({:add_node, {:dataObject, id}, "dataState", attrs}, _from, state) do
+    response =
+      case Set.get(state.data_objects, id) do
+        {:ok, {_, data_object}} ->
+          Set.put(state.data_objects, {id, %{data_object | state: attrs["name"]}})
+          {:ok, {self(), {:dataObjectState, id}}}
+
+        {:ok, nil} ->
+          {:error, :data_object_not_found}
+
+        {:error, err} ->
+          {:error, err}
+      end
+
+    {:reply, response, state}
+  end
+
+  def handle_call({:add_node, _ref, "dataObjectReference", attrs}, _from, state) do
+    result =
+      Set.put(
+        state.data_objects,
+        {attrs["id"], BPXE.Engine.DataObjectReference.new(attrs: attrs)}
+      )
+      |> Result.map(fn _ ->
+        {self(), {:dataObject, attrs["id"]}}
+      end)
+
+    {:reply, result, state}
+  end
+
   def handle_call({:add_node, ref, element, attrs}, _from, state) do
     add_flow_element(
       ref,
@@ -324,26 +408,24 @@ defmodule BPXE.Engine.Process do
     complete_flow_element(ref, body, state)
   end
 
-  @ext_spec BPXE.BPMN.ext_spec()
+  def handle_call({:update_data_object, %BPXE.Engine.DataObject{} = object, token}, _from, state) do
+    Set.put(state.data_objects, {object.attrs["id"], object})
 
-  def handle_call({:get_property, id, token}, _from, state) do
-    result =
-      case BPXE.Registry.whereis({BPXE.Engine.Property, id}, meta: true) do
-        {_node, %{{@ext_spec, "flow"} => "true", "name" => name}} ->
-          if token do
-            token.payload[name]
-          else
-            nil
-          end
+    if token do
+      base_state = get_state(state, BPXE.Engine.Base)
 
-        {node, %{"name" => name}} ->
-          BPXE.Engine.Base.variables(node)[name]
+      BPXE.Engine.Model.save_state(
+        base_state.model,
+        token.__generation__,
+        base_state.attrs["id"],
+        self(),
+        %{
+          data_objects: Set.to_list!(state.data_objects)
+        }
+      )
+    end
 
-        nil ->
-          nil
-      end
-
-    {:reply, result, state}
+    {:reply, :ok, state}
   end
 
   # This is to avoid a warning from Base adding a catch-all clause

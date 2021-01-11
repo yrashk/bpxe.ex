@@ -1,4 +1,8 @@
 defmodule BPXE.Engine.BPMN do
+  def add_node(node, element) do
+    add_node(node, element, %{}, nil)
+  end
+
   def add_node(node, element, attrs, body) do
     add_node(node, element, attrs)
     |> Result.map(fn ref ->

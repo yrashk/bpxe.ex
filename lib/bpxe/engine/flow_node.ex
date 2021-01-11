@@ -168,93 +168,110 @@ defmodule BPXE.Engine.FlowNode do
           token_id: token.token_id
         })
 
-        case handle_token({token, id}, state) do
-          {:send, %BPXE.Token{} = new_token, state} ->
-            new_token = %{
-              new_token
-              | __generation__:
-                  if(generation == new_token.__generation__,
-                    do: next_generation(new_token),
-                    else: new_token.__generation__
-                  )
-            }
+        case before_handle_token({token, id}, state) do
+          {:ok, state} ->
+            case handle_token({token, id}, state) do
+              {:send, %BPXE.Token{} = new_token, state} ->
+                new_token = %{
+                  new_token
+                  | __generation__:
+                      if(generation == new_token.__generation__,
+                        do: next_generation(new_token),
+                        else: new_token.__generation__
+                      )
+                }
 
-            base_state = get_state(state, BPXE.Engine.Base)
+                base_state = get_state(state, BPXE.Engine.Base)
 
-            Process.log(base_state.process, %Log.FlowNodeForward{
+                Process.log(base_state.process, %Log.FlowNodeForward{
+                  pid: self(),
+                  id: base_state.attrs["id"],
+                  token_id: token.token_id,
+                  to: flow_node_state.outgoing
+                })
+
+                process_sequence_flows = sequence_flows(state)
+
+                sequence_flows =
+                  flow_node_state.outgoing
+                  |> Enum.reverse()
+                  # ensure condition-expressioned sequence flows are at the top
+                  |> Enum.sort_by(fn id ->
+                    !process_sequence_flows[id][:conditionExpression]
+                  end)
+                  |> Enum.map(&process_sequence_flows[&1])
+
+                state =
+                  Enum.reduce(sequence_flows, state, fn sequence_flow, state ->
+                    send_token(sequence_flow, new_token, state)
+                  end)
+
+                save_state(generation, state)
+                ack(token, id, state)
+
+                {:noreply, handle_completion(state)}
+
+              {:send, %BPXE.Token{} = new_token, outgoing, state} ->
+                new_token = %{
+                  new_token
+                  | __generation__:
+                      if(generation == new_token.__generation__,
+                        do: next_generation(new_token),
+                        else: new_token.__generation__
+                      )
+                }
+
+                base_state = get_state(state, BPXE.Engine.Base)
+
+                Process.log(base_state.process, %Log.FlowNodeForward{
+                  pid: self(),
+                  id: base_state.attrs["id"],
+                  token_id: token.token_id,
+                  to: outgoing
+                })
+
+                process_sequence_flows = sequence_flows(state)
+
+                outgoing = Enum.map(outgoing, &process_sequence_flows[&1])
+
+                state =
+                  Enum.reduce(outgoing, state, fn sequence_flow, state ->
+                    send_token(sequence_flow, new_token, state)
+                  end)
+
+                save_state(generation, state)
+                ack(token, id, state)
+
+                {:noreply, handle_completion(state)}
+
+              {:dontsend, state} ->
+                save_state(generation, state)
+                ack(token, id, state)
+
+                {:noreply, handle_completion(state)}
+
+              {:dontack, state} ->
+                {:noreply, handle_completion(state)}
+            end
+
+          {:error, error} ->
+            Process.log(base_state.process, %Log.FlowNodeErrorOccurred{
               pid: self(),
               id: base_state.attrs["id"],
               token_id: token.token_id,
-              to: flow_node_state.outgoing
+              error: error
             })
 
-            process_sequence_flows = sequence_flows(state)
-
-            sequence_flows =
-              flow_node_state.outgoing
-              |> Enum.reverse()
-              # ensure condition-expressioned sequence flows are at the top
-              |> Enum.sort_by(fn id ->
-                !process_sequence_flows[id][:conditionExpression]
-              end)
-              |> Enum.map(&process_sequence_flows[&1])
-
-            state =
-              Enum.reduce(sequence_flows, state, fn sequence_flow, state ->
-                send_token(sequence_flow, new_token, state)
-              end)
-
-            save_state(generation, state)
-            ack(token, id, state)
-
-            {:noreply, handle_completion(state)}
-
-          {:send, %BPXE.Token{} = new_token, outgoing, state} ->
-            new_token = %{
-              new_token
-              | __generation__:
-                  if(generation == new_token.__generation__,
-                    do: next_generation(new_token),
-                    else: new_token.__generation__
-                  )
-            }
-
-            base_state = get_state(state, BPXE.Engine.Base)
-
-            Process.log(base_state.process, %Log.FlowNodeForward{
-              pid: self(),
-              id: base_state.attrs["id"],
-              token_id: token.token_id,
-              to: outgoing
-            })
-
-            process_sequence_flows = sequence_flows(state)
-
-            outgoing = Enum.map(outgoing, &process_sequence_flows[&1])
-
-            state =
-              Enum.reduce(outgoing, state, fn sequence_flow, state ->
-                send_token(sequence_flow, new_token, state)
-              end)
-
-            save_state(generation, state)
-            ack(token, id, state)
-
-            {:noreply, handle_completion(state)}
-
-          {:dontsend, state} ->
-            save_state(generation, state)
-            ack(token, id, state)
-
-            {:noreply, handle_completion(state)}
-
-          {:dontack, state} ->
             {:noreply, handle_completion(state)}
         end
       end
 
       def handle_token({%BPXE.Token{} = token, _id}, state) do
         {:send, token, state}
+      end
+
+      def before_handle_token({_token, _id}, state) do
+        {:ok, state}
       end
 
       def handle_completion(state) do
@@ -417,12 +434,75 @@ defmodule BPXE.Engine.FlowNode do
         BPXE.Engine.Process.sequence_flows(base_state.process)
       end
 
+      def get_input_data(id, state) do
+        base_state = get_state(state, BPXE.Engine.Base)
+
+        BPXE.Engine.Process.data_object(base_state.process, id)
+        |> Result.map(fn
+          data_object ->
+            data_object.value
+        end)
+        |> Result.catch_error(:not_found, fn _ ->
+          BPXE.Engine.PropertyContainer.get_property(base_state.process, id)
+        end)
+      end
+
+      def set_input_data(id, value, token, state) do
+        # There's nothing to set at this level, and we're not going
+        # to go up
+        {:error, :not_found}
+      end
+
+      def get_output_data(id, state) do
+        # There's nothing we can currently find at a flow node
+        # level
+        {:error, :not_found}
+      end
+
+      def set_output_data(id, value, token, state) do
+        base_state = get_state(state, BPXE.Engine.Base)
+
+        BPXE.Engine.Process.data_object(base_state.process, id)
+        |> Result.and_then(fn
+          data_object ->
+            case BPXE.Engine.Process.update_data_object(
+                   base_state.process,
+                   %{data_object | value: value},
+                   token
+                 ) do
+              :ok -> {:ok, state}
+            end
+        end)
+        |> Result.catch_error(:not_found, fn _ ->
+          case BPXE.Engine.PropertyContainer.get_property(base_state.process, id) do
+            {:error, :not_found} ->
+              {:error, :not_found}
+
+            {:ok, _value} ->
+              case BPXE.Engine.PropertyContainer.set_property(
+                     base_state.process,
+                     id,
+                     value,
+                     token
+                   ) do
+                :ok -> {:ok, state}
+                {:error, err} -> {:error, err}
+              end
+          end
+        end)
+      end
+
       defoverridable handle_recovery: 2,
+                     before_handle_token: 2,
                      handle_token: 2,
                      handle_completion: 1,
                      send_token: 3,
                      send: 3,
-                     synthesize: 1
+                     synthesize: 1,
+                     get_input_data: 2,
+                     get_output_data: 2,
+                     set_input_data: 4,
+                     set_output_data: 4
     end
   end
 

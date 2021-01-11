@@ -1,7 +1,7 @@
 defmodule BPXETest.Engine.PropertyContainer do
   use ExUnit.Case, async: true
   alias BPXE.Engine.Model
-  alias BPXE.Engine.{PropertyContainer, Process, Task}
+  alias BPXE.Engine.{PropertyContainer, Process, Task, FlowNode}
   alias BPXE.Engine.Process.Log
   doctest BPXE.Engine.PropertyContainer
 
@@ -77,7 +77,8 @@ defmodule BPXETest.Engine.PropertyContainer do
 
     assert_receive({Log, %Log.FlowNodeActivated{id: "end", token: token}})
 
-    assert Process.get_property(proc1, "prop1", token) == true
-    assert Process.get_property(proc1, "prop2") == "hello"
+    task = FlowNode.whereis(pid, "task")
+    assert PropertyContainer.get_property(task, "prop1", token) == {:ok, true}
+    assert PropertyContainer.get_property(task, "prop2") == {:ok, "hello"}
   end
 end

@@ -4,6 +4,8 @@ defmodule BPXE.Engine.Event do
   use BPXE.Engine.PropertyContainer
   alias BPXE.Engine.Process
   alias BPXE.Engine.Process.Log
+  # TODO: catch events can have outputs
+  # use BPXE.Engine.DataOutputAssociation
 
   defstate type: nil, activated: nil
   @persist_state :activated
