@@ -316,17 +316,7 @@ defmodule BPXE.Engine.Process do
   end
 
   def handle_call(:synthesize, from, state) do
-    nodes = state.flow_nodes
-
-    spawn(fn ->
-      for {node, _} <- nodes do
-        FlowNode.synthesize(node)
-      end
-
-      GenServer.reply(from, :ok)
-    end)
-
-    {:noreply, process_state(state)}
+    {:noreply, process_state(state), {:continue, {:synthesize, from}}}
   end
 
   def handle_call(:flow_nodes, _from, state) do
@@ -430,6 +420,20 @@ defmodule BPXE.Engine.Process do
 
   # This is to avoid a warning from Base adding a catch-all clause
   @complete_node_catch_all true
+
+  def handle_continue({:synthesize, from}, state) do
+    nodes = state.flow_nodes
+
+    spawn_link(fn ->
+      for {node, _} <- nodes do
+        FlowNode.synthesize(node)
+      end
+
+      GenServer.reply(from, :ok)
+    end)
+
+    {:noreply, state}
+  end
 
   defp process_state(state) do
     state
