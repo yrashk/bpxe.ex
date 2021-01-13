@@ -37,3 +37,5 @@ jobs:
       run: mix deps.get
     - name: Run tests
       run: mix test --trace
+    - name: Debug via SSH
+      uses: luchihoratiu/debug-via-ssh@v1.0
