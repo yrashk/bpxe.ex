@@ -69,7 +69,7 @@ defmodule BPXETest.Engine.Model do
 
     assert_receive({Log, %Log.NewProcessActivation{activation: activation}})
 
-    assert_receive({Log, %Log.FlowNodeActivated{id: "ev1", token: last_token}})
+    assert_receive({Log, %Log.FlowNodeActivated{id: "ev1"}})
     assert_receive({Log, %Log.EventActivated{id: "ev1"}})
     # at this point, ev1 is ready to get a signal
 
@@ -92,9 +92,7 @@ defmodule BPXETest.Engine.Model do
     signal(pid, "signal1")
 
     # and if it did listen, it should further activate t1
-    assert_receive({Log, %Log.FlowNodeActivated{id: "t1", token: next_token}})
-    # and the token is only one step away further
-    assert BPXE.Token.distance(last_token, next_token) == 1
+    assert_receive({Log, %Log.FlowNodeActivated{id: "t1"}})
     assert_receive({Log, %Log.TaskActivated{id: "t1"}})
 
     # shutdown
