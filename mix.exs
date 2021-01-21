@@ -15,8 +15,8 @@ defmodule BPXE.MixProject do
       elixirc_options: [warnings_as_errors: true],
       package: [
         licenses: ["Apache-2.0"],
-        source_url: "https://github.com/bpxe/bpxe",
-        links: %{"GitHub" => "https://github.com/bpxe/bpxe"},
+        source_url: "https://github.com/bpxe/bpxe.ex",
+        links: %{"GitHub" => "https://github.com/bpxe/bpxe.ex"},
         exclude_patterns: ~w(\.swp)
       ]
     ]
